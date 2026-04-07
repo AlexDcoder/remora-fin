@@ -11,6 +11,7 @@ def execute_cli():
             [bold blue]Remora[/] is a lightweight, high-performance FinOps toolkit for AWS.
             """
         ),
+        formatter_class=rich_argparse.RichHelpFormatter
     )
 
 
