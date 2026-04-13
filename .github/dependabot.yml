@@ -46,6 +46,7 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    target-branch: "dev"
     reviewers:
       - "Alex"
     commit-message:
