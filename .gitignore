@@ -22,7 +22,6 @@ env/
 
 # uv
 .uv/
-uv.lock
 
 # Ruff cache
 .ruff_cache/
