@@ -47,7 +47,7 @@ class AppSettings(BaseModel):
     ui: UIConfig = Field(default_factory=UIConfig)
 
     @classmethod
-    def from_env(cls) -> "AppSettings":
+    def from_env(cls) -> AppSettings:
         """Load settings from environment variables (python-dotenv pattern)."""
         import os
 

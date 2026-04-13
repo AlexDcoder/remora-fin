@@ -26,7 +26,7 @@ from remora.schemas.forecast import (
     ForecastResult,
     VarianceAnalysis,
 )
-from remora.services.aws_service import AWSSession, retry_with_backoff
+from remora.services.aws_service import AWSSession
 from remora.services.cost_service import CostService
 
 logger = logging.getLogger(__name__)
@@ -91,9 +91,7 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
 
         # Optional group-by
         if group_by_type and group_by_key:
-            params["GroupBy"] = [
-                {"Type": group_by_type, "Key": group_by_key}
-            ]
+            params["GroupBy"] = [{"Type": group_by_type, "Key": group_by_key}]
 
         resp = ce.get_cost_forecast(**params)
 
@@ -121,8 +119,11 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
         if not historical_data.is_empty():
             actual_start = historical_data["date"].min()
             actual_end = historical_data["date"].max()
-            if actual_start and actual_end:
-                actual_period = DateRange(start=actual_start, end=actual_end)
+            if actual_start is not None and actual_end is not None:
+                actual_period = DateRange(
+                    start=date.fromordinal(int(actual_start)),  # type: ignore[arg-type]
+                    end=date.fromordinal(int(actual_end)),  # type: ignore[arg-type]
+                )
 
         model = ForecastModel.AWS_NATIVE_ARIMA
 
@@ -157,7 +158,7 @@ class LinearRegressionForecast(ForecastStrategy):
 
         # Simple linear regression using Polars
         df = historical_data.with_columns(
-            pl.col("date").to_ordinal().alias("day_num")
+            pl.col("date").map_elements(lambda d: d.toordinal(), return_dtype=pl.Int64).alias("day_num")
         )
 
         # Get cost column
@@ -173,20 +174,15 @@ class LinearRegressionForecast(ForecastStrategy):
         mean_x = sum(day_nums) / n
         mean_y = sum(costs) / n
 
-        numerator = sum(
-            (x - mean_x) * (y - mean_y) for x, y in zip(day_nums, costs)
-        )
+        numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(day_nums, costs))
         denominator = sum((x - mean_x) ** 2 for x in day_nums)
 
-        if denominator == 0:
-            slope = 0
-        else:
-            slope = numerator / denominator
+        slope = 0 if denominator == 0 else numerator / denominator
         intercept = mean_y - slope * mean_x
 
         # Generate forecast
         days = (end - start).days + 1
-        start_ordinal = start.toordinal()
+        start.toordinal()
         predictions = []
 
         for i in range(days):
@@ -229,9 +225,7 @@ class MovingAverageForecast(ForecastStrategy):
 
         # Calculate moving average
         df = historical_data.sort("date")
-        ma = df.select(
-            pl.col(cost_col).rolling_mean(window_size=self._window)
-        )
+        ma = df.select(pl.col(cost_col).rolling_mean(window_size=self._window))
         avg_cost = ma[-1][cost_col].item() or Decimal("0")
 
         if isinstance(avg_cost, float):
@@ -289,10 +283,7 @@ class ForecastService:
         trend = self._cost_service.get_daily_trend(hist_start, start)
 
         # Convert to DataFrame
-        df = pl.DataFrame([
-            {"date": p.date, "unblended_cost": p.cost}
-            for p in trend.points
-        ])
+        df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
 
         strategy = AWSCostExplorerNativeForecast(self._session)
         return strategy.predict(
@@ -328,7 +319,7 @@ class ForecastService:
             # Calculate standard deviation
             mean = sum(costs) / len(costs)
             variance = sum((c - mean) ** 2 for c in costs) / (len(costs) - 1)
-            std_dev = variance ** 0.5
+            std_dev = variance**0.5
 
             # Z-score for confidence level
             z = 1.96 if confidence_level >= 0.95 else 1.645
@@ -367,23 +358,19 @@ class ForecastService:
         actual_end: date,
     ) -> ForecastComparison:
         """Compare forecast vs actuals and compute accuracy metrics."""
-        trend = self._cost_service.get_daily_trend(
-            actual_start, actual_end, forecast.metric.value
-        )
+        trend = self._cost_service.get_daily_trend(actual_start, actual_end, forecast.metric.value)
 
         actual_total = sum(p.cost for p in trend.points)
 
         # Get overlapping predicted points
         actual_map = {p.date: float(p.cost) for p in trend.points}
-        predicted_map = {
-            p.date: float(p.predicted_cost) for p in forecast.predictions
-        }
+        predicted_map = {p.date: float(p.predicted_cost) for p in forecast.predictions}
 
         common_dates = set(actual_map.keys()) & set(predicted_map.keys())
         if not common_dates:
             return ForecastComparison(
                 forecast=forecast,
-                actuals_total=actual_total,
+                actuals_total=Decimal(str(actual_total)),
                 variance_analysis=VarianceAnalysis(),
             )
 
@@ -402,7 +389,7 @@ class ForecastService:
             abs_errors.append(abs(error))
             if actual != 0:
                 pct_errors.append(abs(error) / actual * 100)
-            squared_errors.append(error ** 2)
+            squared_errors.append(error**2)
 
             if error > 0:
                 overestimated += 1
@@ -426,7 +413,7 @@ class ForecastService:
 
         return ForecastComparison(
             forecast=forecast,
-            actuals_total=actual_total,
+            actuals_total=Decimal(str(actual_total)),
             variance_analysis=analysis,
         )
 

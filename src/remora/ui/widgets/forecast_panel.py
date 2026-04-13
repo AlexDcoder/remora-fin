@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from textual.containers import Horizontal, VerticalScroll
+from textual.widgets import DataTable, Label, Static
 
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import DataTable, Label, Select, Static
-
-from remora.schemas.forecast import ForecastPoint, ForecastResult
+from remora.schemas.forecast import ForecastResult
 
 
 class AccuracyMeter(Static):
@@ -44,10 +42,7 @@ class AccuracyMeter(Static):
             variant = "" if pct > 80 else "poor"
             bar_len = int(pct / 100 * 20)
             bar = "█" * bar_len + "░" * (20 - bar_len)
-            self.update(
-                f"[meter-label]{self._label}[/] "
-                f"[meter-value {variant}][{bar}] {pct:.0f}%[/]"
-            )
+            self.update(f"[meter-label]{self._label}[/] [meter-value {variant}][{bar}] {pct:.0f}%[/]")
 
 
 class ForecastPanel(VerticalScroll):
@@ -88,7 +83,7 @@ class ForecastPanel(VerticalScroll):
             self.mount(AccuracyMeter(r.accuracy_score, "Forecast Accuracy"))
 
         # Forecast table
-        table = DataTable(id="forecast-table")
+        table: DataTable[str] = DataTable(id="forecast-table")
         table.add_columns("Date", "Predicted Cost", "Lower Bound", "Upper Bound")
         table.cursor_type = "row"
 

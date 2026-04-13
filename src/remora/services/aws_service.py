@@ -8,7 +8,8 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Generator
+from collections.abc import Callable, Generator
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import aioboto3
 import boto3
@@ -16,15 +17,16 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
-    from mypy_boto3_ce import CostExplorerClient
-    from mypy_boto3_ce.client import CostExplorerClient as SyncCEClient
     from mypy_boto3_budgets.client import BudgetsClient
+    from mypy_boto3_ce.client import CostExplorerClient as SyncCEClient
     from mypy_boto3_organizations.client import OrganizationsClient
     from mypy_boto3_pricing.client import PricingClient
     from mypy_boto3_s3.client import S3Client
     from mypy_boto3_sts.client import STSClient
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class AWSSession:
@@ -36,12 +38,13 @@ class AWSSession:
     """
 
     _instance: AWSSession | None = None
+    _initialized: bool = False
 
     def __new__(
         cls,
         region: str = "us-east-1",
         profile: str = "default",
-    ) -> "AWSSession":
+    ) -> AWSSession:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
@@ -72,7 +75,7 @@ class AWSSession:
         cls,
         region: str = "us-east-1",
         profile: str = "default",
-    ) -> "AWSSession":
+    ) -> AWSSession:
         return cls(region=region, profile=profile)
 
     # -- Sync client factory (with lru_cache-like reuse) --
@@ -83,28 +86,28 @@ class AWSSession:
         )
         return self._sync_session.client(service, config=cfg, **kwargs)
 
-    def cost_explorer(self) -> "SyncCEClient":
+    def cost_explorer(self) -> SyncCEClient:
         return self._sync_client("ce")
 
-    def budgets(self) -> "BudgetsClient":
+    def budgets(self) -> BudgetsClient:
         return self._sync_client("budgets")
 
-    def organizations(self) -> "OrganizationsClient":
+    def organizations(self) -> OrganizationsClient:
         return self._sync_client("organizations")
 
-    def pricing(self) -> "PricingClient":
+    def pricing(self) -> PricingClient:
         return self._sync_client("pricing")
 
-    def s3(self) -> "S3Client":
+    def s3(self) -> S3Client:
         return self._sync_client("s3")
 
-    def sts(self) -> "STSClient":
+    def sts(self) -> STSClient:
         return self._sync_client("sts")
 
-    def cloudwatch(self):
+    def cloudwatch(self) -> Any:
         return self._sync_client("monitoring")
 
-    def tagging(self):
+    def tagging(self) -> Any:
         return self._sync_client("resource-groups-tagging-api")
 
     # -- Async session --
@@ -119,8 +122,7 @@ class AWSSession:
         """Check if AWS credentials are valid."""
         try:
             identity = self.sts().get_caller_identity()
-            logger.info("AWS identity: Account=%s, ARN=%s",
-                       identity["Account"], identity["Arn"])
+            logger.info("AWS identity: Account=%s, ARN=%s", identity["Account"], identity["Arn"])
             return True
         except ClientError as e:
             logger.error("AWS credential validation failed: %s", e)
@@ -150,11 +152,8 @@ def paginate_all(
         for page in paginate_all(ce.get_cost_and_usage, **params):
             process(page)
     """
-    paginator = client_method.__self__.get_paginator(
-        client_method.__name__
-    )
-    for page in paginator.paginate(**kwargs):
-        yield page
+    paginator = client_method.__self__.get_paginator(client_method.__name__)
+    yield from paginator.paginate(**kwargs)
 
 
 # -- Retry Decorator --
@@ -164,11 +163,12 @@ def retry_with_backoff(
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 30.0,
-):
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator: retry on throttling/transient errors with exponential backoff."""
-    def decorator(func):
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> T:
             delay = base_delay
             last_exception: Exception | None = None
             for attempt in range(max_retries + 1):
@@ -185,12 +185,16 @@ def retry_with_backoff(
                     last_exception = e
                     if attempt < max_retries:
                         logger.warning(
-                            "AWS throttling on %s (attempt %d/%d). "
-                            "Retrying in %.1fs...",
-                            func.__name__, attempt + 1, max_retries, delay,
+                            "AWS throttling on %s (attempt %d/%d). Retrying in %.1fs...",
+                            func.__name__,
+                            attempt + 1,
+                            max_retries,
+                            delay,
                         )
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
             raise last_exception  # type: ignore[misc]
+
         return wrapper
+
     return decorator

@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from remora.schemas.common import DateRange
 
-
 # -- Enums --
 
 
-class ForecastMetric(str, Enum):
+class ForecastMetric(StrEnum):
     """Metrics available in AWS native Cost Explorer forecast."""
 
     UNBLENDED_COST = "UnblendedCost"
@@ -26,7 +25,7 @@ class ForecastMetric(str, Enum):
     NORMALIZED_USAGE_AMOUNT = "NormalizedUsageAmount"
 
 
-class ForecastModel(str, Enum):
+class ForecastModel(StrEnum):
     """Forecast model used — native AWS or local fallback."""
 
     AWS_NATIVE_ARIMA = "AWS_NATIVE_ARIMA"
@@ -79,13 +78,13 @@ class ForecastResult(BaseModel):
     model_used: ForecastModel = ForecastModel.AWS_NATIVE_ARIMA
     accuracy_score: float | None = Field(default=None, ge=0, le=1)
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_predicted_cost(self) -> Decimal:
         """Sum of all predicted costs."""
         return sum((p.predicted_cost for p in self.predictions), Decimal("0"))
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def prediction_count(self) -> int:
         return len(self.predictions)
@@ -116,13 +115,9 @@ class ForecastComparison(BaseModel):
     actuals_total: Decimal = Field(default=Decimal("0"), ge=0)
     variance_analysis: VarianceAnalysis
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def overall_variance_pct(self) -> float:
         if self.actuals_total == 0:
             return 0.0
-        return float(
-            (self.forecast.total_predicted_cost - self.actuals_total)
-            / self.actuals_total
-            * 100
-        )
+        return float((self.forecast.total_predicted_cost - self.actuals_total) / self.actuals_total * 100)

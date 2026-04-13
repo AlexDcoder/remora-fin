@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import rich_argparse
 from datetime import date, timedelta
 from pathlib import Path
 
+import rich_argparse
 from rich.console import Console
 
+from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.report import ReportConfig, ReportFilters, ReportFormat
 from remora.services import CostService, ReportService
 from remora.services.aws_service import AWSSession
@@ -29,10 +30,7 @@ def report(args: argparse.Namespace) -> None:
     else:
         start = end - timedelta(days=30)
 
-    console.print(
-        f"[bold blue]📊 Cost Report[/]  "
-        f"[dim]{start} → {end}[/]"
-    )
+    console.print(f"[bold blue]📊 Cost Report[/]  [dim]{start} → {end}[/]")
     console.print()
 
     # Initialize services
@@ -60,11 +58,9 @@ def report(args: argparse.Namespace) -> None:
     )
 
     with console.status("[cyan]Fetching cost data from AWS...[/]"):
-        if args.type == "breakdown":
-            data = cost_service.get_cost_by_service(
-                start, end,
-                metric=args.metric,
-            )
+        data: CostBreakdown | CostTrend
+        if args.type == "service":
+            data = cost_service.get_cost_by_service(start, end, metric=args.metric)
         elif args.type == "trend":
             data = cost_service.get_daily_trend(start, end)
         elif args.type == "account":
@@ -76,9 +72,7 @@ def report(args: argparse.Namespace) -> None:
     content = report_service.generate_report(data, config)
 
     # Output
-    if fmt == ReportFormat.TABLE:
-        console.print(content)
-    elif fmt == ReportFormat.MARKDOWN:
+    if fmt == ReportFormat.TABLE or fmt == ReportFormat.MARKDOWN:
         console.print(content)
     else:
         console.print(content)
@@ -87,7 +81,7 @@ def report(args: argparse.Namespace) -> None:
         console.print(f"\n[green]✓ Report saved to {config.output_path}[/]")
 
 
-def add_report_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",
@@ -96,19 +90,22 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
-        "--type", "-t",
+        "--type",
+        "-t",
         choices=["breakdown", "trend", "account"],
         default="breakdown",
         help="Report type (default: breakdown)",
     )
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["table", "json", "csv", "markdown"],
         default="table",
         help="Output format (default: table)",
     )
     parser.add_argument(
-        "--days", "-d",
+        "--days",
+        "-d",
         type=int,
         default=30,
         help="Number of days to look back (default: 30)",
@@ -128,8 +125,11 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--metric",
         choices=[
-            "UnblendedCost", "BlendedCost", "NetUnblendedCost",
-            "AmortizedCost", "UsageQuantity",
+            "UnblendedCost",
+            "BlendedCost",
+            "NetUnblendedCost",
+            "AmortizedCost",
+            "UsageQuantity",
         ],
         default="UnblendedCost",
         help="Cost metric (default: UnblendedCost)",
@@ -141,23 +141,27 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Group results by dimension",
     )
     parser.add_argument(
-        "--service", "-s",
+        "--service",
+        "-s",
         default=None,
         help="Filter by AWS service",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         default=None,
         help="Output file path",
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         default=None,
         help="AWS profile name",
     )
     parser.add_argument(
-        "--region", "-r",
+        "--region",
+        "-r",
         default=None,
         help="AWS region",
     )

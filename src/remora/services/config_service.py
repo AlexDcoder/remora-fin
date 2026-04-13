@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from remora.schemas.config import AppSettings, AWSConfig, CacheConfig, UIConfig
 
@@ -21,9 +20,10 @@ class ConfigService:
     """Singleton service for managing application configuration."""
 
     _instance: ConfigService | None = None
+    _initialized: bool = False
     _settings: AppSettings | None = None
 
-    def __new__(cls) -> "ConfigService":
+    def __new__(cls) -> ConfigService:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
@@ -104,15 +104,15 @@ class ConfigBuilder:
         self._cache = CacheConfig()
         self._ui = UIConfig()
 
-    def with_aws_profile(self, profile: str) -> "ConfigBuilder":
+    def with_aws_profile(self, profile: str) -> ConfigBuilder:
         self._aws = AWSConfig(profile=profile, region=self._aws.region)
         return self
 
-    def with_region(self, region: str) -> "ConfigBuilder":
+    def with_region(self, region: str) -> ConfigBuilder:
         self._aws = AWSConfig(profile=self._aws.profile, region=region)
         return self
 
-    def with_role_arn(self, role_arn: str) -> "ConfigBuilder":
+    def with_role_arn(self, role_arn: str) -> ConfigBuilder:
         self._aws = AWSConfig(
             profile=self._aws.profile,
             region=self._aws.region,
@@ -120,25 +120,25 @@ class ConfigBuilder:
         )
         return self
 
-    def with_output_format(self, fmt: str) -> "ConfigBuilder":
+    def with_output_format(self, fmt: str) -> ConfigBuilder:
         # Format is handled at report level, not config level
         return self
 
-    def with_cache_enabled(self, enabled: bool) -> "ConfigBuilder":
+    def with_cache_enabled(self, enabled: bool) -> ConfigBuilder:
         self._cache = CacheConfig(
             enabled=enabled,
             ttl_seconds=self._cache.ttl_seconds,
         )
         return self
 
-    def with_cache_ttl(self, ttl: int) -> "ConfigBuilder":
+    def with_cache_ttl(self, ttl: int) -> ConfigBuilder:
         self._cache = CacheConfig(
             enabled=self._cache.enabled,
             ttl_seconds=ttl,
         )
         return self
 
-    def with_theme(self, theme: str) -> "ConfigBuilder":
+    def with_theme(self, theme: str) -> ConfigBuilder:
         self._ui = UIConfig(
             theme=theme,
             refresh_interval=self._ui.refresh_interval,

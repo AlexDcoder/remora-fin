@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import rich_argparse
 from datetime import date, timedelta
 
+import rich_argparse
 from rich.console import Console
 from rich.table import Table
 
-from remora.schemas.forecast import ForecastMetric, ForecastModel
+from remora.schemas.forecast import ForecastMetric
 from remora.services import ForecastService
 from remora.services.aws_service import AWSSession
 
@@ -30,10 +30,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     else:
         end = start + timedelta(days=30)  # Default 30 days forecast
 
-    console.print(
-        f"[bold blue]📈 Cost Forecast[/]  "
-        f"[dim]{start} → {end} ({(end - start).days} days)[/]"
-    )
+    console.print(f"[bold blue]📈 Cost Forecast[/]  [dim]{start} → {end} ({(end - start).days} days)[/]")
     console.print()
 
     # Initialize services
@@ -58,23 +55,18 @@ def forecast_cmd(args: argparse.Namespace) -> None:
                 group_by_key=args.group_by_key,
             )
         except Exception as e:
-            console.print(
-                f"[yellow]⚠ Native forecast unavailable, "
-                f"using local fallback: {e}[/]"
-            )
+            console.print(f"[yellow]⚠ Native forecast unavailable, using local fallback: {e}[/]")
             # Fallback to moving average
-            from remora.services.forecast_service import MovingAverageForecast
             from remora.services.cost_service import CostService
+            from remora.services.forecast_service import MovingAverageForecast
 
             cost_service = CostService(session)
             hist_start = start - timedelta(days=60)
             trend = cost_service.get_daily_trend(hist_start, start)
 
             import polars as pl
-            df = pl.DataFrame([
-                {"date": p.date, "unblended_cost": p.cost}
-                for p in trend.points
-            ])
+
+            df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
 
             strategy = MovingAverageForecast(window=7)
             result = strategy.predict(
@@ -107,7 +99,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     if len(result.predictions) > 30:
         forecast_table.add_row(
             f"... +{len(result.predictions) - 30} more days",
-            f"[dim](use --json for full output)[/]",
+            "[dim](use --json for full output)[/]",
         )
 
     console.print(forecast_table)
@@ -130,10 +122,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         baseline_total = result.total_predicted_cost
         for name, scenario_result in scenarios.items():
             total = scenario_result.total_predicted_cost
-            if baseline_total > 0:
-                diff = float((total - baseline_total) / baseline_total * 100)
-            else:
-                diff = 0
+            diff = float((total - baseline_total) / baseline_total * 100) if baseline_total > 0 else 0
             scenario_table.add_row(
                 name.capitalize(),
                 f"${total:,.2f}",
@@ -146,12 +135,11 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         console.print()
         console.print("[bold]JSON Output:[/]")
         import json
-        console.print(
-            json.dumps(result.model_dump(mode="json"), indent=2, default=str)
-        )
+
+        console.print(json.dumps(result.model_dump(mode="json"), indent=2, default=str))
 
 
-def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add forecast subparser."""
     parser = subparsers.add_parser(
         "forecast",
@@ -160,7 +148,8 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
-        "--days", "-d",
+        "--days",
+        "-d",
         type=int,
         default=30,
         help="Number of days to forecast (default: 30, max 365)",
@@ -180,8 +169,11 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--metric",
         choices=[
-            "UnblendedCost", "BlendedCost", "NetUnblendedCost",
-            "AmortizedCost", "UsageQuantity",
+            "UnblendedCost",
+            "BlendedCost",
+            "NetUnblendedCost",
+            "AmortizedCost",
+            "UsageQuantity",
         ],
         default="UnblendedCost",
         help="Cost metric to forecast (default: UnblendedCost)",
@@ -201,8 +193,12 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--group-by-key",
         choices=[
-            "SERVICE", "LINKED_ACCOUNT", "REGION", "USAGE_TYPE",
-            "INSTANCE_TYPE", "PLATFORM",
+            "SERVICE",
+            "LINKED_ACCOUNT",
+            "REGION",
+            "USAGE_TYPE",
+            "INSTANCE_TYPE",
+            "PLATFORM",
         ],
         default=None,
         help="Group forecast by key",
@@ -218,12 +214,14 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output as JSON",
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         default=None,
         help="AWS profile name",
     )
     parser.add_argument(
-        "--region", "-r",
+        "--region",
+        "-r",
         default=None,
         help="AWS region",
     )

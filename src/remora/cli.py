@@ -23,7 +23,6 @@ from remora.commands.forecast import add_forecast_parser
 from remora.commands.login import add_login_parser
 from remora.commands.report import add_report_parser
 
-
 ASCII_ART = r"""
             __________
             ╲______   ╲____   _____   ________________

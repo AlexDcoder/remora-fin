@@ -78,6 +78,7 @@ build-backend = "uv_build"
 target-version = "py312"
 line-length = 120
 src = ["src"]
+extend-exclude = ["src/remora/cli.py"]
 
 [tool.ruff.lint]
 select = [

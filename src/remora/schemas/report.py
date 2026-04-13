@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from remora.schemas.common import DateRange
 
 
-class ReportFormat(str, Enum):
+class ReportFormat(StrEnum):
     """Output format for reports."""
 
     TABLE = "table"

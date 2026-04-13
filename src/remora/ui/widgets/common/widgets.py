@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from typing import ClassVar
 
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, DataTable, Input, Label, Select, Static
+from textual.app import ComposeResult
+from textual.containers import Horizontal
+from textual.widgets import Button, Input, Select, Static
 
 
 class LoadingIndicator(Static):
@@ -93,19 +94,19 @@ class KPICard(Static):
         self._variant = variant
 
     def on_mount(self) -> None:
-        self.render()
+        self._update_display()
 
-    def render(self) -> None:
+    def _update_display(self) -> None:
         variant_class = ""
         if self._variant == "warning":
             variant_class = "warning"
         elif self._variant == "danger":
             variant_class = "danger"
 
-        self.update(
-            f"[kpi-label]{self._label}[/]\n"
-            f"[kpi-value {variant_class}]{self._value}[/]"
-        )
+        self.update(f"[kpi-label]{self._label}[/]\n[kpi-value {variant_class}]{self._value}[/]")
+
+    def render(self) -> None:  # type: ignore[override]
+        self._update_display()
 
     def update_value(self, value: str, variant: str | None = None) -> None:
         self._value = value
@@ -132,7 +133,7 @@ class PeriodSelector(Horizontal):
     }
     """
 
-    PERIODS = [
+    PERIODS: ClassVar[list[tuple[str, int]]] = [
         ("7d", 7),
         ("30d", 30),
         ("90d", 90),
@@ -145,7 +146,7 @@ class PeriodSelector(Horizontal):
         self._default_days = default_days
         self.selected_days = default_days
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         for label, days in self.PERIODS:
             active = "-active" if days == self._default_days else ""
             btn = Button(label, id=f"period-{days}", classes=active)
@@ -160,7 +161,7 @@ class PeriodSelector(Horizontal):
             for btn in self.query("Button"):
                 btn.set_classes("")
             event.button.set_classes("-active")
-            self.post_message(self.Changed(days))
+            self.post_message(self.Changed(days))  # type: ignore[arg-type]
 
     class Changed:
         def __init__(self, days: int) -> None:
@@ -188,10 +189,10 @@ class FilterBar(Horizontal):
     def __init__(self) -> None:
         super().__init__()
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         yield Input(placeholder="Filter by service...", id="filter-service")
         yield Input(placeholder="Filter by account...", id="filter-account")
-        yield Select(
+        yield Select(  # type: ignore[call-arg]
             choices=[
                 ("All Metrics", "all"),
                 ("Unblended Cost", "unblended"),
@@ -221,9 +222,9 @@ class ExportButton(Horizontal):
     def __init__(self) -> None:
         super().__init__()
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         yield Button("📥 Export", id="btn-export")
-        yield Select(
+        yield Select(  # type: ignore[call-arg]
             choices=[
                 ("JSON", "json"),
                 ("CSV", "csv"),

@@ -58,7 +58,7 @@ class CostChartWidget(Static):
 
             widget = PlotextPlot()
             self.mount(widget)
-            widget.update()
+            widget.refresh()
         except Exception:
             self._render_text_chart()
 
@@ -98,4 +98,4 @@ class CostChartWidget(Static):
         names = [s for s, _ in services]
         values = [v for _, v in services]
         self._title = "Cost by Service"
-        self.update_data(names, values)  # type: ignore[arg-type]
+        self.update_data(names, values)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import ClassVar
 
 from textual.containers import Vertical, VerticalScroll
 from textual.widgets import DataTable, Label, Static
@@ -20,7 +20,7 @@ class SeverityBadge(Static):
     }
     """
 
-    COLOR_MAP = {
+    COLOR_MAP: ClassVar[dict[str, str]] = {
         "low": "#3fb950",
         "medium": "#d29922",
         "high": "#f85149",
@@ -34,9 +34,7 @@ class SeverityBadge(Static):
 
     def on_mount(self) -> None:
         color = self._color
-        self.update(
-            f"[{color}][ {self._severity.upper()} ][/{color}]"
-        )
+        self.update(f"[{color}][ {self._severity.upper()} ][/{color}]")
 
 
 class AnomalyDetailCard(Vertical):
@@ -57,9 +55,7 @@ class AnomalyDetailCard(Vertical):
 
     def on_mount(self) -> None:
         a = self._anomaly
-        root_cause_str = ", ".join(
-            rc.service for rc in a.root_causes[:3]
-        ) if a.root_causes else "Unknown"
+        root_cause_str = ", ".join(rc.service for rc in a.root_causes[:3]) if a.root_causes else "Unknown"
 
         self.mount(
             Label(f"[bold]Anomaly:[/] {a.id}"),
@@ -115,7 +111,7 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(""))
 
         # Anomaly table
-        table = DataTable(id="anomaly-table")
+        table: DataTable[str] = DataTable(id="anomaly-table")
         table.add_columns("Severity", "Service", "Variance", "Actual", "Expected")
         table.cursor_type = "row"
 
@@ -146,11 +142,7 @@ class AnomalyPanel(VerticalScroll):
         self.remove_children()
         self._display_summary()
 
-    def filter_by_severity(self, severity: str) -> None:
+    def filter_by_severity(self, severity: str) -> list[Anomaly]:
         """Filter displayed anomalies by severity."""
-        filtered = [
-            a for a in self._anomalies
-            if a.severity.value == severity.lower()
-        ]
-        # Would update table — simplified for now
+        filtered = [a for a in self._anomalies if a.severity.value == severity.lower()]
         return filtered

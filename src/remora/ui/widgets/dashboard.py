@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
-
-from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Label
+from textual.app import ComposeResult
+from textual.containers import Container, Horizontal
 
 from remora.ui.widgets.common.widgets import KPICard
 from remora.ui.widgets.cost_chart import CostChartWidget
@@ -46,7 +44,7 @@ class DashboardWidget(Container):
         self._forecast_trend = forecast_trend
         self._default_days = default_days
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         # KPI Row
         yield Horizontal(
             KPICard("Total Spend", self._total_cost),
@@ -59,16 +57,13 @@ class DashboardWidget(Container):
             KPICard(
                 "Forecast",
                 self._forecast_trend,
-                variant=(
-                    "danger" if "↑" in self._forecast_trend
-                    else "normal"
-                ),
+                variant=("danger" if "↑" in self._forecast_trend else "normal"),
             ),
             id="kpi-row",
         )
 
         # Chart placeholder
-        yield CostChartWidget("30-Day Cost Trend", id="dashboard-chart")
+        yield CostChartWidget("30-Day Cost Trend", id="dashboard-chart")  # type: ignore[call-arg]
 
     def update_kpis(
         self,

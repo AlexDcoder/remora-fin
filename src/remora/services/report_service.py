@@ -13,17 +13,15 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-import polars as pl
 from rich.console import Console
 from rich.table import Table as RichTable
 
 from remora.schemas.anomaly import AnomalyReport
 from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.forecast import ForecastResult
-from remora.schemas.report import ReportConfig, ReportFilters, ReportMetadata
+from remora.schemas.report import ReportConfig
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +185,7 @@ class JsonFormatter(ReportFormatter):
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
         from decimal import Decimal
+
         return json.dumps(obj, indent=self._indent, default=default_handler)
 
     def format_cost(self, data: CostBreakdown | CostTrend) -> str:
@@ -220,20 +219,29 @@ class CsvFormatter(ReportFormatter):
     def format_anomalies(self, data: AnomalyReport) -> str:
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow([
-            "ID", "Service", "Severity", "Actual Spend",
-            "Expected Spend", "Variance %", "Start Date",
-        ])
+        writer.writerow(
+            [
+                "ID",
+                "Service",
+                "Severity",
+                "Actual Spend",
+                "Expected Spend",
+                "Variance %",
+                "Start Date",
+            ]
+        )
         for a in data.anomalies:
-            writer.writerow([
-                a.id,
-                a.top_root_cause or "",
-                a.severity.value,
-                str(a.impact.total_actual_spend),
-                str(a.impact.total_expected_spend),
-                f"{a.variance_percentage:.2f}",
-                str(a.start_date),
-            ])
+            writer.writerow(
+                [
+                    a.id,
+                    a.top_root_cause or "",
+                    a.severity.value,
+                    str(a.impact.total_actual_spend),
+                    str(a.impact.total_expected_spend),
+                    f"{a.variance_percentage:.2f}",
+                    str(a.start_date),
+                ]
+            )
         return output.getvalue()
 
     def format_forecast(self, data: ForecastResult) -> str:
@@ -250,42 +258,48 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_cost(self, data: CostBreakdown | CostTrend) -> str:
         lines = [
-            f"# Cost Report",
-            f"",
+            "# Cost Report",
+            "",
             f"**Period:** {data.period.start} → {data.period.end}",
             f"**Granularity:** {data.granularity}",
             f"**Metric:** {data.metric}",
-            f"",
+            "",
         ]
 
         if isinstance(data, CostBreakdown) and data.summary:
-            lines.extend([
-                f"## Summary",
-                f"",
-                f"| Metric | Value |",
-                f"|--------|-------|",
-                f"| Total Cost | ${data.summary.total_cost:,.2f} |",
-                f"| Daily Average | ${data.summary.daily_average:,.2f} |",
-                f"| Top Service | {data.summary.top_service} |",
-                f"",
-            ])
+            lines.extend(
+                [
+                    "## Summary",
+                    "",
+                    "| Metric | Value |",
+                    "|--------|-------|",
+                    f"| Total Cost | ${data.summary.total_cost:,.2f} |",
+                    f"| Daily Average | ${data.summary.daily_average:,.2f} |",
+                    f"| Top Service | {data.summary.top_service} |",
+                    "",
+                ]
+            )
 
         if isinstance(data, CostBreakdown):
-            lines.extend([
-                f"## By Service",
-                f"",
-                f"| Service | Cost | % |",
-                f"|---------|------|---|",
-            ])
+            lines.extend(
+                [
+                    "## By Service",
+                    "",
+                    "| Service | Cost | % |",
+                    "|---------|------|---|",
+                ]
+            )
             for g in data.groups[:20]:
                 lines.append(f"| {g.key} | ${g.cost:,.2f} | {g.percentage:.1f}% |")
         else:
-            lines.extend([
-                f"## Daily Trend",
-                f"",
-                f"| Date | Cost |",
-                f"|------|------|",
-            ])
+            lines.extend(
+                [
+                    "## Daily Trend",
+                    "",
+                    "| Date | Cost |",
+                    "|------|------|",
+                ]
+            )
             for p in data.points[-30:]:
                 lines.append(f"| {p.date} | ${p.cost:,.2f} |")
 
@@ -293,26 +307,28 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_anomalies(self, data: AnomalyReport) -> str:
         lines = [
-            f"# Anomaly Report",
-            f"",
+            "# Anomaly Report",
+            "",
             f"**Total Anomalies:** {data.total_anomalies}",
             f"**Net Financial Impact:** ${data.net_financial_impact:,.2f}",
-            f"",
-            f"## By Severity",
-            f"",
-            f"| Severity | Count |",
-            f"|----------|-------|",
+            "",
+            "## By Severity",
+            "",
+            "| Severity | Count |",
+            "|----------|-------|",
         ]
         for sev, count in sorted(data.by_severity.items()):
             lines.append(f"| {sev.value.upper()} | {count} |")
 
-        lines.extend([
-            f"",
-            f"## Details",
-            f"",
-            f"| ID | Service | Severity | Actual | Expected | Variance |",
-            f"|----|---------|----------|--------|----------|----------|",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Details",
+                "",
+                "| ID | Service | Severity | Actual | Expected | Variance |",
+                "|----|---------|----------|--------|----------|----------|",
+            ]
+        )
         for a in data.anomalies[:30]:
             lines.append(
                 f"| {a.id[:18]} | {a.top_root_cause or ''} | "
@@ -325,14 +341,14 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_forecast(self, data: ForecastResult) -> str:
         lines = [
-            f"# Cost Forecast",
-            f"",
+            "# Cost Forecast",
+            "",
             f"**Period:** {data.forecast_period.start} → {data.forecast_period.end}",
             f"**Model:** {data.model_used.value}",
             f"**Total Predicted:** ${data.total_predicted_cost:,.2f}",
-            f"",
-            f"| Date | Predicted Cost |",
-            f"|------|---------------|",
+            "",
+            "| Date | Predicted Cost |",
+            "|------|---------------|",
         ]
         for p in data.predictions[:30]:
             lines.append(f"| {p.date} | ${p.predicted_cost:,.2f} |")
@@ -345,7 +361,7 @@ class MarkdownFormatter(ReportFormatter):
 class ReportService:
     """Report generation with Strategy pattern for output formats."""
 
-    _formatters: dict[str, ReportFormatter] = {
+    _formatters: ClassVar[dict[str, ReportFormatter]] = {
         "table": TableFormatter(),
         "json": JsonFormatter(),
         "csv": CsvFormatter(),

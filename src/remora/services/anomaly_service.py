@@ -12,8 +12,6 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-import polars as pl
-
 from remora.schemas.anomaly import (
     Anomaly,
     AnomalyFeedback,
@@ -24,7 +22,7 @@ from remora.schemas.anomaly import (
     AnomalySeverity,
     AnomalyType,
 )
-from remora.services.aws_service import AWSSession, retry_with_backoff
+from remora.services.aws_service import AWSSession
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +104,7 @@ class AnomalyService:
             total_impact=Decimal(impact_data.get("TotalImpact", "0")),
             total_actual_spend=Decimal(impact_data.get("TotalActualSpend", "0")),
             total_expected_spend=Decimal(impact_data.get("TotalExpectedSpend", "0")),
-            total_impact_percentage=float(
-                impact_data.get("TotalImpactPercentage", 0.0)
-            ),
+            total_impact_percentage=float(impact_data.get("TotalImpactPercentage", 0.0)),
         )
 
         # LOCAL: classify severity
@@ -121,16 +117,12 @@ class AnomalyService:
             id=raw["AnomalyId"],
             monitor_arn=raw["MonitorArn"],
             start_date=date.fromisoformat(raw["AnomalyStartDate"]),
-            end_date=date.fromisoformat(raw["AnomalyEndDate"])
-            if raw.get("AnomalyEndDate")
-            else None,
+            end_date=date.fromisoformat(raw["AnomalyEndDate"]) if raw.get("AnomalyEndDate") else None,
             dimension_value=raw.get("DimensionValue", ""),
             root_causes=root_causes,
             score=score,
             impact=impact,
-            feedback=AnomalyFeedback(raw["Feedback"])
-            if raw.get("Feedback")
-            else None,
+            feedback=AnomalyFeedback(raw["Feedback"]) if raw.get("Feedback") else None,
             severity=severity,
             anomaly_type=anomaly_type,
         )
@@ -239,19 +231,18 @@ class AnomalyService:
             MonitorName=name,
             MonitorType=monitor_type,
             DimensionalMonitorParameters={"MonitorDimension": dimension},
-            MonitorSpecification=(
-                metadata.get("specification") if metadata else None
-            ),
+            MonitorSpecification=(metadata.get("specification") if metadata else None),
         )
-        monitor_arn = resp["MonitorArn"]
+        monitor_arn: str = resp["MonitorArn"]
         logger.info("Created anomaly monitor: %s (%s)", name, monitor_arn)
         return monitor_arn
 
     def list_monitors(self) -> list[dict[str, Any]]:
         """List all anomaly monitors."""
         ce = self._session.cost_explorer()
-        resp = ce.get_anomaly_monitors()
-        return resp.get("AnomalyMonitors", [])
+        resp: dict[str, Any] = ce.get_anomaly_monitors()
+        monitors: list[dict[str, Any]] = resp.get("AnomalyMonitors", [])
+        return monitors
 
     def delete_monitor(self, monitor_arn: str) -> None:
         """Delete an anomaly monitor."""

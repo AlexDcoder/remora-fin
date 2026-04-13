@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import rich_argparse
 from datetime import date, timedelta
+
+import rich_argparse
 from rich.console import Console
 from rich.table import Table
 
@@ -27,10 +28,7 @@ def anomalies(args: argparse.Namespace) -> None:
     else:
         start = end - timedelta(days=30)
 
-    console.print(
-        f"[bold blue]🔍 Cost Anomaly Detection[/]  "
-        f"[dim]{start} → {end}[/]"
-    )
+    console.print(f"[bold blue]🔍 Cost Anomaly Detection[/]  [dim]{start} → {end}[/]")
     console.print()
 
     # Initialize services
@@ -68,12 +66,15 @@ def anomalies(args: argparse.Namespace) -> None:
         "critical": "bold red",
     }
 
-    for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
-        count = report.by_severity.get(sev.lower(), 0)
+    for sev_key in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+        sev_lower = sev_key.lower()
+        from remora.schemas.anomaly import AnomalySeverity
+
+        count = report.by_severity.get(AnomalySeverity(sev_lower), 0)
         if count > 0:
-            sev_color = severity_colors.get(sev.lower(), "white")
+            sev_color = severity_colors.get(sev_lower, "white")
             severity_table.add_row(
-                f"[{sev_color}]{sev}[/{sev_color}]",
+                f"[{sev_color}]{sev_key}[/{sev_color}]",
                 str(count),
             )
 
@@ -93,10 +94,7 @@ def anomalies(args: argparse.Namespace) -> None:
         # Filter by severity if requested
         anomalies_list = report.anomalies
         if args.severity:
-            anomalies_list = [
-                a for a in anomalies_list
-                if a.severity.value == args.severity.lower()
-            ]
+            anomalies_list = [a for a in anomalies_list if a.severity.value == args.severity.lower()]
 
         for a in anomalies_list[:50]:
             sev_color = severity_colors.get(a.severity.value, "white")
@@ -113,14 +111,13 @@ def anomalies(args: argparse.Namespace) -> None:
 
     if args.json:
         import json
+
         console.print()
         console.print("[bold]JSON Output:[/]")
-        console.print(
-            json.dumps(report.model_dump(mode="json"), indent=2, default=str)
-        )
+        console.print(json.dumps(report.model_dump(mode="json"), indent=2, default=str))
 
 
-def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add anomalies subparser."""
     parser = subparsers.add_parser(
         "anomalies",
@@ -129,7 +126,8 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
-        "--days", "-d",
+        "--days",
+        "-d",
         type=int,
         default=30,
         help="Number of days to look back (default: 30, max 90)",
@@ -168,12 +166,14 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output as JSON",
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         default=None,
         help="AWS profile name",
     )
     parser.add_argument(
-        "--region", "-r",
+        "--region",
+        "-r",
         default=None,
         help="AWS region",
     )

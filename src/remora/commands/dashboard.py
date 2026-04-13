@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+
 import rich_argparse
 from rich.console import Console
 
@@ -14,7 +15,6 @@ def dashboard(args: argparse.Namespace) -> None:
     console.print("[bold blue]📊 Launching Remora FinOps Dashboard[/]")
     console.print()
 
-    from remora.services.aws_service import AWSSession
     from remora.services.config_service import ConfigService
 
     config = ConfigService()
@@ -41,7 +41,7 @@ def dashboard(args: argparse.Namespace) -> None:
     app.run()
 
 
-def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add dashboard subparser."""
     parser = subparsers.add_parser(
         "dashboard",
@@ -50,12 +50,14 @@ def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         default=None,
         help="AWS profile name",
     )
     parser.add_argument(
-        "--region", "-r",
+        "--region",
+        "-r",
         default=None,
         help="AWS region",
     )
@@ -66,7 +68,8 @@ def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
         help="UI theme",
     )
     parser.add_argument(
-        "--days", "-d",
+        "--days",
+        "-d",
         type=int,
         default=None,
         help="Default period in days",

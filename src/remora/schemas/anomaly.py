@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
-
 
 # -- Enums --
 
 
-class AnomalySeverity(str, Enum):
+class AnomalySeverity(StrEnum):
     """Severity classification based on TotalImpactPercentage.
 
     LOCAL classification (AWS native does NOT provide severity labels):
@@ -28,7 +27,7 @@ class AnomalySeverity(str, Enum):
     CRITICAL = "critical"
 
     @classmethod
-    def from_percentage(cls, pct: float) -> "AnomalySeverity":
+    def from_percentage(cls, pct: float) -> AnomalySeverity:
         """Classify severity from TotalImpactPercentage."""
         if pct < 10:
             return cls.LOW
@@ -39,7 +38,7 @@ class AnomalySeverity(str, Enum):
         return cls.CRITICAL
 
 
-class AnomalyType(str, Enum):
+class AnomalyType(StrEnum):
     """LOCAL categorization based on root cause patterns."""
 
     SPIKE = "spike"  # sudden increase
@@ -48,7 +47,7 @@ class AnomalyType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class AnomalyFeedback(str, Enum):
+class AnomalyFeedback(StrEnum):
     """Maps directly to AWS native Feedback field."""
 
     YES = "YES"
@@ -134,19 +133,17 @@ class Anomaly(BaseModel):
     anomaly_type: AnomalyType = AnomalyType.UNKNOWN
     is_recurring: bool = False
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def variance_percentage(self) -> float:
         """Calculated from native impact fields."""
         if self.impact.total_expected_spend == 0:
             return 0.0
         return float(
-            (self.impact.total_actual_spend - self.impact.total_expected_spend)
-            / self.impact.total_expected_spend
-            * 100
+            (self.impact.total_actual_spend - self.impact.total_expected_spend) / self.impact.total_expected_spend * 100
         )
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def top_root_cause(self) -> str | None:
         """Service contributing most to the anomaly."""
@@ -178,7 +175,7 @@ class AnomalyReport(BaseModel):
     anomalies: list[Anomaly] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=datetime.now)
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def net_financial_impact(self) -> Decimal:
         """Total extra cost caused by anomalies."""

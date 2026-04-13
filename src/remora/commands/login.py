@@ -1,11 +1,12 @@
 """Login command — Configure AWS credentials."""
 
 from __future__ import annotations
-import os
+
 import argparse
-import rich_argparse
+import os
 from pathlib import Path
 
+import rich_argparse
 from rich.console import Console
 from rich.prompt import Prompt
 
@@ -79,7 +80,7 @@ region = {region}
         console.print("  See: [link]https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html[/]")
 
 
-def add_login_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_login_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add login subparser to the argument parser."""
     parser = subparsers.add_parser(
         "login",
@@ -88,22 +89,26 @@ def add_login_parser(subparsers: argparse._SubParsersAction) -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
-        "--profile", "-p",
+        "--profile",
+        "-p",
         default="default",
         help="AWS profile name (default: default)",
     )
     parser.add_argument(
-        "--region", "-r",
+        "--region",
+        "-r",
         default=None,
         help="AWS region (default: us-east-1)",
     )
     parser.add_argument(
-        "--test", "-t",
+        "--test",
+        "-t",
         action="store_true",
         help="Test existing credentials without configuring",
     )
     parser.add_argument(
-        "--configure", "-c",
+        "--configure",
+        "-c",
         action="store_true",
         help="Interactive credential configuration",
     )

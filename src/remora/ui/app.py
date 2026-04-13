@@ -5,28 +5,25 @@ Design Patterns: Facade + Observer
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, timedelta
+from typing import ClassVar
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import (
     DataTable,
     Footer,
     Header,
     Label,
-    TabbedContent,
-    TabPane,
 )
 
 from remora.services import (
     AnomalyService,
     CostService,
     ForecastService,
-    ReportService,
 )
 from remora.services.aws_service import AWSSession
-from remora.services.config_service import ConfigService
 from remora.ui.styles.theme import get_theme_css
 from remora.ui.widgets.anomaly_panel import AnomalyPanel
 from remora.ui.widgets.cost_chart import CostChartWidget
@@ -34,7 +31,7 @@ from remora.ui.widgets.dashboard import DashboardWidget
 from remora.ui.widgets.forecast_panel import ForecastPanel
 
 
-class CostScreen(Screen):
+class CostScreen(Screen[None]):
     """Screen for cost analysis."""
 
     DEFAULT_CSS = """
@@ -56,7 +53,7 @@ class CostScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Label("[bold]💰 Cost Analysis[/]", id="title")
         yield DataTable(id="cost-table")
-        yield CostChartWidget("Cost Trend", id="cost-chart")
+        yield CostChartWidget("Cost Trend", id="cost-table")  # type: ignore[call-arg]
 
     def on_mount(self) -> None:
         self._load_data()
@@ -71,10 +68,7 @@ class CostScreen(Screen):
 
             # Update chart
             chart = self.query_one("#cost-chart", CostChartWidget)
-            chart.show_daily_trend([
-                (str(p.date), float(p.cost))
-                for p in trend.points[-30:]
-            ])
+            chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points[-30:]])
 
             # Update table
             table = self.query_one("#cost-table", DataTable)
@@ -86,7 +80,7 @@ class CostScreen(Screen):
             self.notify(f"Error loading cost data: {e}", severity="error")
 
 
-class AnomalyScreen(Screen):
+class AnomalyScreen(Screen[None]):
     """Screen for anomaly detection."""
 
     def __init__(
@@ -101,7 +95,7 @@ class AnomalyScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]🔍 Anomaly Detection[/]", id="title")
-        yield AnomalyPanel(id="anomaly-panel")
+        yield AnomalyPanel(id="anomaly-panel")  # type: ignore[call-arg]
 
     def on_mount(self) -> None:
         self._load_data()
@@ -118,7 +112,7 @@ class AnomalyScreen(Screen):
             self.notify(f"Error loading anomalies: {e}", severity="error")
 
 
-class ForecastScreen(Screen):
+class ForecastScreen(Screen[None]):
     """Screen for cost forecasting."""
 
     def __init__(
@@ -133,7 +127,7 @@ class ForecastScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]📈 Cost Forecast[/]", id="title")
-        yield ForecastPanel(id="forecast-panel")
+        yield ForecastPanel(id="forecast-panel")  # type: ignore[call-arg]
 
     def on_mount(self) -> None:
         self._load_data()
@@ -144,7 +138,8 @@ class ForecastScreen(Screen):
 
         try:
             result = self._forecast_service.get_aws_native_forecast(
-                start=start, end=end,
+                start=start,
+                end=end,
             )
             panel = self.query_one("#forecast-panel", ForecastPanel)
             panel.update_forecast(result)
@@ -152,12 +147,12 @@ class ForecastScreen(Screen):
             self.notify(f"Error loading forecast: {e}", severity="error")
 
 
-class RemoraApp(App):
+class RemoraApp(App[None]):
     """Main Remora FinOps TUI application."""
 
     CSS = ""  # Set dynamically based on theme
 
-    BINDINGS = [
+    BINDINGS: ClassVar[Sequence[tuple[str, str, str]]] = [  # type: ignore[assignment]
         ("q", "quit", "Quit"),
         ("1", "show_costs", "💰 Costs"),
         ("2", "show_anomalies", "🔍 Anomalies"),
@@ -178,11 +173,11 @@ class RemoraApp(App):
         self._default_days = default_days
         self._theme = theme
         self._session: AWSSession | None = None
-        self._screens_loaded: dict[str, Screen] = {}
+        self._screens_loaded: dict[str, Screen[None]] = {}
 
     def on_mount(self) -> None:
         # Set theme
-        self.CSS = get_theme_css(self._theme)
+        self.CSS = get_theme_css(self._theme)  # type: ignore[misc]
 
         # Initialize AWS session
         self._session = AWSSession.get_instance(
@@ -199,30 +194,21 @@ class RemoraApp(App):
 
     def action_show_costs(self) -> None:
         if self._session:
-            self.push_screen(
-                CostScreen(self._session, self._default_days),
-                id="costs",
-            )
+            self.push_screen(CostScreen(self._session, self._default_days))
 
     def action_show_anomalies(self) -> None:
         if self._session:
-            self.push_screen(
-                AnomalyScreen(self._session, self._default_days),
-                id="anomalies",
-            )
+            self.push_screen(AnomalyScreen(self._session, self._default_days))
 
     def action_show_forecast(self) -> None:
         if self._session:
-            self.push_screen(
-                ForecastScreen(self._session, self._default_days),
-                id="forecast",
-            )
+            self.push_screen(ForecastScreen(self._session, self._default_days))
 
     def action_show_dashboard(self) -> None:
-        self.push_screen(DashboardScreen(self._session, self._default_days), id="dashboard")
+        self.push_screen(DashboardScreen(self._session, self._default_days))
 
 
-class DashboardScreen(Screen):
+class DashboardScreen(Screen[None]):
     """Dashboard screen with KPI overview."""
 
     def __init__(
@@ -237,7 +223,7 @@ class DashboardScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]📊 Remora FinOps Dashboard[/]", id="title")
-        yield DashboardWidget(
+        yield DashboardWidget(  # type: ignore[call-arg]
             default_days=self._days,
             id="dashboard",
         )
