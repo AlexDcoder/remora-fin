@@ -17,8 +17,15 @@ build/
 venv/
 env/
 
+# Python version
+.python-version
+
 # uv
 .uv/
+uv.lock
+
+# Ruff cache
+.ruff_cache/
 
 # IDE
 .vscode/
@@ -39,6 +46,8 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# mypy cache
 .mypy_cache/
 
 # Jupyter
@@ -46,3 +55,6 @@ htmlcov/
 
 # AWS credentials (never commit!)
 .aws/
+
+# GitHub
+.github/CODEOWNERS
