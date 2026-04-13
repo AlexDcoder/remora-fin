@@ -32,7 +32,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "aioboto3>=7.0.0",
+    "aioboto3>=7.1.0",
     "boto3>=1.42.84",
     "plotext>=5.3.2",
     "polars>=1.39.3",
