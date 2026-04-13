@@ -1,0 +1,20 @@
+# Code owners for Remora-Fin
+# https://help.github.com/articles/about-code-owners/
+
+# Default owner
+* @Alex
+
+# Service layer
+/src/remora/services/ @Alex
+
+# Schemas
+/src/remora/schemas/ @Alex
+
+# UI/TUI
+/src/remora/ui/ @Alex
+
+# CLI commands
+/src/remora/commands/ @Alex
+
+# CI/CD workflows
+/.github/workflows/ @Alex

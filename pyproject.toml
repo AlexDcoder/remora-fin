@@ -1,21 +1,66 @@
 [project]
 name = "remora"
 version = "0.1.0"
-description = "Add your description here"
+description = "Lightweight, high-performance FinOps toolkit for AWS"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
     { name = "Alex", email = "alexandrepinto586@gmail.com" }
 ]
 requires-python = ">=3.12"
+keywords = [
+    "aws",
+    "finops",
+    "cost-management",
+    "cloud",
+    "billing",
+    "anomaly-detection",
+    "cost-explorer",
+    "forecasting",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: Office/Business :: Financial",
+    "Typing :: Typed",
+]
 dependencies = [
+    "aioboto3>=7.0.0",
     "boto3>=1.42.84",
+    "plotext>=5.3.2",
     "polars>=1.39.3",
+    "pydantic>=2.12.5",
     "python-dotenv>=1.2.2",
     "rich>=14.3.3",
     "rich-argparse>=1.7.2",
+    "seaborn>=0.13.2",
     "textual>=8.2.3",
+    "textual-plotext>=1.0.1",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.0",
+    "mypy>=1.15.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "moto[all]>=5.0.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Alex/RemoraProject"
+Documentation = "https://github.com/Alex/RemoraProject#readme"
+Repository = "https://github.com/Alex/RemoraProject"
+Issues = "https://github.com/Alex/RemoraProject/issues"
+Changelog = "https://github.com/Alex/RemoraProject/releases"
 
 [project.scripts]
 remora = "remora.cli:execute_cli"
@@ -26,3 +71,44 @@ where = ["src"]
 [build-system]
 requires = ["uv_build>=0.8.15,<0.9.0"]
 build-backend = "uv_build"
+
+# -- Tool Configurations --
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "RUF",   # ruff-specific rules
+    "SIM",   # flake8-simplify
+]
+ignore = [
+    "E501",  # line length (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["remora"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["src/remora"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+addopts = [
+    "--import-mode=importlib",
+    "--cov=remora",
+    "--cov-report=term-missing",
+]

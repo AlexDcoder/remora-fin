@@ -1,1 +1,1 @@
-"""Commands package — CLI subcommands registry."""
+"""CLI Commands package."""
