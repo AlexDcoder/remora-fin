@@ -41,7 +41,7 @@ jobs:
       - run: uv sync --all-extras
       - run: uv run pytest tests/ -v --cov=remora --cov-report=xml
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: always()
         with:
           file: coverage.xml
