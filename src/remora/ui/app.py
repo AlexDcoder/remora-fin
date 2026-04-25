@@ -12,7 +12,6 @@ from typing import ClassVar
 from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.widgets import (
-    DataTable,
     Footer,
     Header,
     Label,
@@ -22,6 +21,11 @@ from remora.services import (
     AnomalyService,
     CostService,
     ForecastService,
+)
+from remora.services.mock_service import (
+    MockAnomalyService,
+    MockCostService,
+    MockForecastService,
 )
 from remora.services.aws_service import AWSSession
 from remora.ui.styles.theme import get_theme_css
@@ -42,24 +46,27 @@ class CostScreen(Screen[None]):
 
     def __init__(
         self,
-        session: AWSSession,
+        session: AWSSession | None,
         days: int = 30,
+        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        self._cost_service = CostService(session)
+        if use_mock:
+            self._cost_service = MockCostService(session)
+        else:
+            self._cost_service = CostService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]💰 Cost Analysis[/]", id="title")
-        yield DataTable(id="cost-table")
-        yield CostChartWidget("Cost Trend", id="cost-table")  # type: ignore[call-arg]
+        yield CostChartWidget("Cost Trend", id="cost-chart")
 
     def on_mount(self) -> None:
         self._load_data()
 
     def _load_data(self) -> None:
-        """Load cost data from AWS."""
+        """Load cost data."""
         end = date.today()
         start = end - timedelta(days=self._days)
 
@@ -68,13 +75,7 @@ class CostScreen(Screen[None]):
 
             # Update chart
             chart = self.query_one("#cost-chart", CostChartWidget)
-            chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points[-30:]])
-
-            # Update table
-            table = self.query_one("#cost-table", DataTable)
-            table.add_columns("Date", "Cost")
-            for p in trend.points[-30:]:
-                table.add_row(str(p.date), f"${p.cost:,.2f}")
+            chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points])
 
         except Exception as e:
             self.notify(f"Error loading cost data: {e}", severity="error")
@@ -85,13 +86,17 @@ class AnomalyScreen(Screen[None]):
 
     def __init__(
         self,
-        session: AWSSession,
+        session: AWSSession | None,
         days: int = 30,
+        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        self._anomaly_service = AnomalyService(session)
+        if use_mock:
+            self._anomaly_service = MockAnomalyService(session)
+        else:
+            self._anomaly_service = AnomalyService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]🔍 Anomaly Detection[/]", id="title")
@@ -102,7 +107,7 @@ class AnomalyScreen(Screen[None]):
 
     def _load_data(self) -> None:
         end = date.today()
-        start = end - timedelta(days=min(self._days, 90))  # AWS keeps 90 days
+        start = end - timedelta(days=min(self._days, 90))
 
         try:
             report = self._anomaly_service.get_anomaly_summary(start, end)
@@ -117,13 +122,17 @@ class ForecastScreen(Screen[None]):
 
     def __init__(
         self,
-        session: AWSSession,
+        session: AWSSession | None,
         days: int = 30,
+        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        self._forecast_service = ForecastService(session)
+        if use_mock:
+            self._forecast_service = MockForecastService(session)
+        else:
+            self._forecast_service = ForecastService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]📈 Cost Forecast[/]", id="title")
@@ -166,12 +175,14 @@ class RemoraApp(App[None]):
         profile: str = "default",
         default_days: int = 30,
         theme: str = "dark",
+        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._region = region
         self._profile = profile
         self._default_days = default_days
         self._theme = theme
+        self._use_mock = use_mock
         self._session: AWSSession | None = None
         self._screens_loaded: dict[str, Screen[None]] = {}
 
@@ -179,13 +190,18 @@ class RemoraApp(App[None]):
         # Set theme
         self.CSS = get_theme_css(self._theme)  # type: ignore[misc]
 
-        # Initialize AWS session
-        self._session = AWSSession.get_instance(
-            region=self._region,
-            profile=self._profile,
-        )
+        # Initialize AWS session if not in mock mode
+        if not self._use_mock:
+            self._session = AWSSession.get_instance(
+                region=self._region,
+                profile=self._profile,
+            )
 
-        # Start on dashboard
+        # Install and start on dashboard
+        self.install_screen(
+            DashboardScreen(self._session, self._default_days, use_mock=self._use_mock),
+            name="dashboard"
+        )
         self.push_screen("dashboard")
 
     def compose(self) -> ComposeResult:
@@ -193,19 +209,16 @@ class RemoraApp(App[None]):
         yield Footer()
 
     def action_show_costs(self) -> None:
-        if self._session:
-            self.push_screen(CostScreen(self._session, self._default_days))
+        self.push_screen(CostScreen(self._session, self._default_days, use_mock=self._use_mock))
 
     def action_show_anomalies(self) -> None:
-        if self._session:
-            self.push_screen(AnomalyScreen(self._session, self._default_days))
+        self.push_screen(AnomalyScreen(self._session, self._default_days, use_mock=self._use_mock))
 
     def action_show_forecast(self) -> None:
-        if self._session:
-            self.push_screen(ForecastScreen(self._session, self._default_days))
+        self.push_screen(ForecastScreen(self._session, self._default_days, use_mock=self._use_mock))
 
     def action_show_dashboard(self) -> None:
-        self.push_screen(DashboardScreen(self._session, self._default_days))
+        self.push_screen(DashboardScreen(self._session, self._default_days, use_mock=self._use_mock))
 
 
 class DashboardScreen(Screen[None]):
@@ -215,11 +228,16 @@ class DashboardScreen(Screen[None]):
         self,
         session: AWSSession | None,
         days: int = 30,
+        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        self._cost_service = CostService(session) if session else None
+        self._use_mock = use_mock
+        if use_mock:
+            self._cost_service = MockCostService(session)
+        else:
+            self._cost_service = CostService(session) if session else None
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]📊 Remora FinOps Dashboard[/]", id="title")
@@ -246,5 +264,11 @@ class DashboardScreen(Screen[None]):
                 daily_avg=f"${summary.daily_average:,.2f}",
                 forecast_trend="—",
             )
+            
+            # Update chart too
+            chart = self.query_one("#dashboard-chart", CostChartWidget)
+            trend = self._cost_service.get_daily_trend(start, end)
+            chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points])
+            
         except Exception:
             pass

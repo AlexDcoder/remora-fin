@@ -22,6 +22,47 @@ from remora.commands.dashboard import add_dashboard_parser
 from remora.commands.forecast import add_forecast_parser
 from remora.commands.login import add_login_parser
 from remora.commands.report import add_report_parser
+from remora.ui.app import RemoraApp
+
+
+def demo(args: argparse.Namespace) -> None:
+    """Launch the dashboard in demo mode with mock data."""
+    from rich.console import Console
+    console = Console()
+    console.print("[bold green]🧪 Launching Remora in Demo Mode (Mock Data)[/]")
+    
+    app = RemoraApp(
+        region="us-east-1",
+        profile="demo",
+        default_days=args.days or 30,
+        theme=args.theme or "dark",
+        use_mock=True,
+    )
+    app.run()
+
+
+def add_demo_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    parser = subparsers.add_parser(
+        "demo",
+        help="Launch dashboard with mock data for UI testing",
+        description="Launch the interactive terminal UI with simulated AWS data.",
+        formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
+    )
+    parser.add_argument(
+        "--theme",
+        choices=["dark", "light"],
+        default="dark",
+        help="UI theme",
+    )
+    parser.add_argument(
+        "--days",
+        "-d",
+        type=int,
+        default=30,
+        help="Default period in days",
+    )
+    parser.set_defaults(func=demo)
+
 
 ASCII_ART = r"""
             __________
@@ -62,6 +103,7 @@ def execute_cli() -> None:
     add_forecast_parser(subparsers)
     add_dashboard_parser(subparsers)
     add_login_parser(subparsers)
+    add_demo_parser(subparsers)
 
     args = parser.parse_args()
 

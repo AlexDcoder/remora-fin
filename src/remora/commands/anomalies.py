@@ -9,6 +9,7 @@ import rich_argparse
 from rich.console import Console
 from rich.table import Table
 
+from remora.schemas.anomaly import AnomalySeverity
 from remora.services import AnomalyService
 from remora.services.aws_service import AWSSession
 
@@ -68,7 +69,6 @@ def anomalies(args: argparse.Namespace) -> None:
 
     for sev_key in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
         sev_lower = sev_key.lower()
-        from remora.schemas.anomaly import AnomalySeverity
 
         count = report.by_severity.get(AnomalySeverity(sev_lower), 0)
         if count > 0:

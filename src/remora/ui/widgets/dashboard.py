@@ -36,8 +36,9 @@ class DashboardWidget(Container):
         anomaly_count: int = 0,
         forecast_trend: str = "—",
         default_days: int = 30,
+        id: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(id=id)
         self._total_cost = total_cost
         self._daily_avg = daily_avg
         self._anomaly_count = anomaly_count

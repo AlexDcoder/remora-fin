@@ -13,6 +13,9 @@ from remora.schemas.forecast import ForecastMetric
 from remora.services import ForecastService
 from remora.services.aws_service import AWSSession
 
+from remora.services.cost_service import CostService
+from remora.services.forecast_service import MovingAverageForecast
+
 console = Console()
 
 
@@ -57,8 +60,6 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         except Exception as e:
             console.print(f"[yellow]⚠ Native forecast unavailable, using local fallback: {e}[/]")
             # Fallback to moving average
-            from remora.services.cost_service import CostService
-            from remora.services.forecast_service import MovingAverageForecast
 
             cost_service = CostService(session)
             hist_start = start - timedelta(days=60)

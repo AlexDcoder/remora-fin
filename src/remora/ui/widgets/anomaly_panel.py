@@ -77,8 +77,8 @@ class AnomalyPanel(VerticalScroll):
     }
     """
 
-    def __init__(self, report: AnomalyReport | None = None) -> None:
-        super().__init__()
+    def __init__(self, report: AnomalyReport | None = None, id: str | None = None) -> None:
+        super().__init__(id=id)
         self._report = report
         self._anomalies: list[Anomaly] = report.anomalies if report else []
         self._selected_anomaly: Anomaly | None = None

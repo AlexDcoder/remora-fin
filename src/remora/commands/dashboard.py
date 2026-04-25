@@ -6,6 +6,8 @@ import argparse
 
 import rich_argparse
 from rich.console import Console
+from remora.ui.app import RemoraApp
+from remora.services.config_service import ConfigService
 
 console = Console()
 
@@ -15,7 +17,6 @@ def dashboard(args: argparse.Namespace) -> None:
     console.print("[bold blue]📊 Launching Remora FinOps Dashboard[/]")
     console.print()
 
-    from remora.services.config_service import ConfigService
 
     config = ConfigService()
     settings = config.settings
@@ -30,7 +31,6 @@ def dashboard(args: argparse.Namespace) -> None:
     console.print("[dim]Starting Textual TUI...[/]")
 
     # Launch the Textual app
-    from remora.ui.app import RemoraApp
 
     app = RemoraApp(
         region=region,

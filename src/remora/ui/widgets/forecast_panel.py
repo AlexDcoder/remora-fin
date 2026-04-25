@@ -41,7 +41,8 @@ class AccuracyMeter(Static):
             pct = self._accuracy * 100
             variant = "" if pct > 80 else "poor"
             bar_len = int(pct / 100 * 20)
-            bar = "█" * bar_len + "░" * (20 - bar_len)
+            # Sparser: use spaces instead of ░
+            bar = "┃" * bar_len + " " * (20 - bar_len)
             self.update(f"[meter-label]{self._label}[/] [meter-value {variant}][{bar}] {pct:.0f}%[/]")
 
 
@@ -54,8 +55,8 @@ class ForecastPanel(VerticalScroll):
     }
     """
 
-    def __init__(self, result: ForecastResult | None = None) -> None:
-        super().__init__()
+    def __init__(self, result: ForecastResult | None = None, id: str | None = None) -> None:
+        super().__init__(id=id)
         self._result = result
 
     def on_mount(self) -> None:

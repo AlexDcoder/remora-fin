@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -51,7 +52,6 @@ class AppSettings(BaseModel):
         """Load settings from environment variables (python-dotenv pattern)."""
         import os
 
-        from dotenv import load_dotenv
 
         load_dotenv()
 

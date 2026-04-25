@@ -105,14 +105,11 @@ class KPICard(Static):
 
         self.update(f"[kpi-label]{self._label}[/]\n[kpi-value {variant_class}]{self._value}[/]")
 
-    def render(self) -> None:  # type: ignore[override]
-        self._update_display()
-
     def update_value(self, value: str, variant: str | None = None) -> None:
         self._value = value
         if variant:
             self._variant = variant
-        self.render()
+        self._update_display()
 
 
 class PeriodSelector(Horizontal):
