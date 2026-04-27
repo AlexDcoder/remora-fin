@@ -26,6 +26,8 @@ from remora.services.report_service import (
     CsvFormatter,
     JsonFormatter,
     MarkdownFormatter,
+    ParquetFormatter,
+    PDFFormatter,
     ReportFormatter,
     ReportService,
     TableFormatter,
@@ -52,6 +54,8 @@ __all__ = [
     "LinearRegressionForecast",
     "MarkdownFormatter",
     "MovingAverageForecast",
+    "ParquetFormatter",
+    "PDFFormatter",
     "ReportFormatter",
     # Report
     "ReportService",

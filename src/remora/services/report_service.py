@@ -2,26 +2,28 @@
 
 Design Patterns: Strategy + Template Method
 
-Formats: Rich Table, JSON, CSV, Markdown
+Formats: PDF (Default), Rich Table, JSON, CSV, Parquet, Markdown
 """
 
 from __future__ import annotations
 
-import csv
 import io
 import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, ClassVar
+from decimal import Decimal
 
+import polars as pl
+from fpdf import FPDF
 from rich.console import Console
 from rich.table import Table as RichTable
 
 from remora.schemas.anomaly import AnomalyReport
 from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.forecast import ForecastResult
-from remora.schemas.report import ReportConfig
+from remora.schemas.report import ReportConfig, ReportFormat
 
 logger = logging.getLogger(__name__)
 
@@ -33,22 +35,96 @@ class ReportFormatter(ABC):
     """Strategy interface for report output formats."""
 
     @abstractmethod
-    def format_cost(self, data: CostBreakdown | CostTrend) -> str:
+    def format_cost(self, data: CostBreakdown | CostTrend) -> bytes | str:
         """Format cost data."""
         ...
 
     @abstractmethod
-    def format_anomalies(self, data: AnomalyReport) -> str:
+    def format_anomalies(self, data: AnomalyReport) -> bytes | str:
         """Format anomaly data."""
         ...
 
     @abstractmethod
-    def format_forecast(self, data: ForecastResult) -> str:
+    def format_forecast(self, data: ForecastResult) -> bytes | str:
         """Format forecast data."""
         ...
 
 
 # -- Concrete Formatters --
+
+class PDFFormatter(ReportFormatter):
+    """PDF formatter using fpdf2."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _create_base_pdf(self, title: str) -> FPDF:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 16)
+        pdf.cell(0, 10, title, ln=True, align="C")
+        pdf.set_font("Arial", "", 10)
+        pdf.cell(0, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align="R")
+        pdf.ln(10)
+        return pdf
+
+    def format_cost(self, data: CostBreakdown | CostTrend) -> bytes:
+        pdf = self._create_base_pdf(f"Cost Report ({data.period.start} to {data.period.end})")
+        
+        if isinstance(data, CostBreakdown):
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(80, 10, "Service", border=1)
+            pdf.cell(50, 10, "Cost", border=1)
+            pdf.cell(40, 10, "%", border=1, ln=True)
+            
+            pdf.set_font("Arial", "", 10)
+            for g in data.groups[:30]:
+                pdf.cell(80, 10, str(g.key), border=1)
+                pdf.cell(50, 10, f"${g.cost:,.2f}", border=1)
+                pdf.cell(40, 10, f"{g.percentage:.1f}%", border=1, ln=True)
+        else:
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(80, 10, "Date", border=1)
+            pdf.cell(80, 10, "Cost", border=1, ln=True)
+            
+            pdf.set_font("Arial", "", 10)
+            for p in data.points[-60:]:
+                pdf.cell(80, 10, str(p.date), border=1)
+                pdf.cell(80, 10, f"${p.cost:,.2f}", border=1, ln=True)
+                
+        return pdf.output()
+
+    def format_anomalies(self, data: AnomalyReport) -> bytes:
+        pdf = self._create_base_pdf(f"Anomaly Report ({data.total_anomalies} detected)")
+        
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(60, 10, "ID", border=1)
+        pdf.cell(50, 10, "Service", border=1)
+        pdf.cell(30, 10, "Severity", border=1)
+        pdf.cell(50, 10, "Variance", border=1, ln=True)
+        
+        pdf.set_font("Arial", "", 8)
+        for a in data.anomalies[:40]:
+            pdf.cell(60, 10, str(a.id[:18]), border=1)
+            pdf.cell(50, 10, str(a.top_root_cause or "Unknown"), border=1)
+            pdf.cell(30, 10, str(a.severity.value.upper()), border=1)
+            pdf.cell(50, 10, f"{a.variance_percentage:.1f}%", border=1, ln=True)
+            
+        return pdf.output()
+
+    def format_forecast(self, data: ForecastResult) -> bytes:
+        pdf = self._create_base_pdf(f"Cost Forecast ({data.forecast_period.start} to {data.forecast_period.end})")
+        
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(80, 10, "Date", border=1)
+        pdf.cell(80, 10, "Predicted Cost", border=1, ln=True)
+        
+        pdf.set_font("Arial", "", 10)
+        for p in data.predictions[:60]:
+            pdf.cell(80, 10, str(p.date), border=1)
+            pdf.cell(80, 10, f"${p.predicted_cost:,.2f}", border=1, ln=True)
+            
+        return pdf.output()
 
 
 class TableFormatter(ReportFormatter):
@@ -184,8 +260,6 @@ class JsonFormatter(ReportFormatter):
                 return o.model_dump(mode="json")
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
-        from decimal import Decimal
-
         return json.dumps(obj, indent=self._indent, default=default_handler)
 
     def format_cost(self, data: CostBreakdown | CostTrend) -> str:
@@ -198,59 +272,63 @@ class JsonFormatter(ReportFormatter):
         return self._serialize(data.model_dump(mode="json"))
 
 
-class CsvFormatter(ReportFormatter):
-    """CSV formatter for spreadsheet import."""
+class FastTableFormatter(ReportFormatter):
+    """Fast export using Polars (CSV, Parquet)."""
 
-    def format_cost(self, data: CostBreakdown | CostTrend) -> str:
-        output = io.StringIO()
-        writer = csv.writer(output)
+    def __init__(self, format: str = "csv"):
+        self._format = format
 
+    def _to_df(self, data: Any) -> pl.DataFrame:
         if isinstance(data, CostBreakdown):
-            writer.writerow(["Service", "Cost", "Percentage"])
-            for g in data.groups:
-                writer.writerow([g.key, str(g.cost), f"{g.percentage}%"])
-        else:
-            writer.writerow(["Date", "Cost"])
-            for p in data.points:
-                writer.writerow([str(p.date), str(p.cost)])
+            return pl.DataFrame([{"service": g.key, "cost": float(g.cost), "percentage": g.percentage} for g in data.groups])
+        elif isinstance(data, CostTrend):
+            return pl.DataFrame([{"date": p.date, "cost": float(p.cost)} for p in data.points])
+        elif isinstance(data, AnomalyReport):
+            return pl.DataFrame([{
+                "id": a.id,
+                "service": a.top_root_cause,
+                "severity": a.severity.value,
+                "actual": float(a.impact.total_actual_spend),
+                "expected": float(a.impact.total_expected_spend),
+                "variance": a.variance_percentage
+            } for a in data.anomalies])
+        elif isinstance(data, ForecastResult):
+            return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
+        return pl.DataFrame()
 
-        return output.getvalue()
+    def _serialize(self, df: pl.DataFrame) -> bytes | str:
+        if self._format == "csv":
+            buf = io.BytesIO()
+            df.write_csv(buf)
+            return buf.getvalue().decode("utf-8")
+        elif self._format == "parquet":
+            buf = io.BytesIO()
+            df.write_parquet(buf)
+            return buf.getvalue()
+        return ""
 
-    def format_anomalies(self, data: AnomalyReport) -> str:
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(
-            [
-                "ID",
-                "Service",
-                "Severity",
-                "Actual Spend",
-                "Expected Spend",
-                "Variance %",
-                "Start Date",
-            ]
-        )
-        for a in data.anomalies:
-            writer.writerow(
-                [
-                    a.id,
-                    a.top_root_cause or "",
-                    a.severity.value,
-                    str(a.impact.total_actual_spend),
-                    str(a.impact.total_expected_spend),
-                    f"{a.variance_percentage:.2f}",
-                    str(a.start_date),
-                ]
-            )
-        return output.getvalue()
+    def format_cost(self, data: CostBreakdown | CostTrend) -> bytes | str:
+        return self._serialize(self._to_df(data))
 
-    def format_forecast(self, data: ForecastResult) -> str:
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Date", "Predicted Cost"])
-        for p in data.predictions:
-            writer.writerow([str(p.date), str(p.predicted_cost)])
-        return output.getvalue()
+    def format_anomalies(self, data: AnomalyReport) -> bytes | str:
+        return self._serialize(self._to_df(data))
+
+    def format_forecast(self, data: ForecastResult) -> bytes | str:
+        return self._serialize(self._to_df(data))
+
+
+class CsvFormatter(FastTableFormatter):
+    """CSV formatter using Polars."""
+
+    def __init__(self) -> None:
+        super().__init__(format="csv")
+
+
+class ParquetFormatter(FastTableFormatter):
+    """Parquet formatter using Polars."""
+
+    def __init__(self) -> None:
+        super().__init__(format="parquet")
 
 
 class MarkdownFormatter(ReportFormatter):
@@ -362,9 +440,11 @@ class ReportService:
     """Report generation with Strategy pattern for output formats."""
 
     _formatters: ClassVar[dict[str, ReportFormatter]] = {
+        "pdf": PDFFormatter(),
         "table": TableFormatter(),
         "json": JsonFormatter(),
-        "csv": CsvFormatter(),
+        "csv": FastTableFormatter(format="csv"),
+        "parquet": FastTableFormatter(format="parquet"),
         "markdown": MarkdownFormatter(),
     }
 
@@ -376,7 +456,7 @@ class ReportService:
         self,
         data: CostBreakdown | CostTrend | AnomalyReport | ForecastResult,
         config: ReportConfig | None = None,
-    ) -> str:
+    ) -> str | bytes:
         """Generate a report in the specified format."""
         config = config or ReportConfig()
         formatter = self._formatters.get(config.format.value)
@@ -395,7 +475,10 @@ class ReportService:
         # Write to file if output_path specified
         if config.output_path:
             config.output_path.parent.mkdir(parents=True, exist_ok=True)
-            config.output_path.write_text(content, encoding="utf-8")
+            if isinstance(content, bytes):
+                config.output_path.write_bytes(content)
+            else:
+                config.output_path.write_text(content, encoding="utf-8")
             logger.info("Report saved to %s", config.output_path)
 
         return content
@@ -404,19 +487,19 @@ class ReportService:
         self,
         data: CostBreakdown | CostTrend,
         config: ReportConfig | None = None,
-    ) -> str:
+    ) -> str | bytes:
         return self.generate_report(data, config)
 
     def generate_anomaly_report(
         self,
         data: AnomalyReport,
         config: ReportConfig | None = None,
-    ) -> str:
+    ) -> str | bytes:
         return self.generate_report(data, config)
 
     def generate_forecast_report(
         self,
         data: ForecastResult,
         config: ReportConfig | None = None,
-    ) -> str:
+    ) -> str | bytes:
         return self.generate_report(data, config)

@@ -14,9 +14,11 @@ from remora.schemas.common import DateRange
 class ReportFormat(StrEnum):
     """Output format for reports."""
 
+    PDF = "pdf"
     TABLE = "table"
     JSON = "json"
     CSV = "csv"
+    PARQUET = "parquet"
     MARKDOWN = "markdown"
 
 
@@ -38,7 +40,7 @@ class ReportConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    format: ReportFormat = ReportFormat.TABLE
+    format: ReportFormat = ReportFormat.PDF
     include_charts: bool = False
     output_path: Path | None = None
     filters: ReportFilters = Field(default_factory=ReportFilters)

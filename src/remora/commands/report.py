@@ -72,7 +72,13 @@ def report(args: argparse.Namespace) -> None:
     content = report_service.generate_report(data, config)
 
     # Output
-    if fmt == ReportFormat.TABLE or fmt == ReportFormat.MARKDOWN:
+    if isinstance(content, bytes):
+        if not config.output_path:
+            # For binary content without output path, we should probably warn or auto-generate a name
+            output_name = f"report_{args.type}_{date.today()}.{fmt.value}"
+            Path(output_name).write_bytes(content)
+            console.print(f"\n[green]✓ {fmt.value.upper()} report generated and saved to {output_name}[/]")
+    elif fmt == ReportFormat.TABLE or fmt == ReportFormat.MARKDOWN:
         console.print(content)
     else:
         console.print(content)
@@ -85,7 +91,7 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: 
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",
-        help="Generate cost reports (table/json/csv/markdown)",
+        help="Generate cost reports (pdf/table/json/csv/parquet/markdown)",
         description="Generate AWS cost reports in various formats.",
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
@@ -99,9 +105,9 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: 
     parser.add_argument(
         "--format",
         "-f",
-        choices=["table", "json", "csv", "markdown"],
-        default="table",
-        help="Output format (default: table)",
+        choices=["pdf", "table", "json", "csv", "parquet", "markdown"],
+        default="pdf",
+        help="Output format (default: pdf)",
     )
     parser.add_argument(
         "--days",
