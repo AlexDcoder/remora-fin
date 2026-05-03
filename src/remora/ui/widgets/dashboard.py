@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import Button, DataTable, Select, Static, ContentSwitcher
 
 from remora.ui.widgets.common.widgets import KPICard
 from remora.ui.widgets.cost_chart import CostChartWidget
@@ -12,7 +13,7 @@ from remora.ui.widgets.cost_chart import CostChartWidget
 class DashboardWidget(Container):
     """Consolidated dashboard showing key FinOps metrics.
 
-    Design Pattern: Composite — aggregates multiple sub-widgets.
+    Uses ContentSwitcher for high-performance view toggling.
     """
 
     DEFAULT_CSS = """
@@ -20,12 +21,34 @@ class DashboardWidget(Container):
         layout: vertical;
         padding: 1 2;
     }
+    #control-row {
+        height: auto;
+        margin-bottom: 1;
+        align: center middle;
+    }
+    #service-selector {
+        width: 1fr;
+    }
+    #view-toggle {
+        width: auto;
+        margin-left: 2;
+        min-width: 25;
+    }
     #kpi-row {
         height: 5;
     }
     #chart-row {
         height: 15;
         margin: 1 0;
+    }
+    #dashboard-content-switcher {
+        height: 1fr;
+    }
+    #dashboard-report-table {
+        height: 1fr;
+    }
+    #dashboard-chart {
+        height: 1fr;
     }
     """
 
@@ -44,27 +67,49 @@ class DashboardWidget(Container):
         self._anomaly_count = anomaly_count
         self._forecast_trend = forecast_trend
         self._default_days = default_days
+        self._view_mode = "dashboard"
 
     def compose(self) -> ComposeResult:
+        # Controls
+        yield Horizontal(
+            Select(
+                [(s, s) for s in ["All Services"]],
+                value="All Services",
+                id="service-selector",
+                prompt="Select AWS Service",
+            ),
+            Button("Switch to Report 📋", id="view-toggle", variant="primary"),
+            id="control-row",
+        )
+
         # KPI Row
         yield Horizontal(
-            KPICard("Total Spend", self._total_cost),
-            KPICard("Daily Average", self._daily_avg),
+            KPICard("Total Spend", self._total_cost, id="kpi-total"),
+            KPICard("Daily Average", self._daily_avg, id="kpi-avg"),
             KPICard(
                 "Anomalies",
                 str(self._anomaly_count),
                 variant="warning" if self._anomaly_count > 5 else "normal",
+                id="kpi-anomalies",
             ),
             KPICard(
                 "Forecast",
                 self._forecast_trend,
                 variant=("danger" if "↑" in self._forecast_trend else "normal"),
+                id="kpi-forecast",
             ),
             id="kpi-row",
         )
 
-        # Chart placeholder
-        yield CostChartWidget("30-Day Cost Trend", id="dashboard-chart")  # type: ignore[call-arg]
+        # Content Area with ContentSwitcher for better performance
+        with ContentSwitcher(id="dashboard-content-switcher", initial="chart-view"):
+            yield CostChartWidget("Cost Trend", id="dashboard-chart")
+            yield DataTable(id="dashboard-report-table", zebra_stripes=True, cursor_type="row")
+
+    def on_mount(self) -> None:
+        """Initialize table columns once."""
+        table = self.query_one("#dashboard-report-table", DataTable)
+        table.add_columns("Date", "Service", "Cost")
 
     def update_kpis(
         self,
@@ -75,16 +120,38 @@ class DashboardWidget(Container):
     ) -> None:
         """Update KPI cards with new data."""
         if total_cost is not None:
-            self._total_cost = total_cost
+            self.query_one("#kpi-total", KPICard).update_value(total_cost)
         if daily_avg is not None:
-            self._daily_avg = daily_avg
+            self.query_one("#kpi-avg", KPICard).update_value(daily_avg)
         if anomaly_count is not None:
-            self._anomaly_count = anomaly_count
+            self.query_one("#kpi-anomalies", KPICard).update_value(
+                str(anomaly_count),
+                variant="warning" if anomaly_count > 5 else "normal"
+            )
         if forecast_trend is not None:
-            self._forecast_trend = forecast_trend
+            self.query_one("#kpi-forecast", KPICard).update_value(
+                forecast_trend,
+                variant=("danger" if "↑" in forecast_trend else "normal")
+            )
 
-    def refresh_all(self) -> None:
-        """Full refresh of all dashboard data."""
-        # This would be called when new data arrives from services
-        # Triggers recomputation of all KPIs and chart
-        pass
+    def toggle_view(self) -> None:
+        """Toggle between chart and report table using ContentSwitcher."""
+        switcher = self.query_one("#dashboard-content-switcher", ContentSwitcher)
+        btn = self.query_one("#view-toggle", Button)
+
+        if self._view_mode == "dashboard":
+            self._view_mode = "report"
+            switcher.current = "dashboard-report-table"
+            btn.label = "Switch to Dashboard 📊"
+            btn.variant = "default"
+        else:
+            self._view_mode = "dashboard"
+            switcher.current = "dashboard-chart"
+            btn.label = "Switch to Report 📋"
+            btn.variant = "primary"
+
+    def update_report_table(self, data: list[tuple[str, str, str]]) -> None:
+        """Update the report table efficiently without re-adding columns."""
+        table = self.query_one("#dashboard-report-table", DataTable)
+        table.clear()
+        table.add_rows(data)

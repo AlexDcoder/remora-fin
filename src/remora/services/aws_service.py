@@ -137,6 +137,24 @@ class AWSSession:
             "arn": resp["Arn"],
         }
 
+    def fetch_token_paginated(
+        self,
+        method: Callable[..., Any],
+        token_field: str = "NextPageToken",
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        """Generic helper for APIs that use NextPageToken manually."""
+        pages = []
+        current_kwargs = kwargs.copy()
+        while True:
+            resp = method(**current_kwargs)
+            pages.append(resp)
+            token = resp.get(token_field)
+            if not token:
+                break
+            current_kwargs[token_field] = token
+        return pages
+
 
 # -- Paginator Helper --
 

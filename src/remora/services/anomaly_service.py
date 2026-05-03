@@ -22,7 +22,7 @@ from remora.schemas.anomaly import (
     AnomalySeverity,
     AnomalyType,
 )
-from remora.services.aws_service import AWSSession
+from remora.services.aws_service import AWSSession, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class AnomalyService:
     def __init__(self, session: AWSSession | None = None) -> None:
         self._session = session or AWSSession.get_instance()
 
+    @retry_with_backoff(max_retries=3)
     def _fetch_all_pages(
         self,
         start: date,
@@ -63,15 +64,7 @@ class AnomalyService:
                 "StartValue": str(min_impact),
             }
 
-        pages = []
-        while True:
-            resp = ce.get_anomalies(**params)
-            pages.append(resp)
-            next_token = resp.get("NextPageToken")
-            if not next_token:
-                break
-            params["NextPageToken"] = next_token
-
+        pages = self._session.fetch_token_paginated(ce.get_anomalies, **params)
         logger.info("Fetched %d anomaly pages", len(pages))
         return pages
 
@@ -215,6 +208,7 @@ class AnomalyService:
             return anomaly.root_causes
         return []
 
+    @retry_with_backoff(max_retries=3)
     def create_monitor(
         self,
         name: str,
@@ -237,6 +231,7 @@ class AnomalyService:
         logger.info("Created anomaly monitor: %s (%s)", name, monitor_arn)
         return monitor_arn
 
+    @retry_with_backoff(max_retries=3)
     def list_monitors(self) -> list[dict[str, Any]]:
         """List all anomaly monitors."""
         ce = self._session.cost_explorer()
@@ -244,31 +239,9 @@ class AnomalyService:
         monitors: list[dict[str, Any]] = resp.get("AnomalyMonitors", [])
         return monitors
 
+    @retry_with_backoff(max_retries=3)
     def delete_monitor(self, monitor_arn: str) -> None:
         """Delete an anomaly monitor."""
         ce = self._session.cost_explorer()
         ce.delete_anomaly_monitor(MonitorArn=monitor_arn)
         logger.info("Deleted anomaly monitor: %s", monitor_arn)
-
-
-class AnomalyClassifierChain:
-    """Chain of Responsibility for anomaly enrichment.
-
-    Each handler can classify/enrich an anomaly.
-    The chain allows future expansion with new handlers.
-    """
-
-    def __init__(self) -> None:
-        self._service = AnomalyService()
-
-    def classify(
-        self,
-        start: date,
-        end: date,
-    ) -> AnomalyReport:
-        """Fetch and classify all anomalies."""
-        return self._service.get_anomaly_summary(start, end)
-
-    def classify_single(self, raw: dict[str, Any]) -> Anomaly:
-        """Classify a single raw anomaly."""
-        return self._service._parse_anomaly(raw)

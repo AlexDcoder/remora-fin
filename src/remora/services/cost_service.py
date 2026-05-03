@@ -1,7 +1,8 @@
 """Cost Service — AWS Cost Explorer integration with Builder pattern.
 
-Design Patterns: Repository + Builder (CostQueryBuilder)
-Uses AWS NATIVE get_cost_and_usage() for all raw data collection.
+This service provides high-level methods to query AWS Cost and Usage data,
+leveraging a Builder pattern for complex query construction and Polars for
+data transformation and caching.
 """
 
 from __future__ import annotations
@@ -22,11 +23,11 @@ from remora.schemas.cost import (
     CostTrend,
     CostTrendPoint,
 )
-from remora.services.aws_service import AWSSession
+from remora.services.aws_service import AWSSession, retry_with_backoff
+from remora.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
-# Valid metrics from AWS native API
 VALID_METRICS = (
     "UnblendedCost",
     "BlendedCost",
@@ -55,19 +56,10 @@ DIMENSION_KEYS = (
 
 
 class CostQueryBuilder:
-    """Builder for AWS Cost Explorer query parameters.
-
-    Usage:
-        query = (CostQueryBuilder()
-            .with_time_period(start, end)
-            .with_granularity("DAILY")
-            .with_metric("UnblendedCost")
-            .with_filter("SERVICE", "AmazonEC2")
-            .with_group_by("DIMENSION", "SERVICE")
-            .build())
-    """
+    """Fluent builder for AWS Cost Explorer query parameters."""
 
     def __init__(self) -> None:
+        """Initialize the builder with default values."""
         self._time_period: dict[str, str] | None = None
         self._granularity: str = "DAILY"
         self._metrics: list[str] = ["UnblendedCost"]
@@ -76,19 +68,27 @@ class CostQueryBuilder:
         self._next_page_token: str | None = None
 
     def with_time_period(self, start: date, end: date) -> CostQueryBuilder:
+        """Set the time period for the query.
+
+        Args:
+            start: Start date (inclusive).
+            end: End date (exclusive).
+        """
         self._time_period = {"Start": start.isoformat(), "End": end.isoformat()}
         return self
 
     def with_granularity(self, granularity: str) -> CostQueryBuilder:
+        """Set the time granularity of the results."""
         g = granularity.upper()
         if g not in VALID_GRANULARITIES:
-            raise ValueError(f"Invalid granularity: {granularity}. Must be one of {VALID_GRANULARITIES}")
+            raise ValueError(f"Invalid granularity: {granularity}")
         self._granularity = g
         return self
 
     def with_metric(self, metric: str) -> CostQueryBuilder:
+        """Set the cost metric to retrieve."""
         if metric not in VALID_METRICS:
-            raise ValueError(f"Invalid metric: {metric}. Must be one of {VALID_METRICS}")
+            raise ValueError(f"Invalid metric: {metric}")
         self._metrics = [metric]
         return self
 
@@ -98,7 +98,7 @@ class CostQueryBuilder:
         value: str,
         match_option: str = "EQUALS",
     ) -> CostQueryBuilder:
-        """Add a dimension/tag/cost category filter."""
+        """Add a dimension or tag filter to the query."""
         if key.upper() in DIMENSION_KEYS:
             self._filters.append(
                 {
@@ -110,7 +110,6 @@ class CostQueryBuilder:
                 }
             )
         else:
-            # Treat as tag
             self._filters.append(
                 {
                     "Tags": {
@@ -122,37 +121,22 @@ class CostQueryBuilder:
             )
         return self
 
-    def with_logical_operator(
-        self,
-        operator: str,
-        filters: list[dict[str, Any]],
-    ) -> CostQueryBuilder:
-        """Combine filters with And/Or/Not."""
-        op = operator.upper()
-        if op not in ("AND", "OR", "NOT"):
-            raise ValueError(f"Invalid operator: {operator}")
-        self._filters.append({op: filters})
-        return self
-
     def with_group_by(
         self,
         group_type: str,
         key: str,
     ) -> CostQueryBuilder:
+        """Add a grouping criteria to the query."""
         gt = group_type.upper()
         if gt not in ("DIMENSION", "TAG", "COST_CATEGORY"):
             raise ValueError(f"Invalid group type: {group_type}")
         self._group_by.append({"Type": gt, "Key": key})
         return self
 
-    def with_page_token(self, token: str) -> CostQueryBuilder:
-        self._next_page_token = token
-        return self
-
     def build(self) -> dict[str, Any]:
-        """Build the query dict ready for boto3."""
+        """Finalize and return the query dictionary for AWS SDK."""
         if not self._time_period:
-            raise ValueError("Time period is required. Call with_time_period() first.")
+            raise ValueError("Time period is required for Cost Explorer queries.")
 
         query: dict[str, Any] = {
             "TimePeriod": self._time_period,
@@ -166,68 +150,31 @@ class CostQueryBuilder:
                 query["Filter"] = {"And": self._filters}
         if self._group_by:
             query["GroupBy"] = self._group_by
-        if self._next_page_token:
-            query["NextPageToken"] = self._next_page_token
         return query
 
 
 class CostService:
-    """Repository for AWS Cost Explorer data.
+    """Service layer for AWS Cost and Usage data management."""
 
-    All raw data comes from AWS NATIVE APIs.
-    Polars is used for complementary transformations.
-    """
-
-    def __init__(self, session: AWSSession | None = None) -> None:
+    def __init__(self, session: AWSSession | None = None, cache: CacheService | None = None) -> None:
+        """Initialize CostService with optional AWS session and Cache service."""
         self._session = session or AWSSession.get_instance()
+        self._cache = cache or CacheService()
 
+    @retry_with_backoff(max_retries=5)
     def _fetch_all_pages(self, query: dict[str, Any]) -> list[dict[str, Any]]:
-        """Fetch all paginated results automatically."""
+        """Internal helper to fetch all paginated results from AWS Cost Explorer."""
         ce = self._session.cost_explorer()
-        pages = []
-        current_query = query.copy()
-
-        while True:
-            resp = ce.get_cost_and_usage(**current_query)
-            pages.append(resp)
-            next_token = resp.get("NextPageToken")
-            if not next_token:
-                break
-            current_query["NextPageToken"] = next_token
-
-        logger.info("Fetched %d pages from Cost Explorer", len(pages))
-        return pages
+        return self._session.fetch_token_paginated(ce.get_cost_and_usage, **query)
 
     def _parse_results(self, pages: list[dict[str, Any]]) -> pl.DataFrame:
-        """Parse Cost Explorer response into a Polars DataFrame."""
+        """Parse raw AWS Cost Explorer pages into a standardized Polars DataFrame."""
         rows = []
         for page in pages:
             for result in page.get("ResultsByTime", []):
                 time_period = result.get("TimePeriod", {})
                 period_start = datetime.strptime(time_period.get("Start", ""), "%Y-%m-%d").date()
 
-                # Total metrics (no group-by)
-                totals = result.get("Total", {})
-                unblended = Decimal(totals.get("UnblendedCost", {}).get("Amount", "0"))
-                blended = Decimal(totals.get("BlendedCost", {}).get("Amount", "0"))
-                amortized = Decimal(totals.get("AmortizedCost", {}).get("Amount", "0"))
-
-                rows.append(
-                    {
-                        "date": period_start,
-                        "service": "",
-                        "account": "",
-                        "region": None,
-                        "usage_type": None,
-                        "unblended_cost": unblended,
-                        "blended_cost": blended,
-                        "amortized_cost": amortized,
-                        "usage_quantity": Decimal("0"),
-                        "currency": totals.get("UnblendedCost", {}).get("Unit", "USD"),
-                    }
-                )
-
-                # Group-level metrics
                 for group in result.get("Groups", []):
                     keys = group.get("Keys", [])
                     metrics = group.get("Metrics", {})
@@ -236,197 +183,143 @@ class CostService:
                             "date": period_start,
                             "service": keys[0] if len(keys) > 0 else "",
                             "account": keys[1] if len(keys) > 1 else "",
-                            "region": None,
-                            "usage_type": None,
                             "unblended_cost": Decimal(metrics.get("UnblendedCost", {}).get("Amount", "0")),
                             "blended_cost": Decimal(metrics.get("BlendedCost", {}).get("Amount", "0")),
                             "amortized_cost": Decimal(metrics.get("AmortizedCost", {}).get("Amount", "0")),
+                            "net_unblended_cost": Decimal(metrics.get("NetUnblendedCost", {}).get("Amount", "0")),
                             "usage_quantity": Decimal(metrics.get("UsageQuantity", {}).get("Amount", "0")),
-                            "currency": metrics.get("UnblendedCost", {}).get("Unit", "USD"),
                         }
                     )
+                
+                if not result.get("Groups"):
+                    totals = result.get("Total", {})
+                    rows.append({
+                        "date": period_start,
+                        "service": "Total",
+                        "account": "",
+                        "unblended_cost": Decimal(totals.get("UnblendedCost", {}).get("Amount", "0")),
+                        "blended_cost": Decimal(totals.get("BlendedCost", {}).get("Amount", "0")),
+                        "amortized_cost": Decimal(totals.get("AmortizedCost", {}).get("Amount", "0")),
+                        "net_unblended_cost": Decimal(totals.get("NetUnblendedCost", {}).get("Amount", "0")),
+                        "usage_quantity": Decimal(totals.get("UsageQuantity", {}).get("Amount", "0")),
+                    })
 
-        return pl.DataFrame(
-            rows,
-            schema={
-                "date": pl.Date,
-                "service": pl.Utf8,
-                "account": pl.Utf8,
-                "region": pl.Utf8,
-                "usage_type": pl.Utf8,
-                "unblended_cost": pl.Decimal(scale=6),
-                "blended_cost": pl.Decimal(scale=6),
-                "amortized_cost": pl.Decimal(scale=6),
-                "usage_quantity": pl.Decimal(scale=6),
-                "currency": pl.Utf8,
-            },
-        )
+        return pl.DataFrame(rows)
 
-    # -- Public API --
+    def _get_data(self, query: dict[str, Any], use_cache: bool = True) -> pl.DataFrame:
+        """Internal method to retrieve cost data, checking cache first."""
+        if use_cache:
+            cached_df = self._cache.get(query)
+            if cached_df is not None:
+                return cached_df
 
-    def get_total_cost(
-        self,
-        start: date,
-        end: date,
-        granularity: str = "DAILY",
-        metric: str = "UnblendedCost",
-    ) -> CostSummary:
-        """Get total cost summary for a period."""
-        query = (
-            CostQueryBuilder()
-            .with_time_period(start, end)
-            .with_granularity(granularity)
-            .with_metric(metric)
-            .with_group_by("DIMENSION", "SERVICE")
-            .build()
-        )
         pages = self._fetch_all_pages(query)
         df = self._parse_results(pages)
+        
+        if use_cache:
+            self._cache.set(query, df)
+        
+        return df
 
-        # Aggregations with Polars
+    def get_total_cost(self, start: date, end: date) -> CostSummary:
+        """Get summary of total costs for a given period."""
+        query = (CostQueryBuilder()
+                .with_time_period(start, end)
+                .with_group_by("DIMENSION", "SERVICE")
+                .build())
+        df = self._get_data(query)
+        
         total = df["unblended_cost"].sum()
-        daily_avg = df.group_by("date").agg(pl.col("unblended_cost").sum())["unblended_cost"].mean()
-        daily_totals = df.group_by("date").agg(pl.col("unblended_cost").sum())["unblended_cost"]
-
-        top_services = (
-            df.filter(pl.col("service") != "")
-            .group_by("service")
-            .agg(pl.col("unblended_cost").sum())
-            .sort("unblended_cost", descending=True)
-        )
+        daily_agg = df.group_by("date").agg(pl.col("unblended_cost").sum())
+        daily_avg = daily_agg["unblended_cost"].mean()
+        
+        top_service = (df.filter(pl.col("service") != "Total")
+                      .group_by("service")
+                      .agg(pl.col("unblended_cost").sum())
+                      .sort("unblended_cost", descending=True))
 
         return CostSummary(
             total_cost=Decimal(str(total)),
             daily_average=Decimal(str(daily_avg or 0)),
-            max_daily_cost=Decimal(str(daily_totals.max() or 0)),
-            min_daily_cost=Decimal(str(daily_totals.min() or 0)),
-            top_service=top_services["service"][0] if len(top_services) > 0 else "Unknown",
-            num_services=df.filter(pl.col("service") != "")["service"].n_unique(),
-            num_accounts=df.filter(pl.col("account") != "")["account"].n_unique(),
+            max_daily_cost=Decimal(str(daily_agg["unblended_cost"].max() or 0)),
+            min_daily_cost=Decimal(str(daily_agg["unblended_cost"].min() or 0)),
+            top_service=top_service["service"][0] if len(top_service) > 0 else "N/A",
+            num_services=df.filter(pl.col("service") != "Total")["service"].n_unique(),
+            num_accounts=df["account"].n_unique(),
         )
 
-    def get_cost_by_service(
-        self,
-        start: date,
-        end: date,
-        granularity: str = "DAILY",
-        metric: str = "UnblendedCost",
-    ) -> CostBreakdown:
-        """Get cost breakdown by service."""
-        query = (
-            CostQueryBuilder()
-            .with_time_period(start, end)
-            .with_granularity(granularity)
-            .with_metric(metric)
-            .with_group_by("DIMENSION", "SERVICE")
-            .build()
-        )
-        pages = self._fetch_all_pages(query)
-        df = self._parse_results(pages)
+    def get_daily_trend(self, start: date, end: date, metric: str = "UnblendedCost") -> CostTrend:
+        """Get daily cost trend for a given period."""
+        query = (CostQueryBuilder()
+                .with_time_period(start, end)
+                .with_metric(metric)
+                .with_granularity("DAILY")
+                .build())
+        df = self._get_data(query)
+        
+        # metric name to column name mapping
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+            "UsageQuantity": "usage_quantity",
+        }
+        col_name = col_map.get(metric, "unblended_cost")
 
-        # Filter grouped entries
-        grouped_df = (
-            df.filter(pl.col("service") != "")
-            .group_by("service")
-            .agg(pl.col("unblended_cost").sum())
-            .sort("unblended_cost", descending=True)
-        )
-
-        total_cost = df["unblended_cost"].sum()
-        groups = []
-        for row in grouped_df.iter_rows(named=True):
-            service = row["service"]
-            cost = row["unblended_cost"]
-            pct = float(cost / total_cost * 100) if total_cost > 0 else 0.0
-            groups.append(
-                CostGroup(
-                    key=service,
-                    label=service,
-                    cost=cost,
-                    percentage=round(pct, 2),
-                )
-            )
-
-        entries = [
-            CostEntry(
+        daily_data = (df.filter(pl.col("service") == "Total")
+                     .sort("date"))
+        
+        points = [
+            CostTrendPoint(
                 date=r["date"],
-                service=r["service"],
-                linked_account=r["account"],
-                unblended_cost=r["unblended_cost"],
-                blended_cost=r["blended_cost"],
-                amortized_cost=r["amortized_cost"],
+                cost=Decimal(str(r[col_name])),
+                usage=Decimal(str(r["usage_quantity"]))
             )
-            for r in df.iter_rows(named=True)
+            for r in daily_data.iter_rows(named=True)
         ]
-
-        summary = self.get_total_cost(start, end, granularity, metric)
-
-        return CostBreakdown(
-            period=DateRange(start=start, end=end),
-            granularity=granularity,
-            metric=metric,
-            entries=entries,
-            groups=groups,
-            summary=summary,
-        )
-
-    def get_daily_trend(
-        self,
-        start: date,
-        end: date,
-        metric: str = "UnblendedCost",
-    ) -> CostTrend:
-        """Get daily cost trend."""
-        query = CostQueryBuilder().with_time_period(start, end).with_granularity("DAILY").with_metric(metric).build()
-        pages = self._fetch_all_pages(query)
-        df = self._parse_results(pages)
-
-        daily = df.group_by("date").agg(pl.col("unblended_cost").sum().alias("cost")).sort("date")
-
-        points = [CostTrendPoint(date=r["date"], cost=r["cost"]) for r in daily.iter_rows(named=True)]
-
+        
         return CostTrend(
             period=DateRange(start=start, end=end),
             granularity="DAILY",
             metric=metric,
-            points=points,
+            points=points
         )
 
-    def get_cost_by_account(
-        self,
-        start: date,
-        end: date,
-        granularity: str = "DAILY",
-        metric: str = "UnblendedCost",
-    ) -> CostBreakdown:
-        """Get cost breakdown by AWS account."""
-        query = (
-            CostQueryBuilder()
-            .with_time_period(start, end)
-            .with_granularity(granularity)
-            .with_metric(metric)
-            .with_group_by("DIMENSION", "LINKED_ACCOUNT")
-            .build()
-        )
-        pages = self._fetch_all_pages(query)
-        df = self._parse_results(pages)
-        summary = self.get_total_cost(start, end, granularity, metric)
+    def get_cost_by_service(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
+        """Get cost breakdown grouped by AWS service."""
+        query = (CostQueryBuilder()
+                .with_time_period(start, end)
+                .with_metric(metric)
+                .with_group_by("DIMENSION", "SERVICE")
+                .build())
+        df = self._get_data(query)
+        
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+        }
+        col_name = col_map.get(metric, "unblended_cost")
 
-        grouped = (
-            df.filter(pl.col("account") != "")
-            .group_by("account")
-            .agg(pl.col("unblended_cost").sum())
-            .sort("unblended_cost", descending=True)
-        )
-
-        total = df["unblended_cost"].sum()
-        groups = []
-        for row in grouped.iter_rows(named=True):
-            acct = row["account"]
-            cost = row["unblended_cost"]
-            pct = float(cost / total * 100) if total > 0 else 0.0
-            groups.append(CostGroup(key=acct, cost=cost, percentage=round(pct, 2)))
-
+        grouped = (df.filter(pl.col("service") != "Total")
+                  .group_by("service")
+                  .agg(pl.col(col_name).sum())
+                  .sort(col_name, descending=True))
+        
+        total = grouped[col_name].sum()
+        
+        groups = [
+            CostGroup(
+                key=r["service"], 
+                label=r["service"], 
+                cost=Decimal(str(r[col_name])), 
+                percentage=float(r[col_name]/total*100) if total > 0 else 0
+            )
+            for r in grouped.iter_rows(named=True)
+        ]
+        
         entries = [
             CostEntry(
                 date=r["date"],
@@ -438,78 +331,79 @@ class CostService:
             )
             for r in df.iter_rows(named=True)
         ]
-
+        
         return CostBreakdown(
             period=DateRange(start=start, end=end),
-            granularity=granularity,
+            granularity="DAILY",
             metric=metric,
             entries=entries,
             groups=groups,
-            summary=summary,
+            summary=self.get_total_cost(start, end)
         )
 
-    def get_reservation_coverage(
-        self,
-        start: date,
-        end: date,
-    ) -> dict[str, Any]:
-        """Get Reserved Instance coverage from native API."""
-        ce = self._session.cost_explorer()
-        resp: dict[str, Any] = ce.get_reservation_coverage(
-            TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
-        )
-        return resp
+    def get_cost_by_account(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
+        """Get cost breakdown grouped by AWS account."""
+        query = (CostQueryBuilder()
+                .with_time_period(start, end)
+                .with_metric(metric)
+                .with_group_by("DIMENSION", "LINKED_ACCOUNT")
+                .build())
+        df = self._get_data(query)
+        
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+        }
+        col_name = col_map.get(metric, "unblended_cost")
 
-    def get_savings_plans_coverage(
-        self,
-        start: date,
-        end: date,
-    ) -> dict[str, Any]:
-        """Get Savings Plans coverage from native API."""
-        ce = self._session.cost_explorer()
-        resp: dict[str, Any] = ce.get_savings_plans_coverage(
-            TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
-        )
-        return resp
-
-    def get_tag_coverage(
-        self,
-        start: date,
-        end: date,
-    ) -> list[str]:
-        """Get available cost allocation tags."""
-        ce = self._session.cost_explorer()
-        resp: dict[str, Any] = ce.get_tags(
-            TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
-            SearchString="",
-        )
-        tags: list[str] = resp.get("Tags", [])
-        return tags
-
-    def get_budget_performance(
-        self,
-        budget_name: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Get budget performance history."""
-        budgets = self._session.budgets()
-        accounts = self._session.sts().get_caller_identity()
-        account_id = accounts["Account"]
-
-        if budget_name:
-            resp: dict[str, Any] = budgets.describe_budget_performance_history(
-                AccountId=account_id,
-                BudgetName=budget_name,
+        grouped = (df.filter(pl.col("service") != "Total")
+                  .group_by("account")
+                  .agg(pl.col(col_name).sum())
+                  .sort(col_name, descending=True))
+        
+        total = grouped[col_name].sum()
+        
+        groups = [
+            CostGroup(
+                key=r["account"], 
+                label=r["account"], 
+                cost=Decimal(str(r[col_name])), 
+                percentage=float(r[col_name]/total*100) if total > 0 else 0
             )
-            return [resp]
-
-        # Get all budgets
-        all_budgets: dict[str, Any] = budgets.describe_budgets(AccountId=account_id)
-        results: list[dict[str, Any]] = []
-        for budget in all_budgets.get("Budgets", []):
-            name = budget["BudgetName"]
-            perf: dict[str, Any] = budgets.describe_budget_performance_history(
-                AccountId=account_id,
-                BudgetName=name,
+            for r in grouped.iter_rows(named=True)
+        ]
+        
+        entries = [
+            CostEntry(
+                date=r["date"],
+                service=r["service"],
+                linked_account=r["account"],
+                unblended_cost=r["unblended_cost"],
+                blended_cost=r["blended_cost"],
+                amortized_cost=r["amortized_cost"],
             )
-            results.append(perf)
-        return results
+            for r in df.iter_rows(named=True)
+        ]
+        
+        return CostBreakdown(
+            period=DateRange(start=start, end=end),
+            granularity="DAILY",
+            metric=metric,
+            entries=entries,
+            groups=groups,
+            summary=self.get_total_cost(start, end)
+        )
+
+    def get_unit_economics(self, cost_df: pl.DataFrame, business_df: pl.DataFrame, on: str = "date") -> pl.DataFrame:
+        """Calculate unit economics by joining cost data with business metrics.
+
+        Args:
+            cost_df: DataFrame with unblended_cost.
+            business_df: DataFrame with metric_value.
+            on: Column name to join on (usually 'date').
+        """
+        return cost_df.join(business_df, on=on).with_columns(
+            (pl.col("unblended_cost") / pl.col("metric_value")).alias("cost_per_unit")
+        )

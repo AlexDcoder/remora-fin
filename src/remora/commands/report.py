@@ -3,35 +3,16 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, timedelta
 from pathlib import Path
 
-import rich_argparse
-from rich.console import Console
-
-from remora.schemas.cost import CostBreakdown, CostTrend
-from remora.schemas.report import ReportConfig, ReportFilters, ReportFormat
-from remora.services import CostService, ReportService
-from remora.services.aws_service import AWSSession
-
-console = Console()
+from remora.schemas.report import ReportFilters, ReportFormat
+from remora.services import CostService, AWSSession
+from remora.commands.utils import parse_dates, print_report
 
 
 def report(args: argparse.Namespace) -> None:
     """Generate a cost report."""
-    # Parse dates
-    end = date.today()
-    if args.end:
-        end = date.fromisoformat(args.end)
-    if args.days:
-        start = end - timedelta(days=args.days)
-    elif args.start:
-        start = date.fromisoformat(args.start)
-    else:
-        start = end - timedelta(days=30)
-
-    console.print(f"[bold blue]📊 Cost Report[/]  [dim]{start} → {end}[/]")
-    console.print()
+    start, end = parse_dates(args)
 
     # Initialize services
     session = AWSSession.get_instance(
@@ -39,52 +20,29 @@ def report(args: argparse.Namespace) -> None:
         profile=args.profile or "default",
     )
     cost_service = CostService(session)
-    report_service = ReportService()
 
     # Build filters
     filters = ReportFilters(
         services=[args.service] if args.service else None,
     )
 
-    # Parse format
-    fmt = ReportFormat(args.format)
+    # Fetch data
+    metric = args.metric
+    if args.type == "trend":
+        data = cost_service.get_daily_trend(start, end, metric=metric)
+    elif args.type == "account":
+        data = cost_service.get_cost_by_account(start, end, metric=metric)
+    else:  # breakdown/service
+        data = cost_service.get_cost_by_service(start, end, metric=metric)
 
-    # Build config
-    config = ReportConfig(
-        format=fmt,
+    # Generate and print report
+    print_report(
+        data,
+        fmt=args.format,
         output_path=Path(args.output) if args.output else None,
         filters=filters,
         group_by=args.group_by,
     )
-
-    with console.status("[cyan]Fetching cost data from AWS...[/]"):
-        data: CostBreakdown | CostTrend
-        if args.type == "service":
-            data = cost_service.get_cost_by_service(start, end, metric=args.metric)
-        elif args.type == "trend":
-            data = cost_service.get_daily_trend(start, end)
-        elif args.type == "account":
-            data = cost_service.get_cost_by_account(start, end)
-        else:
-            data = cost_service.get_cost_by_service(start, end)
-
-    # Generate report
-    content = report_service.generate_report(data, config)
-
-    # Output
-    if isinstance(content, bytes):
-        if not config.output_path:
-            # For binary content without output path, we should probably warn or auto-generate a name
-            output_name = f"report_{args.type}_{date.today()}.{fmt.value}"
-            Path(output_name).write_bytes(content)
-            console.print(f"\n[green]✓ {fmt.value.upper()} report generated and saved to {output_name}[/]")
-    elif fmt == ReportFormat.TABLE or fmt == ReportFormat.MARKDOWN:
-        console.print(content)
-    else:
-        console.print(content)
-
-    if config.output_path:
-        console.print(f"\n[green]✓ Report saved to {config.output_path}[/]")
 
 
 def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
@@ -93,7 +51,6 @@ def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: 
         "report",
         help="Generate cost reports (pdf/table/json/csv/parquet/markdown)",
         description="Generate AWS cost reports in various formats.",
-        formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
         "--type",

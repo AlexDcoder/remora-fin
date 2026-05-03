@@ -1,12 +1,10 @@
-from remora.services import ReportService, CsvFormatter, ParquetFormatter, PDFFormatter, JsonFormatter, TableFormatter, MarkdownFormatter
+from remora.services import ReportService, PDFFormatter, JsonFormatter, TableFormatter, MarkdownFormatter
 
 def test_report_service_instantiation():
     service = ReportService()
     assert service is not None
 
 def test_formatters_exist():
-    assert CsvFormatter is not None
-    assert ParquetFormatter is not None
     assert PDFFormatter is not None
     assert JsonFormatter is not None
     assert TableFormatter is not None

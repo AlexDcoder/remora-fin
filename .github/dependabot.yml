@@ -20,6 +20,8 @@ updates:
       # Only direct dependencies from pyproject.toml
       - dependency-name: "aioboto3"
       - dependency-name: "boto3"
+      - dependency-name: "boto3-stubs"
+      - dependency-name: "fpdf2"
       - dependency-name: "plotext"
       - dependency-name: "polars"
       - dependency-name: "pydantic"

@@ -1,8 +1,8 @@
 """Report Service — Export cost analysis in multiple formats.
 
-Design Patterns: Strategy + Template Method
-
-Formats: PDF (Default), Rich Table, JSON, CSV, Parquet, Markdown
+This service utilizes a Strategy pattern to support multiple export formats
+including PDF, terminal tables, JSON, CSV, Parquet, and Markdown. It also
+includes an S3 exporter for remote storage.
 """
 
 from __future__ import annotations
@@ -25,40 +25,60 @@ from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.forecast import ForecastResult
 from remora.schemas.report import ReportConfig, ReportFormat
 
+from remora.services.aws_service import AWSSession
+
 logger = logging.getLogger(__name__)
 
 
-# -- Strategy Interface --
+class S3Exporter:
+    """Handles uploading generated reports to AWS S3."""
+
+    def __init__(self, session: AWSSession | None = None) -> None:
+        """Initialize S3Exporter with an optional AWS session."""
+        self._session = session or AWSSession.get_instance()
+
+    def upload(self, content: bytes | str, bucket: str, key: str) -> str:
+        """Upload content to a specific S3 bucket and key.
+
+        Args:
+            content: The data to upload (bytes or string).
+            bucket: Target S3 bucket name.
+            key: Target S3 object key.
+
+        Returns:
+            The S3 URI of the uploaded object.
+        """
+        s3 = self._session.s3()
+        body = content if isinstance(content, bytes) else content.encode("utf-8")
+        s3.put_object(Bucket=bucket, Key=key, Body=body)
+        logger.info("Report uploaded to s3://%s/%s", bucket, key)
+        return f"s3://{bucket}/{key}"
 
 
 class ReportFormatter(ABC):
-    """Strategy interface for report output formats."""
+    """Abstract base class for report formatters (Strategy Interface)."""
 
     @abstractmethod
     def format_cost(self, data: CostBreakdown | CostTrend) -> bytes | str:
-        """Format cost data."""
+        """Format cost breakdown or trend data."""
         ...
 
     @abstractmethod
     def format_anomalies(self, data: AnomalyReport) -> bytes | str:
-        """Format anomaly data."""
+        """Format anomaly detection results."""
         ...
 
     @abstractmethod
     def format_forecast(self, data: ForecastResult) -> bytes | str:
-        """Format forecast data."""
+        """Format cost forecast results."""
         ...
 
 
-# -- Concrete Formatters --
-
 class PDFFormatter(ReportFormatter):
-    """PDF formatter using fpdf2."""
-
-    def __init__(self) -> None:
-        super().__init__()
+    """PDF formatter leveraging the fpdf2 library."""
 
     def _create_base_pdf(self, title: str) -> FPDF:
+        """Create a PDF object with a standard header."""
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -128,7 +148,7 @@ class PDFFormatter(ReportFormatter):
 
 
 class TableFormatter(ReportFormatter):
-    """Rich Table formatter for terminal output."""
+    """Rich Table formatter for styled terminal output."""
 
     def __init__(self, console: Console | None = None):
         self._console = console or Console()
@@ -144,7 +164,7 @@ class TableFormatter(ReportFormatter):
             table.add_column("Cost", justify="right", style="green")
             table.add_column("%", justify="right", style="yellow")
 
-            for g in data.groups[:20]:  # Top 20
+            for g in data.groups[:20]:
                 table.add_row(g.key, f"${g.cost:,.2f}", f"{g.percentage:.1f}%")
 
             if data.summary:
@@ -153,13 +173,12 @@ class TableFormatter(ReportFormatter):
                     f"[bold green]${data.summary.total_cost:,.2f}[/]",
                     "100%",
                 )
-
-        else:  # CostTrend
+        else:
             table.add_column("Date", style="cyan")
             table.add_column("Cost", justify="right", style="green")
             table.add_column("Trend", justify="right", style="yellow")
 
-            for i, p in enumerate(data.points[-30:], 1):  # Last 30 days
+            for i, p in enumerate(data.points[-30:], 1):
                 trend = ""
                 if i > 1:
                     prev = data.points[-30 + i - 1]
@@ -169,13 +188,8 @@ class TableFormatter(ReportFormatter):
                         trend = "[green]▼[/]"
                     else:
                         trend = "[yellow]━[/]"
-                table.add_row(
-                    str(p.date),
-                    f"${p.cost:,.2f}",
-                    trend,
-                )
+                table.add_row(str(p.date), f"${p.cost:,.2f}", trend)
 
-        # Capture table output as string
         output = io.StringIO()
         temp_console = Console(file=output, force_terminal=True, width=120)
         temp_console.print(table)
@@ -193,12 +207,7 @@ class TableFormatter(ReportFormatter):
         table.add_column("Expected", justify="right", style="yellow")
         table.add_column("Variance %", justify="right", style="red")
 
-        severity_colors = {
-            "low": "green",
-            "medium": "yellow",
-            "high": "red",
-            "critical": "bold red",
-        }
+        severity_colors = {"low": "green", "medium": "yellow", "high": "red", "critical": "bold red"}
 
         for a in data.anomalies[:30]:
             sev_color = severity_colors.get(a.severity.value, "white")
@@ -225,18 +234,10 @@ class TableFormatter(ReportFormatter):
         table.add_column("Predicted", justify="right", style="green")
         table.add_column("Model", style="dim")
 
-        for p in data.predictions[:30]:  # First 30 days
-            table.add_row(
-                str(p.date),
-                f"${p.predicted_cost:,.2f}",
-                data.model_used.value,
-            )
+        for p in data.predictions[:30]:
+            table.add_row(str(p.date), f"${p.predicted_cost:,.2f}", data.model_used.value)
 
-        table.add_row(
-            "[bold]TOTAL[/bold]",
-            f"[bold green]${data.total_predicted_cost:,.2f}[/]",
-            "",
-        )
+        table.add_row("[bold]TOTAL[/bold]", f"[bold green]${data.total_predicted_cost:,.2f}[/]", "")
 
         output = io.StringIO()
         temp_console = Console(file=output, force_terminal=True, width=120)
@@ -245,7 +246,7 @@ class TableFormatter(ReportFormatter):
 
 
 class JsonFormatter(ReportFormatter):
-    """JSON formatter for machine consumption."""
+    """JSON formatter for machine-readable output."""
 
     def __init__(self, indent: int = 2):
         self._indent = indent
@@ -273,7 +274,7 @@ class JsonFormatter(ReportFormatter):
 
 
 class FastTableFormatter(ReportFormatter):
-    """Fast export using Polars (CSV, Parquet)."""
+    """Fast exporter leveraging Polars for CSV and Parquet formats."""
 
     def __init__(self, format: str = "csv"):
         self._format = format
@@ -297,12 +298,11 @@ class FastTableFormatter(ReportFormatter):
         return pl.DataFrame()
 
     def _serialize(self, df: pl.DataFrame) -> bytes | str:
+        buf = io.BytesIO()
         if self._format == "csv":
-            buf = io.BytesIO()
             df.write_csv(buf)
             return buf.getvalue().decode("utf-8")
         elif self._format == "parquet":
-            buf = io.BytesIO()
             df.write_parquet(buf)
             return buf.getvalue()
         return ""
@@ -317,127 +317,45 @@ class FastTableFormatter(ReportFormatter):
         return self._serialize(self._to_df(data))
 
 
-class CsvFormatter(FastTableFormatter):
-    """CSV formatter using Polars."""
-
-    def __init__(self) -> None:
-        super().__init__(format="csv")
-
-
-class ParquetFormatter(FastTableFormatter):
-    """Parquet formatter using Polars."""
-
-    def __init__(self) -> None:
-        super().__init__(format="parquet")
-
-
 class MarkdownFormatter(ReportFormatter):
-    """Markdown formatter for documentation."""
+    """Markdown formatter for documentation-ready reports."""
 
     def format_cost(self, data: CostBreakdown | CostTrend) -> str:
-        lines = [
-            "# Cost Report",
-            "",
-            f"**Period:** {data.period.start} → {data.period.end}",
-            f"**Granularity:** {data.granularity}",
-            f"**Metric:** {data.metric}",
-            "",
-        ]
-
+        lines = ["# Cost Report", "", f"**Period:** {data.period.start} → {data.period.end}", ""]
         if isinstance(data, CostBreakdown) and data.summary:
-            lines.extend(
-                [
-                    "## Summary",
-                    "",
-                    "| Metric | Value |",
-                    "|--------|-------|",
-                    f"| Total Cost | ${data.summary.total_cost:,.2f} |",
-                    f"| Daily Average | ${data.summary.daily_average:,.2f} |",
-                    f"| Top Service | {data.summary.top_service} |",
-                    "",
-                ]
-            )
-
+            lines.extend(["## Summary", "", "| Metric | Value |", "|--------|-------|",
+                         f"| Total Cost | ${data.summary.total_cost:,.2f} |",
+                         f"| Daily Average | ${data.summary.daily_average:,.2f} |", ""])
         if isinstance(data, CostBreakdown):
-            lines.extend(
-                [
-                    "## By Service",
-                    "",
-                    "| Service | Cost | % |",
-                    "|---------|------|---|",
-                ]
-            )
+            lines.extend(["## By Service", "", "| Service | Cost | % |", "|---------|------|---|"])
             for g in data.groups[:20]:
                 lines.append(f"| {g.key} | ${g.cost:,.2f} | {g.percentage:.1f}% |")
         else:
-            lines.extend(
-                [
-                    "## Daily Trend",
-                    "",
-                    "| Date | Cost |",
-                    "|------|------|",
-                ]
-            )
+            lines.extend(["## Daily Trend", "", "| Date | Cost |", "|------|------|"])
             for p in data.points[-30:]:
                 lines.append(f"| {p.date} | ${p.cost:,.2f} |")
-
         return "\n".join(lines)
 
     def format_anomalies(self, data: AnomalyReport) -> str:
-        lines = [
-            "# Anomaly Report",
-            "",
-            f"**Total Anomalies:** {data.total_anomalies}",
-            f"**Net Financial Impact:** ${data.net_financial_impact:,.2f}",
-            "",
-            "## By Severity",
-            "",
-            "| Severity | Count |",
-            "|----------|-------|",
-        ]
-        for sev, count in sorted(data.by_severity.items()):
-            lines.append(f"| {sev.value.upper()} | {count} |")
-
-        lines.extend(
-            [
-                "",
-                "## Details",
-                "",
-                "| ID | Service | Severity | Actual | Expected | Variance |",
-                "|----|---------|----------|--------|----------|----------|",
-            ]
-        )
+        lines = ["# Anomaly Report", "", f"**Total Anomalies:** {data.total_anomalies}", ""]
+        lines.extend(["## Details", "", "| ID | Service | Severity | Actual | Expected | Variance |",
+                     "|----|---------|----------|--------|----------|----------|"])
         for a in data.anomalies[:30]:
-            lines.append(
-                f"| {a.id[:18]} | {a.top_root_cause or ''} | "
-                f"{a.severity.value.upper()} | "
-                f"${a.impact.total_actual_spend:,.2f} | "
-                f"${a.impact.total_expected_spend:,.2f} | "
-                f"{a.variance_percentage:.1f}% |"
-            )
+            lines.append(f"| {a.id[:18]} | {a.top_root_cause or ''} | {a.severity.value.upper()} | "
+                         f"${a.impact.total_actual_spend:,.2f} | ${a.impact.total_expected_spend:,.2f} | "
+                         f"{a.variance_percentage:.1f}% |")
         return "\n".join(lines)
 
     def format_forecast(self, data: ForecastResult) -> str:
-        lines = [
-            "# Cost Forecast",
-            "",
-            f"**Period:** {data.forecast_period.start} → {data.forecast_period.end}",
-            f"**Model:** {data.model_used.value}",
-            f"**Total Predicted:** ${data.total_predicted_cost:,.2f}",
-            "",
-            "| Date | Predicted Cost |",
-            "|------|---------------|",
-        ]
+        lines = ["# Cost Forecast", "", f"**Total Predicted:** ${data.total_predicted_cost:,.2f}", "",
+                 "| Date | Predicted Cost |", "|------|---------------|"]
         for p in data.predictions[:30]:
             lines.append(f"| {p.date} | ${p.predicted_cost:,.2f} |")
         return "\n".join(lines)
 
 
-# -- ReportService --
-
-
 class ReportService:
-    """Report generation with Strategy pattern for output formats."""
+    """Orchestrates report generation using the Strategy pattern."""
 
     _formatters: ClassVar[dict[str, ReportFormatter]] = {
         "pdf": PDFFormatter(),
@@ -448,16 +366,12 @@ class ReportService:
         "markdown": MarkdownFormatter(),
     }
 
-    @classmethod
-    def register_formatter(cls, name: str, formatter: ReportFormatter) -> None:
-        cls._formatters[name] = formatter
-
     def generate_report(
         self,
         data: CostBreakdown | CostTrend | AnomalyReport | ForecastResult,
         config: ReportConfig | None = None,
     ) -> str | bytes:
-        """Generate a report in the specified format."""
+        """Generate a report in the specified format based on configuration."""
         config = config or ReportConfig()
         formatter = self._formatters.get(config.format.value)
         if not formatter:
@@ -472,34 +386,12 @@ class ReportService:
         else:
             raise TypeError(f"Unsupported data type: {type(data)}")
 
-        # Write to file if output_path specified
         if config.output_path:
             config.output_path.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(content, bytes):
                 config.output_path.write_bytes(content)
             else:
                 config.output_path.write_text(content, encoding="utf-8")
-            logger.info("Report saved to %s", config.output_path)
+            logger.info("Report saved locally to %s", config.output_path)
 
         return content
-
-    def generate_cost_summary(
-        self,
-        data: CostBreakdown | CostTrend,
-        config: ReportConfig | None = None,
-    ) -> str | bytes:
-        return self.generate_report(data, config)
-
-    def generate_anomaly_report(
-        self,
-        data: AnomalyReport,
-        config: ReportConfig | None = None,
-    ) -> str | bytes:
-        return self.generate_report(data, config)
-
-    def generate_forecast_report(
-        self,
-        data: ForecastResult,
-        config: ReportConfig | None = None,
-    ) -> str | bytes:
-        return self.generate_report(data, config)

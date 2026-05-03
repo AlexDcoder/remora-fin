@@ -26,7 +26,7 @@ from remora.schemas.forecast import (
     ForecastResult,
     VarianceAnalysis,
 )
-from remora.services.aws_service import AWSSession
+from remora.services.aws_service import AWSSession, retry_with_backoff
 from remora.services.cost_service import CostService
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
     def __init__(self, session: AWSSession | None = None):
         self._session = session or AWSSession.get_instance()
 
+    @retry_with_backoff(max_retries=3)
     def predict(
         self,
         historical_data: pl.DataFrame,
@@ -295,6 +296,34 @@ class ForecastService:
             group_by_type=group_by_type,
             group_by_key=group_by_key,
         )
+
+    def get_forecast(
+        self,
+        start: date,
+        end: date,
+        metric: ForecastMetric = ForecastMetric.UNBLENDED_COST,
+        granularity: str = "DAILY",
+        **kwargs: Any,
+    ) -> ForecastResult:
+        """Get forecast with automatic fallback to local models if AWS native fails."""
+        try:
+            return self.get_aws_native_forecast(start, end, metric, granularity, **kwargs)
+        except Exception as e:
+            logger.warning("AWS native forecast failed, falling back to moving average: %s", e)
+            
+            # Fetch historical data for moving average
+            hist_start = start - timedelta(days=60)
+            trend = self._cost_service.get_daily_trend(hist_start, start)
+            
+            df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
+            
+            strategy = MovingAverageForecast(window=7)
+            return strategy.predict(
+                historical_data=df,
+                start=start,
+                end=end,
+                metric=metric,
+            )
 
     def get_forecast_with_confidence(
         self,
