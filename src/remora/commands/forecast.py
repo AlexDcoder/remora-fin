@@ -16,6 +16,9 @@ from remora.commands.utils import validate_aws_session
 
 logger = logging.getLogger(__name__)
 
+from rich.status import Status
+from rich.panel import Panel
+
 def forecast_cmd(args: argparse.Namespace) -> None:
     """Predict future AWS costs."""
     # Parse forecast period (forecast usually starts tomorrow)
@@ -46,25 +49,29 @@ def forecast_cmd(args: argparse.Namespace) -> None:
 
     forecast_service = ForecastService(session)
     report_service = ReportService()
+    console = Console()
 
     # Fetch data
-    logger.info("Generating forecast for period [green]%s[/] to [green]%s[/]", start, end)
-    result = forecast_service.get_forecast(
-        start=start,
-        end=end,
-        metric=ForecastMetric(args.metric),
-        granularity=args.granularity,
-        group_by_type=args.group_by_type,
-        group_by_key=args.group_by_key,
-    )
+    with Status("[bold magenta]Calculating forecast...", console=console) as status:
+        logger.info("Period: [green]%s[/] to [green]%s[/]", start, end)
+        result = forecast_service.get_forecast(
+            start=start,
+            end=end,
+            metric=ForecastMetric(args.metric),
+            granularity=args.granularity,
+            group_by_type=args.group_by_type,
+            group_by_key=args.group_by_key,
+        )
 
-    # Prepare metadata
-    identity = session.get_caller_identity()
-    metadata = ReportMetadata(
-        period=DateRange(start=start, end=end),
-        generated_by=identity.get("arn"),
-        account_id=identity.get("account"),
-    )
+        status.update("[bold magenta]Formatting results...")
+        
+        # Prepare metadata
+        identity = session.get_caller_identity()
+        metadata = ReportMetadata(
+            period=DateRange(start=start, end=end),
+            generated_by=identity.get("arn"),
+            account_id=identity.get("account"),
+        )
 
     # Output
     if args.json:
@@ -72,24 +79,26 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         print(report_service.generate_report(result, config, metadata))
     else:
         config = ReportConfig(format=ReportFormat.TABLE)
-        logger.info("Generating [bold magenta]Forecast Projection Table[/]")
         print(report_service.generate_report(result, config, metadata))
 
     # Scenario analysis if requested (kept as extra CLI output)
     if args.scenarios and not args.json:
         from rich.table import Table
-        from rich.console import Console
-        console = Console()
         
-        console.print()
-        console.print("[bold cyan]Scenario Analysis:[/]")
+        print()
         variations = {
             "optimistic": -0.10,
             "baseline": 0.0,
             "pessimistic": 0.15,
         }
         scenarios = forecast_service.scenario_analysis(result, variations)
-        scenario_table = Table(show_lines=True, header_style="bold magenta")
+        
+        scenario_table = Table(
+            show_lines=True, 
+            header_style="bold magenta",
+            title="Forecast Scenario Analysis",
+            title_style="bold cyan"
+        )
         scenario_table.add_column("Scenario", style="cyan")
         scenario_table.add_column("Total Cost", justify="right", style="green")
         scenario_table.add_column("vs Baseline", justify="right", style="yellow")
@@ -104,14 +113,26 @@ def forecast_cmd(args: argparse.Namespace) -> None:
                 f"{diff:+.1f}%",
             )
         print(scenario_table)
+    
+    summary_panel = Panel(
+        f"Total Predicted: [bold green]${result.total_predicted_cost:,.2f}[/]\n"
+        f"Model Used:     [cyan]{result.model_used.value}[/]",
+        title="REMORA | Forecast Engine",
+        border_style="magenta",
+        expand=False
+    )
+    console.print(summary_panel)
 
+
+import rich_argparse
 
 def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add forecast subparser."""
     parser = subparsers.add_parser(
         "forecast",
         help="Forecast future AWS costs",
-        description="Predict future AWS costs using ML-based forecasting.",
+        description="[bold magenta]Predict future AWS costs using ML-based forecasting.[/]",
+        formatter_class=rich_argparse.RichHelpFormatter,
     )
     parser.add_argument(
         "--days",

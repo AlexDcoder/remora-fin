@@ -14,6 +14,12 @@ from remora.commands.utils import parse_dates, validate_aws_session
 
 logger = logging.getLogger(__name__)
 
+from rich.console import Console
+from rich.status import Status
+from rich.panel import Panel
+
+console = Console()
+
 def anomalies(args: argparse.Namespace) -> None:
     """Detect and display AWS cost anomalies."""
     start, end = parse_dates(args)
@@ -35,16 +41,19 @@ def anomalies(args: argparse.Namespace) -> None:
     monitor_arn = args.monitor_arn or None
 
     # Fetch data
-    logger.info("Detecting anomalies for period [green]%s[/] to [green]%s[/]", start, end)
-    report_data = anomaly_service.get_anomaly_summary(start, end, monitor_arn)
-
-    # Prepare metadata
-    identity = session.get_caller_identity()
-    metadata = ReportMetadata(
-        period=DateRange(start=start, end=end),
-        generated_by=identity.get("arn"),
-        account_id=identity.get("account"),
-    )
+    with Status("[bold yellow]Detecting anomalies...", console=console) as status:
+        logger.info("Period: [green]%s[/] to [green]%s[/]", start, end)
+        report_data = anomaly_service.get_anomaly_summary(start, end, monitor_arn)
+        
+        status.update("[bold magenta]Formatting results...")
+        
+        # Prepare metadata
+        identity = session.get_caller_identity()
+        metadata = ReportMetadata(
+            period=DateRange(start=start, end=end),
+            generated_by=identity.get("arn"),
+            account_id=identity.get("account"),
+        )
 
     # Output
     if args.json:
@@ -52,19 +61,30 @@ def anomalies(args: argparse.Namespace) -> None:
         print(report_service.generate_report(report_data, config, metadata))
     else:
         config = ReportConfig(format=ReportFormat.TABLE)
-        logger.info("Generating [bold yellow]Anomaly Summary Table[/]")
         print(report_service.generate_report(report_data, config, metadata))
         
         if report_data.total_anomalies == 0:
             print("\n[bold green]No cost anomalies detected in the selected period.[/] ✨\n")
+        
+        summary_panel = Panel(
+            f"Total Anomalies: [bold red]{report_data.total_anomalies}[/]\n"
+            f"Period:         [cyan]{start} to {end}[/]",
+            title="REMORA | Anomaly Insight",
+            border_style="yellow",
+            expand=False
+        )
+        console.print(summary_panel)
 
+
+import rich_argparse
 
 def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add anomalies subparser."""
     parser = subparsers.add_parser(
         "anomalies",
         help="Detect cost anomalies in your AWS account",
-        description="Detect and display AWS cost anomalies using ML-based detection.",
+        description="[bold yellow]Detect and display AWS cost anomalies using ML-based detection.[/]",
+        formatter_class=rich_argparse.RichHelpFormatter,
     )
     parser.add_argument(
         "--days",
