@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from typing import Any
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from remora.schemas.common import DateRange
 
@@ -29,6 +30,19 @@ class CostEntry(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
+    @field_validator("unblended_cost", "blended_cost", "amortized_cost", mode="before")
+    @classmethod
+    def clip_negative_costs(cls, v: Any) -> Any:
+        """Clip extremely small negative costs to zero (precision errors)."""
+        if v is not None:
+            try:
+                dec_v = Decimal(str(v))
+                if Decimal("-0.0001") < dec_v < 0:
+                    return Decimal("0")
+            except (ValueError, TypeError):
+                pass
+        return v
+
 
 class CostSummary(BaseModel):
     """Aggregated cost summary."""
@@ -43,6 +57,19 @@ class CostSummary(BaseModel):
     top_account: str | None = None
     num_services: int = Field(ge=0)
     num_accounts: int = Field(ge=0)
+
+    @field_validator("total_cost", "daily_average", "max_daily_cost", "min_daily_cost", mode="before")
+    @classmethod
+    def clip_negative_costs(cls, v: Any) -> Any:
+        """Clip extremely small negative costs to zero (precision errors)."""
+        if v is not None:
+            try:
+                dec_v = Decimal(str(v))
+                if Decimal("-0.0001") < dec_v < 0:
+                    return Decimal("0")
+            except (ValueError, TypeError):
+                pass
+        return v
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -63,6 +90,19 @@ class CostGroup(BaseModel):
     cost: Decimal = Field(ge=0)
     percentage: float = Field(ge=0, le=100)
     usage_quantity: Decimal = Field(default=Decimal("0"), ge=0)
+
+    @field_validator("cost", mode="before")
+    @classmethod
+    def clip_negative_costs(cls, v: Any) -> Any:
+        """Clip extremely small negative costs to zero (precision errors)."""
+        if v is not None:
+            try:
+                dec_v = Decimal(str(v))
+                if Decimal("-0.0001") < dec_v < 0:
+                    return Decimal("0")
+            except (ValueError, TypeError):
+                pass
+        return v
 
 
 class CostBreakdown(BaseModel):
@@ -93,6 +133,19 @@ class CostTrendPoint(BaseModel):
     date: date
     cost: Decimal = Field(ge=0)
     usage: Decimal = Field(default=Decimal("0"), ge=0)
+
+    @field_validator("cost", mode="before")
+    @classmethod
+    def clip_negative_costs(cls, v: Any) -> Any:
+        """Clip extremely small negative costs to zero (precision errors)."""
+        if v is not None:
+            try:
+                dec_v = Decimal(str(v))
+                if Decimal("-0.0001") < dec_v < 0:
+                    return Decimal("0")
+            except (ValueError, TypeError):
+                pass
+        return v
 
 
 class CostTrend(BaseModel):

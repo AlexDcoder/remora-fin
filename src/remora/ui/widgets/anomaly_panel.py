@@ -96,7 +96,7 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(f"[bold]{r.total_anomalies} anomalies detected[/]"))
 
         if r.total_anomalies == 0:
-            self.mount(Label("[green]✓ No anomalies in this period[/]"))
+            self.mount(Label("[green]No anomalies in this period[/]"))
             return
 
         # Severity breakdown

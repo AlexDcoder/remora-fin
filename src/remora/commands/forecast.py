@@ -6,11 +6,15 @@ import argparse
 from datetime import date, timedelta
 from pathlib import Path
 
+import logging
+from rich import print
 from remora.schemas.forecast import ForecastMetric
-from remora.schemas.report import ReportFormat
-from remora.services import ForecastService, AWSSession
-from remora.commands.utils import parse_dates, print_report
+from remora.schemas.report import ReportFormat, ReportConfig, ReportMetadata
+from remora.schemas.common import DateRange
+from remora.services import ForecastService, AWSSession, ReportService
+from remora.commands.utils import validate_aws_session
 
+logger = logging.getLogger(__name__)
 
 def forecast_cmd(args: argparse.Namespace) -> None:
     """Predict future AWS costs."""
@@ -34,9 +38,17 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         region=args.region or "us-east-1",
         profile=args.profile or "default",
     )
-    forecast_service = ForecastService(session)
+    
+    # Pre-flight check
+    if not validate_aws_session(session):
+        logger.error("AWS session validation failed")
+        return
 
-    # Fetch data using the service's automatic fallback logic
+    forecast_service = ForecastService(session)
+    report_service = ReportService()
+
+    # Fetch data
+    logger.info("Generating forecast for period [green]%s[/] to [green]%s[/]", start, end)
     result = forecast_service.get_forecast(
         start=start,
         end=end,
@@ -46,29 +58,38 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         group_by_key=args.group_by_key,
     )
 
-    # Output
-    fmt = ReportFormat.JSON if args.json else ReportFormat.TABLE
-    print_report(
-        result,
-        fmt=fmt,
-        output_path=Path(args.output) if hasattr(args, "output") and args.output else None,
+    # Prepare metadata
+    identity = session.get_caller_identity()
+    metadata = ReportMetadata(
+        period=DateRange(start=start, end=end),
+        generated_by=identity.get("arn"),
+        account_id=identity.get("account"),
     )
+
+    # Output
+    if args.json:
+        config = ReportConfig(format=ReportFormat.JSON)
+        print(report_service.generate_report(result, config, metadata))
+    else:
+        config = ReportConfig(format=ReportFormat.TABLE)
+        logger.info("Generating [bold magenta]Forecast Projection Table[/]")
+        print(report_service.generate_report(result, config, metadata))
 
     # Scenario analysis if requested (kept as extra CLI output)
     if args.scenarios and not args.json:
-        from rich.console import Console
         from rich.table import Table
+        from rich.console import Console
         console = Console()
         
         console.print()
-        console.print("[bold]Scenario Analysis:[/]")
+        console.print("[bold cyan]Scenario Analysis:[/]")
         variations = {
             "optimistic": -0.10,
             "baseline": 0.0,
             "pessimistic": 0.15,
         }
         scenarios = forecast_service.scenario_analysis(result, variations)
-        scenario_table = Table(show_lines=True)
+        scenario_table = Table(show_lines=True, header_style="bold magenta")
         scenario_table.add_column("Scenario", style="cyan")
         scenario_table.add_column("Total Cost", justify="right", style="green")
         scenario_table.add_column("vs Baseline", justify="right", style="yellow")
@@ -82,7 +103,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
                 f"${total:,.2f}",
                 f"{diff:+.1f}%",
             )
-        console.print(scenario_table)
+        print(scenario_table)
 
 
 def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]

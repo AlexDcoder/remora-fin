@@ -48,7 +48,7 @@ class ErrorBanner(Static):
     """
 
     def show(self, message: str) -> None:
-        self.update(f"⚠ {message}")
+        self.update(f"Error: {message}")
         self.display = True
 
     def hide(self) -> None:
@@ -220,7 +220,7 @@ class ExportButton(Horizontal):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Button("📥 Export", id="btn-export")
+        yield Button("Export", id="btn-export")
         yield Select(  # type: ignore[call-arg]
             choices=[
                 ("JSON", "json"),

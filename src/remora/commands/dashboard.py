@@ -7,31 +7,40 @@ import argparse
 import rich_argparse
 from rich.console import Console
 from remora.ui.app import RemoraApp
+from remora.services import AWSSession
 from remora.services.config_service import ConfigService
+from remora.commands.utils import validate_aws_session
 
 console = Console()
 
 
 def dashboard(args: argparse.Namespace) -> None:
     """Launch the interactive FinOps dashboard (TUI)."""
-    console.print("[bold blue]📊 Launching Remora FinOps Dashboard[/]")
-    console.print()
-
-
+    
     config = ConfigService()
     settings = config.settings
 
     region = args.region or settings.aws.region
     profile = args.profile or settings.aws.profile
+    
+    # Pre-flight check
+    session = AWSSession.get_instance(region=region, profile=profile)
+    if not validate_aws_session(session):
+        return
 
-    console.print(f"  Profile: [cyan]{profile}[/]")
-    console.print(f"  Region:  [cyan]{region}[/]")
-    console.print(f"  Theme:   [cyan]{settings.ui.theme}[/]")
-    console.print()
-    console.print("[dim]Starting Textual TUI...[/]")
+    from rich.panel import Panel
+    from rich.text import Text
+    
+    welcome_text = Text.assemble(
+        ("Launching Remora FinOps Dashboard\n", "bold blue"),
+        ("\nProfile: ", "dim"), (f"{profile}", "cyan"),
+        ("\nRegion:  ", "dim"), (f"{region}", "cyan"),
+        ("\nTheme:   ", "dim"), (f"{settings.ui.theme}", "cyan"),
+        ("\n\nStarting Textual TUI...", "italic dim")
+    )
+    console.print(Panel(welcome_text, border_style="blue", expand=False))
 
     # Launch the Textual app
-
     app = RemoraApp(
         region=region,
         profile=profile,

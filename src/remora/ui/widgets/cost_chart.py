@@ -54,7 +54,7 @@ class CostChartWidget(Static):
             bar_len = int((v / max_val) * bar_width) if max_val > 0 else 0
             # Using ┃ (U+2503) for a cleaner vertical look
             bar = "┃" * bar_len
-            lines.append(f"  [cyan]{d}[/]  [dim]{bar}[/]  [green]${v:,.2f}[/]")
+            lines.append(f"  [cyan]{d}[/]  [dim]{bar}[/]  [green]{v:,.2f}[/]")
             lines.append("")  # Sparse: add empty line between bars
 
         self.update("\n".join(lines))

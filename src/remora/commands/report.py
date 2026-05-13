@@ -5,10 +5,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from remora.schemas.report import ReportFilters, ReportFormat
-from remora.services import CostService, AWSSession
-from remora.commands.utils import parse_dates, print_report
+import logging
+from rich import print
+from remora.schemas.report import ReportFilters, ReportFormat, ReportMetadata, ReportConfig
+from remora.schemas.common import DateRange
+from remora.services import CostService, AWSSession, ReportService
+from remora.commands.utils import parse_dates, validate_aws_session
 
+logger = logging.getLogger(__name__)
 
 def report(args: argparse.Namespace) -> None:
     """Generate a cost report."""
@@ -19,7 +23,14 @@ def report(args: argparse.Namespace) -> None:
         region=args.region or "us-east-1",
         profile=args.profile or "default",
     )
+    
+    # Pre-flight check
+    if not validate_aws_session(session):
+        logger.error("AWS session validation failed")
+        return
+
     cost_service = CostService(session)
+    report_service = ReportService()
 
     # Build filters
     filters = ReportFilters(
@@ -28,6 +39,8 @@ def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
+    logger.info("Fetching [bold cyan]%s[/] data for period [green]%s[/] to [green]%s[/]", metric, start, end)
+    
     if args.type == "trend":
         data = cost_service.get_daily_trend(start, end, metric=metric)
     elif args.type == "account":
@@ -35,14 +48,29 @@ def report(args: argparse.Namespace) -> None:
     else:  # breakdown/service
         data = cost_service.get_cost_by_service(start, end, metric=metric)
 
-    # Generate and print report
-    print_report(
-        data,
-        fmt=args.format,
-        output_path=Path(args.output) if args.output else None,
-        filters=filters,
-        group_by=args.group_by,
+    # Prepare metadata
+    identity = session.get_caller_identity()
+    metadata = ReportMetadata(
+        period=DateRange(start=start, end=end),
+        generated_by=identity.get("arn"),
+        account_id=identity.get("account"),
+        filters_applied=filters,
     )
+
+    # Output path logic
+    fmt = ReportFormat(args.format)
+    output_path = Path(args.output) if args.output else Path(f"remora_report_{args.type}.{fmt.value}")
+
+    config = ReportConfig(
+        format=fmt,
+        output_path=output_path,
+    )
+
+    # Generate
+    logger.info("Generating [bold magenta]%s[/] report at [blue]%s[/]", fmt.value, output_path)
+    report_service.generate_report(data, config, metadata)
+    
+    print(f"\n[bold green]Report successfully generated![/]\nPath: [cyan]{output_path.absolute()}[/]\n")
 
 
 def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]

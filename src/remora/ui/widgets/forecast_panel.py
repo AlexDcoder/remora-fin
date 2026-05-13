@@ -92,7 +92,7 @@ class ForecastPanel(VerticalScroll):
             lower = f"${p.lower_bound:,.2f}" if p.lower_bound is not None else "—"
             upper = f"${p.upper_bound:,.2f}" if p.upper_bound is not None else "—"
 
-            marker = "🔮" if p.is_predicted else "📊"
+            marker = "(F)" if p.is_predicted else "(A)"
             table.add_row(
                 f"{marker} {p.date}",
                 f"${p.predicted_cost:,.2f}",

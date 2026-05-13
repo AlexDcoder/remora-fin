@@ -42,6 +42,8 @@ dependencies = [
     "rich-argparse>=1.7.2",
     "textual>=8.2.3",
     "fpdf2>=2.8.2",
+    "pytest>=9.0.3",
+    "pypdf>=6.11.0",
 ]
 
 [project.optional-dependencies]

@@ -78,7 +78,7 @@ class DashboardWidget(Container):
                 id="service-selector",
                 prompt="Select AWS Service",
             ),
-            Button("Switch to Report 📋", id="view-toggle", variant="primary"),
+            Button("Switch to Report", id="view-toggle", variant="primary"),
             id="control-row",
         )
 
@@ -102,7 +102,7 @@ class DashboardWidget(Container):
         )
 
         # Content Area with ContentSwitcher for better performance
-        with ContentSwitcher(id="dashboard-content-switcher", initial="chart-view"):
+        with ContentSwitcher(id="dashboard-content-switcher", initial="dashboard-chart"):
             yield CostChartWidget("Cost Trend", id="dashboard-chart")
             yield DataTable(id="dashboard-report-table", zebra_stripes=True, cursor_type="row")
 
@@ -142,12 +142,12 @@ class DashboardWidget(Container):
         if self._view_mode == "dashboard":
             self._view_mode = "report"
             switcher.current = "dashboard-report-table"
-            btn.label = "Switch to Dashboard 📊"
+            btn.label = "Switch to Dashboard"
             btn.variant = "default"
         else:
             self._view_mode = "dashboard"
             switcher.current = "dashboard-chart"
-            btn.label = "Switch to Report 📋"
+            btn.label = "Switch to Report"
             btn.variant = "primary"
 
     def update_report_table(self, data: list[tuple[str, str, str]]) -> None:

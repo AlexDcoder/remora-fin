@@ -17,7 +17,7 @@ console = Console()
 
 def login(args: argparse.Namespace) -> None:
     """Configure and validate AWS credentials."""
-    console.print("[bold blue]🔑 AWS Credential Configuration[/]")
+    console.print("[bold blue]AWS Credential Configuration[/]")
     console.print()
 
     if args.test:
@@ -30,11 +30,11 @@ def login(args: argparse.Namespace) -> None:
         valid = session.validate_credentials()
         if valid:
             identity = session.get_caller_identity()
-            console.print("[green]✓ Credentials are valid![/]")
+            console.print("[green]Credentials are valid![/]")
             console.print(f"  Account: {identity['account']}")
             console.print(f"  ARN: {identity['arn']}")
         else:
-            console.print("[red]✗ Credentials are invalid or not found.[/]")
+            console.print("[red]Credentials are invalid or not found.[/]")
             console.print()
             console.print("Configure with: [cyan]remora login --configure[/]")
         return
@@ -61,7 +61,7 @@ def login(args: argparse.Namespace) -> None:
 region = {region}
 """
     creds_file.write_text(config_content)
-    console.print(f"[green]✓ Profile '{profile}' saved to {creds_file}[/]")
+    console.print(f"[green]Profile '{profile}' saved to {creds_file}[/]")
 
     # Test the credentials
     console.print()
@@ -71,11 +71,11 @@ region = {region}
 
     if valid:
         identity = session.get_caller_identity()
-        console.print("[green]✓ Credentials are valid![/]")
+        console.print("[green]Credentials are valid![/]")
         console.print(f"  Account: {identity['account']}")
         console.print(f"  ARN: {identity['arn']}")
     else:
-        console.print("[yellow]⚠ Could not validate credentials.[/]")
+        console.print("[yellow]Could not validate credentials.[/]")
         console.print("  Make sure AWS access keys are configured for this profile.")
         console.print("  See: [link]https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html[/]")
 

@@ -9,6 +9,9 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from remora.schemas.common import DateRange
+from remora.schemas.cost import CostBreakdown, CostTrend
+from remora.schemas.anomaly import AnomalyReport
+from remora.schemas.forecast import ForecastResult
 
 
 class ReportFormat(StrEnum):
@@ -54,7 +57,20 @@ class ReportMetadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     generated_at: datetime = Field(default_factory=datetime.now)
+    generated_by: str | None = None  # IAM User/Role
+    account_id: str | None = None
     period: DateRange
     filters_applied: ReportFilters = Field(default_factory=ReportFilters)
     version: str = "0.1.0"
     data_source: str = "AWS Cost Explorer API"
+
+
+class FullReport(BaseModel):
+    """A comprehensive report containing all analysis types."""
+    cost_breakdown: CostBreakdown | None = None
+    cost_trend: CostTrend | None = None
+    anomalies: AnomalyReport | None = None
+    forecast: ForecastResult | None = None
+
+# Ensure all forward refs are resolved
+FullReport.model_rebuild()

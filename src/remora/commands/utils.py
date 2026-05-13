@@ -10,8 +10,20 @@ from rich.console import Console
 
 from remora.schemas.report import ReportConfig, ReportFormat
 from remora.services.report_service import ReportService
+from remora.services.aws_service import AWSSession
 
 console = Console()
+
+
+def validate_aws_session(session: AWSSession) -> bool:
+    """Check if AWS credentials are valid and print error if not."""
+    if not session.validate_credentials():
+        console.print("\n[bold red]Authentication Error[/]")
+        console.print("[white]No valid AWS credentials found or session has expired.[/]")
+        console.print("\n[yellow]Recommended Action:[/]")
+        console.print("Run [bold]remora login --configure[/] to set up your credentials.")
+        return False
+    return True
 
 
 def parse_dates(args: argparse.Namespace, default_days: int = 30) -> tuple[date, date]:
@@ -28,30 +40,3 @@ def parse_dates(args: argparse.Namespace, default_days: int = 30) -> tuple[date,
         start = end - timedelta(days=default_days)
 
     return start, end
-
-
-def print_report(
-    data: Any,
-    fmt: str | ReportFormat = ReportFormat.TABLE,
-    output_path: Any = None,
-    **kwargs: Any,
-) -> None:
-    """Generate and print a report using ReportService."""
-    report_service = ReportService()
-    
-    if isinstance(fmt, str):
-        fmt = ReportFormat(fmt)
-
-    config = ReportConfig(
-        format=fmt,
-        output_path=output_path,
-        **kwargs
-    )
-
-    content = report_service.generate_report(data, config)
-
-    if isinstance(content, bytes):
-        if not output_path:
-            console.print(f"[yellow]⚠ Binary report generated but no output path provided.[/]")
-    else:
-        console.print(content)

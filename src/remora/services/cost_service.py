@@ -305,7 +305,10 @@ class CostService:
 
         grouped = (df.filter(pl.col("service") != "Total")
                   .group_by("service")
-                  .agg(pl.col(col_name).sum())
+                  .agg([
+                      pl.col(col_name).sum(),
+                      pl.col("usage_quantity").sum()
+                  ])
                   .sort(col_name, descending=True))
         
         total = grouped[col_name].sum()
@@ -315,7 +318,8 @@ class CostService:
                 key=r["service"], 
                 label=r["service"], 
                 cost=Decimal(str(r[col_name])), 
-                percentage=float(r[col_name]/total*100) if total > 0 else 0
+                percentage=float(r[col_name]/total*100) if total > 0 else 0,
+                usage_quantity=Decimal(str(r["usage_quantity"]))
             )
             for r in grouped.iter_rows(named=True)
         ]
@@ -328,6 +332,7 @@ class CostService:
                 unblended_cost=r["unblended_cost"],
                 blended_cost=r["blended_cost"],
                 amortized_cost=r["amortized_cost"],
+                usage_quantity=r["usage_quantity"],
             )
             for r in df.iter_rows(named=True)
         ]
@@ -360,7 +365,10 @@ class CostService:
 
         grouped = (df.filter(pl.col("service") != "Total")
                   .group_by("account")
-                  .agg(pl.col(col_name).sum())
+                  .agg([
+                      pl.col(col_name).sum(),
+                      pl.col("usage_quantity").sum()
+                  ])
                   .sort(col_name, descending=True))
         
         total = grouped[col_name].sum()
@@ -370,7 +378,8 @@ class CostService:
                 key=r["account"], 
                 label=r["account"], 
                 cost=Decimal(str(r[col_name])), 
-                percentage=float(r[col_name]/total*100) if total > 0 else 0
+                percentage=float(r[col_name]/total*100) if total > 0 else 0,
+                usage_quantity=Decimal(str(r["usage_quantity"]))
             )
             for r in grouped.iter_rows(named=True)
         ]
@@ -383,6 +392,7 @@ class CostService:
                 unblended_cost=r["unblended_cost"],
                 blended_cost=r["blended_cost"],
                 amortized_cost=r["amortized_cost"],
+                usage_quantity=r["usage_quantity"],
             )
             for r in df.iter_rows(named=True)
         ]

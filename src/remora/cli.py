@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import logging
 from textwrap import dedent
 
 import rich_argparse
@@ -25,49 +26,22 @@ from remora.commands.report import add_report_parser
 from remora.ui.app import RemoraApp
 
 
-def demo(args: argparse.Namespace) -> None:
-    """Launch the dashboard in demo mode with mock data."""
-    from rich.console import Console
-    console = Console()
-    console.print("[bold green]🧪 Launching Remora in Demo Mode (Mock Data)[/]")
+def setup_logging(level: int = logging.INFO) -> None:
+    """Configure logging using RichHandler for better visual feedback."""
+    from rich.logging import RichHandler
     
-    app = RemoraApp(
-        region="us-east-1",
-        profile="demo",
-        default_days=args.days or 30,
-        theme=args.theme or "dark",
-        use_mock=True,
+    logging.basicConfig(
+        level=level,
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(rich_tracebacks=True, markup=True)],
     )
-    app.run()
-
-
-def add_demo_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
-    parser = subparsers.add_parser(
-        "demo",
-        help="Launch dashboard with mock data for UI testing",
-        description="Launch the interactive terminal UI with simulated AWS data.",
-        formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
-    )
-    parser.add_argument(
-        "--theme",
-        choices=["dark", "light"],
-        default="dark",
-        help="UI theme",
-    )
-    parser.add_argument(
-        "--days",
-        "-d",
-        type=int,
-        default=30,
-        help="Default period in days",
-    )
-    parser.set_defaults(func=demo)
 
 
 ASCII_ART = r"""
             __________
-            ╲______   ╲____   _____   ________________
-            │       _╱╱ __ ╲ ╱     ╲ ╱  _ ╲_  __ ╲__  ╲
+            ╲______   ╲____   _____   ____  __________
+            │       _╱╱ __ ╲ ╱     ╲ ╱  _ ╲│  __ ╲__  ╲
             │    │   ╲  ___╱│  Y Y  (  <_> )  │ ╲╱╱ __ ╲_
             │____│_  ╱╲___  >__│_│  ╱╲____╱│__│  (____  ╱
                     ╲╱     ╲╱     ╲╱                  ╲╱
@@ -76,6 +50,8 @@ ASCII_ART = r"""
 
 def execute_cli() -> None:
     """Main CLI entry point."""
+    setup_logging()
+
     parser = argparse.ArgumentParser(
         prog="remora",
         epilog="Remora-Fin: AWS FinOps (CLI)",
@@ -103,7 +79,6 @@ def execute_cli() -> None:
     add_forecast_parser(subparsers)
     add_dashboard_parser(subparsers)
     add_login_parser(subparsers)
-    add_demo_parser(subparsers)
 
     args = parser.parse_args()
 

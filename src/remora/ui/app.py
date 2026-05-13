@@ -22,11 +22,6 @@ from remora.services import (
     CostService,
     ForecastService,
 )
-from remora.services.mock_service import (
-    MockAnomalyService,
-    MockCostService,
-    MockForecastService,
-)
 from remora.services.aws_service import AWSSession
 from remora.ui.styles.theme import get_theme_css
 from remora.ui.widgets.anomaly_panel import AnomalyPanel
@@ -48,19 +43,16 @@ class CostScreen(Screen[None]):
         self,
         session: AWSSession | None,
         days: int = 30,
-        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        if use_mock:
-            self._cost_service = MockCostService(session)
-        else:
-            self._cost_service = CostService(session)  # type: ignore[arg-type]
+        self._cost_service = CostService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
-        yield Label("[bold]💰 Cost Analysis[/]", id="title")
+        yield Label("[bold]Cost Analysis[/]", id="title")
         yield CostChartWidget("Cost Trend", id="cost-chart")
+        yield Footer()
 
     def on_mount(self) -> None:
         self._load_data()
@@ -88,19 +80,16 @@ class AnomalyScreen(Screen[None]):
         self,
         session: AWSSession | None,
         days: int = 30,
-        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        if use_mock:
-            self._anomaly_service = MockAnomalyService(session)
-        else:
-            self._anomaly_service = AnomalyService(session)  # type: ignore[arg-type]
+        self._anomaly_service = AnomalyService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
-        yield Label("[bold]🔍 Anomaly Detection[/]", id="title")
+        yield Label("[bold]Anomaly Detection[/]", id="title")
         yield AnomalyPanel(id="anomaly-panel")  # type: ignore[call-arg]
+        yield Footer()
 
     def on_mount(self) -> None:
         self._load_data()
@@ -124,19 +113,16 @@ class ForecastScreen(Screen[None]):
         self,
         session: AWSSession | None,
         days: int = 30,
-        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        if use_mock:
-            self._forecast_service = MockForecastService(session)
-        else:
-            self._forecast_service = ForecastService(session)  # type: ignore[arg-type]
+        self._forecast_service = ForecastService(session)  # type: ignore[arg-type]
 
     def compose(self) -> ComposeResult:
-        yield Label("[bold]📈 Cost Forecast[/]", id="title")
+        yield Label("[bold]Cost Forecast[/]", id="title")
         yield ForecastPanel(id="forecast-panel")  # type: ignore[call-arg]
+        yield Footer()
 
     def on_mount(self) -> None:
         self._load_data()
@@ -163,10 +149,6 @@ class RemoraApp(App[None]):
 
     BINDINGS: ClassVar[Sequence[tuple[str, str, str]]] = [  # type: ignore[assignment]
         ("q", "quit", "Quit"),
-        ("d", "show_dashboard", "Dashboard"),
-        ("1", "show_costs", "Costs"),
-        ("2", "show_anomalies", "Anomalies"),
-        ("3", "show_forecast", "Forecast"),
         ("r", "refresh", "Refresh Data"),
     ]
 
@@ -176,14 +158,12 @@ class RemoraApp(App[None]):
         profile: str = "default",
         default_days: int = 30,
         theme: str = "dark",
-        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._region = region
         self._profile = profile
         self._default_days = default_days
         self._theme = theme
-        self._use_mock = use_mock
         self._session: AWSSession | None = None
         self._screens_loaded: dict[str, Screen[None]] = {}
 
@@ -191,16 +171,15 @@ class RemoraApp(App[None]):
         # Set theme
         self.CSS = get_theme_css(self._theme)  # type: ignore[misc]
 
-        # Initialize AWS session if not in mock mode
-        if not self._use_mock:
-            self._session = AWSSession.get_instance(
-                region=self._region,
-                profile=self._profile,
-            )
+        # Initialize AWS session
+        self._session = AWSSession.get_instance(
+            region=self._region,
+            profile=self._profile,
+        )
 
         # Install screens for quick switching
         self.install_screen(
-            DashboardScreen(self._session, self._default_days, use_mock=self._use_mock),
+            DashboardScreen(self._session, self._default_days),
             name="dashboard"
         )
         self.push_screen("dashboard")
@@ -210,13 +189,13 @@ class RemoraApp(App[None]):
         yield Footer()
 
     def action_show_costs(self) -> None:
-        self.push_screen(CostScreen(self._session, self._default_days, use_mock=self._use_mock))
+        self.push_screen(CostScreen(self._session, self._default_days))
 
     def action_show_anomalies(self) -> None:
-        self.push_screen(AnomalyScreen(self._session, self._default_days, use_mock=self._use_mock))
+        self.push_screen(AnomalyScreen(self._session, self._default_days))
 
     def action_show_forecast(self) -> None:
-        self.push_screen(ForecastScreen(self._session, self._default_days, use_mock=self._use_mock))
+        self.push_screen(ForecastScreen(self._session, self._default_days))
 
     def action_show_dashboard(self) -> None:
         if self.screen.name != "dashboard":
@@ -238,26 +217,21 @@ class DashboardScreen(Screen[None]):
         self,
         session: AWSSession | None,
         days: int = 30,
-        use_mock: bool = False,
     ) -> None:
         super().__init__()
         self._session = session
         self._days = days
-        self._use_mock = use_mock
         self._selected_service = "All Services"
-        if use_mock:
-            self._cost_service = MockCostService(session)
-            self._anomaly_service = MockAnomalyService(session)
-        else:
-            self._cost_service = CostService(session) if session else None
-            self._anomaly_service = AnomalyService(session) if session else None
+        self._cost_service = CostService(session) if session else None
+        self._anomaly_service = AnomalyService(session) if session else None
 
     def compose(self) -> ComposeResult:
-        yield Label("[bold]📊 Remora FinOps Dashboard[/]", id="title")
+        yield Label("[bold]Remora FinOps Dashboard[/]", id="title")
         yield DashboardWidget(
             default_days=self._days,
             id="dashboard",
         )
+        yield Footer()
 
     def on_mount(self) -> None:
         self._load_services()
@@ -275,6 +249,7 @@ class DashboardScreen(Screen[None]):
             breakdown = self._cost_service.get_cost_by_service(start, end)
             services = ["All Services"] + sorted([g.key for g in breakdown.groups if g.key])
             
+            from textual.widgets import Select
             selector = self.query_one("#service-selector", Select)
             selector.set_options([(s, s) for s in services])
         except Exception:
@@ -323,8 +298,6 @@ class DashboardScreen(Screen[None]):
             # 2. Update Chart
             chart = self.query_one("#dashboard-chart", CostChartWidget)
             # If service filtered, we need trend for that service specifically
-            # Current CostService doesn't have get_daily_trend_for_service, 
-            # so we use entries from breakdown
             
             if self._selected_service == "All Services":
                 trend = self._cost_service.get_daily_trend(start, end)
@@ -361,12 +334,12 @@ class DashboardScreen(Screen[None]):
         except Exception as e:
             self.notify(f"Error refreshing dashboard: {e}", severity="error", markup=False)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    def on_button_pressed(self, event: Button.Pressed) -> None:  # type: ignore[name-defined]
         if event.button.id == "view-toggle":
             dashboard = self.query_one("#dashboard", DashboardWidget)
             dashboard.toggle_view()
 
-    def on_select_changed(self, event: Select.Changed) -> None:
+    def on_select_changed(self, event: Select.Changed) -> None:  # type: ignore[name-defined]
         if event.select.id == "service-selector":
             self._selected_service = str(event.value)
             self._refresh_data()
