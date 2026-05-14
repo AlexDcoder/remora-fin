@@ -14,8 +14,8 @@ jobs:
         with:
           python-version-file: ".python-version"
       - run: uv sync --all-extras
-      - run: uv run ruff check src/remora
-      - run: uv run ruff format --check src/remora
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
 
   type-check:
     name: Type Check
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version-file: ".python-version"
       - run: uv sync --all-extras
-      - run: uv run mypy src/remora --ignore-missing-imports
+      - run: uv run mypy src/remora tests --ignore-missing-imports
 
   test:
     name: Test

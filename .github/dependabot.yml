@@ -16,27 +16,6 @@ updates:
     labels:
       - "dependencies"
       - "python"
-    allow:
-      # Only direct dependencies from pyproject.toml
-      - dependency-name: "aioboto3"
-      - dependency-name: "boto3"
-      - dependency-name: "boto3-stubs"
-      - dependency-name: "fpdf2"
-      - dependency-name: "plotext"
-      - dependency-name: "polars"
-      - dependency-name: "pydantic"
-      - dependency-name: "python-dotenv"
-      - dependency-name: "rich"
-      - dependency-name: "rich-argparse"
-      - dependency-name: "seaborn"
-      - dependency-name: "textual"
-      - dependency-name: "textual-plotext"
-      - dependency-name: "ruff"
-      - dependency-name: "mypy"
-      - dependency-name: "pytest"
-      - dependency-name: "pytest-cov"
-      - dependency-name: "moto"
-      - dependency-name: "pytest-asyncio"
     ignore:
       # Defer major version updates for manual review
       - dependency-name: "*"
