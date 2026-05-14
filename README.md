@@ -1,116 +1,127 @@
-# Remora-Fin: AWS FinOps (CLI)
+# 🦈 Remora-Fin: AWS FinOps CLI
 
-remora is a lightweight, high-performance FinOps toolkit for AWS. Just as the remora fish hitches a ride on larger sharks to keep them clean, this library attaches to your AWS environment to clean up costs, analyze spend, and detect anomalies.
-
----
-
-## Permissions and IAM Configuration
-
-Before using Remora, ensure your AWS identity (User or Role) has the following minimum permissions. Remora only requires read-only access to Cost Explorer and Identity services.
-
-| Action | Purpose |
-| :--- | :--- |
-| ce:GetCostAndUsage | Required for cost reports and trends. |
-| ce:GetAnomalies | Required for detecting spend spikes. |
-| ce:GetAnomalyMonitors | Required to list active cost monitors. |
-| ce:GetCostForecast | Required for native spend projections. |
-| sts:GetCallerIdentity | Required to identify the user and account. |
-| tagging:GetResources | Required to check resource tag compliance. |
-| organizations:ListAccounts | Required to list accounts in the organization. |
+**Remora** é um kit de ferramentas FinOps de alto desempenho e leve para AWS. Assim como as rêmoras se fixam em tubarões para mantê-los limpos, esta CLI se anexa ao seu ambiente AWS para limpar custos, analisar gastos e detectar anomalias.
 
 ---
 
-## Supported Export Formats
+## 🚀 Funcionalidades Principais
 
-The `report` command supports the following formats for saving or viewing data.
-
-| Format | Argument | Extension | Description |
-| :--- | :--- | :--- | :--- |
-| Table | table | N/A | Styled terminal output (Default). |
-| PDF | pdf | .pdf | Professional document with vector bar/line charts. |
-| Markdown | markdown | .md | Documentation-ready text with Markdown tables. |
-| JSON | json | .json | Raw machine-readable data for integrations. |
-| CSV | csv | .csv | Standard spreadsheet format. |
-| Parquet | parquet | .parquet | High-performance columnar storage for big data. |
+* **📈 Gráficos Vetoriais:** Visualizações nativas em PDF (Barras e Linhas) sem dependências externas.
+* **📂 Multi-formato:** Exportação para humanos (PDF, MD, Table) ou máquinas (JSON, Parquet, CSV).
+* **🔍 Inteligência de Anomalias:** Identifica picos inesperados usando algoritmos do AWS Cost Explorer.
+* **🔮 Análise Preditiva:** Previsão de gastos integrada para evitar sustos no fechamento da fatura.
+* **🖥️ Terminal UI:** Dashboard interativo (TUI) para monitoramento em tempo real.
 
 ---
 
-## Commands & Usage
+## 🔐 Configuração de Permissões (IAM)
 
-### report
-Generate comprehensive cost and usage reports in multiple formats.
+Antes de usar a Remora, garanta que sua identidade AWS possui as permissões mínimas de **leitura**.
 
-| Argument | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| --type | -t | Type of report: breakdown, trend, account | breakdown |
-| --format | -f | Output format (see Supported Formats table above) | table |
-| --output | -o | File path to save the report (required for PDF/Parquet) | None |
-| --days | -d | Number of days to look back | 30 |
-| --metric | -m | AWS Cost metric: UnblendedCost, AmortizedCost, BlendedCost, NetUnblendedCost | UnblendedCost |
-| --profile | -p | AWS CLI profile name | default |
-| --region | -r | AWS region | us-east-1 |
-
-**Example:**
-`remora report --type breakdown --format pdf --output monthly_spend.pdf --days 30`
+| Ação | Propósito |
+| --- | --- |
+| `ce:GetCostAndUsage` | Relatórios de custos e tendências. |
+| `ce:GetAnomalies` | Detecção de picos de gastos e acesso a monitores. |
+| `ce:GetCostForecast` | Projeções nativas de gastos. |
+| `sts:GetCallerIdentity` | Identificação de conta e usuário atual. |
+| `tagging:GetResources` | Verificação de conformidade de tags de recursos. |
+| `organizations:ListAccounts` | Listagem de contas em ambientes multi-account. |
 
 ---
 
-### anomalies
-Detect and analyze cost spikes in your AWS environment.
+## 📊 Formatos de Exportação
 
-| Argument | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| --days | -d | Number of days to check for anomalies | 60 |
-| --format | -f | Output format: table, json | table |
-| --profile | -p | AWS CLI profile name | default |
+O comando `report` suporta diversos formatos para visualização ou ingestão de dados:
 
-**Example:**
-`remora anomalies --days 14 --format table`
-
----
-
-### forecast
-Predict future spend based on historical patterns.
-
-| Argument | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| --days | -d | Number of days to forecast into the future | 30 |
-| --metric | -m | Metric to forecast | UnblendedCost |
-| --profile | -p | AWS CLI profile name | default |
-
-**Example:**
-`remora forecast --days 30 --profile production`
+| Formato | Argumento | Extensão | Descrição |
+| --- | --- | --- | --- |
+| **PDF** | `pdf` | `.pdf` | Documento profissional com gráficos vetoriais. |
+| **Table** | `table` | `N/A` | Saída estilizada para o terminal (Padrão). |
+| **Markdown** | `markdown` | `.md` | Tabelas formatadas para documentação/GitHub. |
+| **JSON** | `json` | `.json` | Dados estruturados para integrações. |
+| **CSV** | `csv` | `.csv` | Formato padrão para Excel/Spreadsheets. |
+| **Parquet** | `parquet` | `.parquet` | Alta performance para análise de Big Data. |
 
 ---
 
-### dashboard
-Launch an interactive Terminal User Interface (TUI) for real-time cost monitoring.
+## 🛠️ Comandos & Uso
 
-| Argument | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| --theme | None | UI theme: dark, light | dark |
-| --profile | -p | AWS CLI profile name | default |
+### 📊 `report`
 
-**Example:**
-`remora dashboard --theme dark`
+Gera relatórios abrangentes de custo e uso.
+
+```bash
+# Exemplo: Breakdown mensal em PDF dos últimos 30 dias
+remora report --type breakdown --format pdf --output mensal.pdf
+
+# Exemplo: Relatório de conta filtrado por serviço EC2
+remora report --type account --service EC2 --format csv
+
+```
+
+| Argumento | Atalho | Padrão | Descrição |
+| --- | --- | --- | --- |
+| `--type` | `-t` | `breakdown` | Tipo: breakdown, trend, account. |
+| `--days` | `-d` | `30` | Período de retrocesso em dias. |
+| `--metric` | `-m` | `UnblendedCost` | Métrica (Blended, Amortized, Usage). |
+| `--group-by` |  | `None` | Agrupar por: SERVICE, REGION, LINKED_ACCOUNT. |
+| `--profile` | `-p` | `default` | Perfil do AWS CLI. |
 
 ---
 
-### login
-Authenticate and verify AWS credentials for use with Remora.
+### ⚠️ `anomalies`
 
-| Argument | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| --test | None | Perform a connectivity test after authentication | False |
-| --profile | -p | AWS CLI profile name | default |
+Detecta e analisa desvios de custo no ambiente.
 
-**Example:**
-`remora login --profile dev-account --test`
+```bash
+# Verifica anomalias de alta severidade nos últimos 60 dias
+remora anomalies --days 60 --severity high --detail
+
+```
 
 ---
 
-## Features
-* **Vector Charts:** Native PDF visualizations (Bar charts for usage, Line charts for cost trends) without external dependencies.
-* **Multi-Format:** Export data for humans (PDF, Markdown, Table) or machines (JSON, Parquet, CSV).
-* **Anomaly Intelligence:** Identifies unexpected spend spikes using AWS Cost Explorer algorithms.
-* **Predictive Analysis:** Built-in forecasting to prevent end-of-month bill shock.
+### 🔮 `forecast`
+
+Projeta gastos futuros com base em padrões históricos.
+
+```bash
+# Projeção para os próximos 30 dias com análise de cenários "what-if"
+remora forecast --days 30 --scenarios --granularity MONTHLY
+
+```
+
+---
+
+### 🖥️ `dashboard`
+
+Inicia a Interface de Terminal Interativa (TUI).
+
+```bash
+# Dashboard em tempo real com tema claro
+remora dashboard --theme light --days 60
+
+```
+
+---
+
+### 🔑 `login`
+
+Valida e configura o acesso ao ambiente AWS.
+
+```bash
+# Realiza um teste de conectividade e permissões
+remora login --test
+
+# Configuração interativa
+remora login --configure
+
+```
+
+---
+
+## 📝 Licença
+
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+
+---

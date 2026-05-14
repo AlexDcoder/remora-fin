@@ -44,7 +44,7 @@ ASCII_ART = r"""
             │       _╱╱ __ ╲ ╱     ╲ ╱  _ ╲│  __ ╲__  ╲
             │    │   ╲  ___╱│  Y Y  (  <_> )  │ ╲╱╱ __ ╲_
             │____│_  ╱╲___  >__│_│  ╱╲____╱│__│  (____  ╱
-                    ╲╱     ╲╱     ╲╱                  ╲╱
+                   ╲╱     ╲╱      ╲╱                  ╲╱
 """
 
 
@@ -54,12 +54,11 @@ def execute_cli() -> None:
 
     parser = argparse.ArgumentParser(
         prog="remora",
-        epilog="Remora-Fin: AWS FinOps (CLI)",
         description=dedent(
             f"""
-            [bold blue]{ASCII_ART}[/]
+            [bold cyan]{ASCII_ART}[/]
 
-    [italic blue]Remora[/] is a lightweight, high-performance FinOps toolkit for AWS.
+    [italic cyan]Remora[/] is a lightweight, high-performance FinOps toolkit for AWS.
             """
         ),
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
@@ -68,7 +67,7 @@ def execute_cli() -> None:
     parser.add_argument(
         "-v", "--version",
         action="version",
-        version="[blue]remora[/] [bold green]v0.1.0[/]",
+        version="[blue]remora[/] [bold green]v1.0.0[/]",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

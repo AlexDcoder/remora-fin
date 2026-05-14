@@ -54,7 +54,7 @@ def report(args: argparse.Namespace) -> None:
         else:  # breakdown/service
             data = cost_service.get_cost_by_service(start, end, metric=metric)
         
-        status.update("[bold magenta]Generating report...")
+        status.update("\n[bold magenta]Generating report...")
 
         # Prepare metadata
         identity = session.get_caller_identity()
