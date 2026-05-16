@@ -56,7 +56,7 @@ class CacheService:
         """
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.parquet"
-        
+
         if not cache_file.exists():
             return None
 
@@ -82,7 +82,7 @@ class CacheService:
         """
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.parquet"
-        
+
         try:
             df.write_parquet(cache_file)
             logger.debug("Cache saved for query %s", key[:8])

@@ -12,8 +12,8 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, ClassVar
 from decimal import Decimal
+from typing import Any, ClassVar
 
 import polars as pl
 from fpdf import FPDF
@@ -21,10 +21,9 @@ from rich.console import Console
 from rich.table import Table as RichTable
 
 from remora.schemas.anomaly import AnomalyReport
-from remora.schemas.cost import CostBreakdown, CostTrend, CostTrendPoint, CostGroup
+from remora.schemas.cost import CostBreakdown, CostGroup, CostTrend, CostTrendPoint
 from remora.schemas.forecast import ForecastResult
-from remora.schemas.report import ReportConfig, ReportFormat, ReportMetadata, FullReport
-
+from remora.schemas.report import FullReport, ReportConfig, ReportMetadata
 from remora.services.aws_service import AWSSession
 
 logger = logging.getLogger(__name__)
@@ -103,7 +102,7 @@ class PDFFormatter(ReportFormatter):
         pdf.set_font("Arial", "B", 20)
         pdf.set_text_color(44, 62, 80)  # Dark Blue
         pdf.cell(0, 15, "REMORA | FinOps Report", ln=True, align="L")
-        
+
         pdf.set_draw_color(44, 62, 80)
         pdf.line(10, 25, 200, 25)
         pdf.ln(5)
@@ -112,14 +111,14 @@ class PDFFormatter(ReportFormatter):
         pdf.set_font("Arial", "B", 14)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, title, ln=True)
-        
+
         # Metadata / User Info
         pdf.set_font("Arial", "", 9)
         pdf.set_text_color(100, 100, 100)
-        
+
         gen_time = metadata.generated_at.strftime("%Y-%m-%d %H:%M:%S") if metadata else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         pdf.cell(100, 5, f"Generated: {gen_time}", ln=False)
-        
+
         if metadata:
             pdf.cell(0, 5, f"Account: {metadata.account_id or 'Unknown'}", ln=True, align="R")
             pdf.cell(100, 5, f"User: {metadata.generated_by or 'Unknown'}", ln=False)
@@ -137,7 +136,7 @@ class PDFFormatter(ReportFormatter):
         pdf.ln(4)
 
         max_w = 140  # Max width of a bar
-        
+
         # Sort by usage for this specific chart
         top_groups = sorted(groups, key=lambda x: x.usage_quantity, reverse=True)[:6]
         if not top_groups:
@@ -150,12 +149,12 @@ class PDFFormatter(ReportFormatter):
             pdf.set_font("Arial", "", 8)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(40, 6, f"{g.key[:18]}", ln=False)
-            
+
             # Bar
             bar_w = (float(g.usage_quantity) / max_val) * max_w if max_val > 0 else 0
             pdf.set_fill_color(52, 152, 219)  # Lighter Blue for usage
             pdf.rect(pdf.get_x(), pdf.get_y() + 1, bar_w, 4, "F")
-            
+
             # Value label
             pdf.set_x(pdf.get_x() + max_w + 5)
             pdf.cell(0, 6, f"{g.usage_quantity:,.2f}", ln=True)
@@ -176,26 +175,26 @@ class PDFFormatter(ReportFormatter):
         w = 180 # Chart width
         x_start = pdf.get_x()
         y_start = pdf.get_y()
-        
+
         # Draw background/axes
         pdf.set_draw_color(230, 230, 230)
         pdf.rect(x_start, y_start, w, h)
-        
+
         max_cost = float(max(p.cost for p in points)) if points else 1.0
         min_cost = float(min(p.cost for p in points)) if points else 0.0
         cost_range = max_cost - min_cost if max_cost != min_cost else 1.0
 
         pdf.set_draw_color(41, 128, 185)  # Blue line
         pdf.set_line_width(0.5)
-        
+
         step_x = w / (len(points) - 1) if len(points) > 1 else w
-        
+
         prev_x, prev_y = 0.0, 0.0
         for i, p in enumerate(points):
             curr_x = x_start + (i * step_x)
             # Inverse Y (top is 0)
             curr_y = y_start + h - ((float(p.cost) - min_cost) / cost_range * h)
-            
+
             if i > 0:
                 pdf.line(prev_x, prev_y, curr_x, curr_y)
             prev_x, prev_y = curr_x, curr_y
@@ -209,13 +208,13 @@ class PDFFormatter(ReportFormatter):
     def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
         title = "Cost Analysis Report"
         is_partial = pdf is not None
-        
+
         if not pdf:
             pdf = self._create_base_pdf(title, metadata)
         else:
             pdf.add_page()
             self._add_header(pdf, title, metadata)
-        
+
         if isinstance(data, CostBreakdown):
             # Summary Box
             if data.summary:
@@ -239,7 +238,7 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(45, 10, " Usage (Quantity)", border=1, fill=True, align="C")
             pdf.cell(40, 10, " Cost (USD)", border=1, fill=True, align="C")
             pdf.cell(35, 10, " % of Total", border=1, fill=True, ln=True, align="C")
-            
+
             # Table Rows
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
@@ -259,26 +258,26 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(50, 10, " Date", border=1, fill=True)
             pdf.cell(70, 10, " Usage Quantity", border=1, fill=True, align="C")
             pdf.cell(70, 10, " Cost (USD)", border=1, fill=True, ln=True, align="C")
-            
+
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
             for p in data.points[-60:]:
                 pdf.cell(50, 8, f" {p.date}", border=1)
                 pdf.cell(70, 8, f"{p.usage:,.2f}", border=1, align="R")
                 pdf.cell(70, 8, f"${p.cost:,.2f}", border=1, ln=True, align="R")
-                
+
         return pdf if is_partial else pdf.output()
 
     def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
         title = "Anomaly Detection Report"
         is_partial = pdf is not None
-        
+
         if not pdf:
             pdf = self._create_base_pdf(title, metadata)
         else:
             pdf.add_page()
             self._add_header(pdf, title, metadata)
-        
+
         pdf.set_font("Arial", "B", 11)
         pdf.cell(0, 10, f"Total Spikes Detected: {data.total_anomalies}", ln=True)
         pdf.ln(8)
@@ -291,7 +290,7 @@ class PDFFormatter(ReportFormatter):
         pdf.cell(35, 10, " Actual Cost", border=1, fill=True, align="C")
         pdf.cell(35, 10, " Expected", border=1, fill=True, align="C")
         pdf.cell(40, 10, " Variance %", border=1, fill=True, ln=True, align="C")
-        
+
         pdf.set_font("Arial", "", 8)
         pdf.set_text_color(0, 0, 0)
         for a in data.anomalies[:40]:
@@ -300,19 +299,19 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(35, 8, f"${a.impact.total_actual_spend:,.2f} ", border=1, align="R")
             pdf.cell(35, 8, f"${a.impact.total_expected_spend:,.2f} ", border=1, align="R")
             pdf.cell(40, 8, f"{a.variance_percentage:+.1f}% ", border=1, ln=True, align="R")
-            
+
         return pdf if is_partial else pdf.output()
 
     def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
         title = "Spend Forecast Projection"
         is_partial = pdf is not None
-        
+
         if not pdf:
             pdf = self._create_base_pdf(title, metadata)
         else:
             pdf.add_page()
             self._add_header(pdf, title, metadata)
-        
+
         if data.total_predicted_cost:
             pdf.set_fill_color(230, 240, 230)
             pdf.set_font("Arial", "B", 11)
@@ -321,7 +320,7 @@ class PDFFormatter(ReportFormatter):
 
         # Draw progression line for forecast
         trend_points = [
-            CostTrendPoint(date=p.date, cost=p.predicted_cost) 
+            CostTrendPoint(date=p.date, cost=p.predicted_cost)
             for p in data.predictions
         ]
         self._draw_line_chart(pdf, trend_points, "Projected Spend Progression")
@@ -332,12 +331,12 @@ class PDFFormatter(ReportFormatter):
             pdf.set_text_color(44, 62, 80)
             pdf.cell(0, 10, "Projected Service Breakdown", ln=True)
             pdf.ln(4)
-            
+
             pdf.set_font("Arial", "B", 9)
             pdf.set_fill_color(240, 240, 240)
             pdf.cell(100, 8, " Service", border=1, fill=True)
             pdf.cell(80, 8, " Predicted Period Spend", border=1, fill=True, ln=True, align="C")
-            
+
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
             for svc, points in data.grouped_predictions.items():
@@ -351,13 +350,13 @@ class PDFFormatter(ReportFormatter):
         pdf.set_text_color(255, 255, 255)
         pdf.cell(95, 10, " Date", border=1, fill=True)
         pdf.cell(95, 10, " Predicted Cost (USD)", border=1, fill=True, ln=True, align="C")
-        
+
         pdf.set_font("Arial", "", 10)
         pdf.set_text_color(0, 0, 0)
         for p in data.predictions[:60]:
             pdf.cell(95, 8, f" {p.date}", border=1)
             pdf.cell(95, 8, f"${p.predicted_cost:,.2f} ", border=1, ln=True, align="R")
-            
+
         return pdf if is_partial else pdf.output()
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
@@ -472,9 +471,12 @@ class TableFormatter(ReportFormatter):
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
         parts = []
-        if data.cost_breakdown: parts.append(self.format_cost(data.cost_breakdown, metadata))
-        if data.anomalies: parts.append(self.format_anomalies(data.anomalies, metadata))
-        if data.forecast: parts.append(self.format_forecast(data.forecast, metadata))
+        if data.cost_breakdown:
+            parts.append(self.format_cost(data.cost_breakdown, metadata))
+        if data.anomalies:
+            parts.append(self.format_anomalies(data.anomalies, metadata))
+        if data.forecast:
+            parts.append(self.format_forecast(data.forecast, metadata))
         return "\n\n\n".join(parts)
 
 
@@ -594,9 +596,12 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
         parts = []
-        if data.cost_breakdown: parts.append(self.format_cost(data.cost_breakdown, metadata))
-        if data.anomalies: parts.append(self.format_anomalies(data.anomalies, metadata))
-        if data.forecast: parts.append(self.format_forecast(data.forecast, metadata))
+        if data.cost_breakdown:
+            parts.append(self.format_cost(data.cost_breakdown, metadata))
+        if data.anomalies:
+            parts.append(self.format_anomalies(data.anomalies, metadata))
+        if data.forecast:
+            parts.append(self.format_forecast(data.forecast, metadata))
         return "\n\n\n".join(parts)
 
 

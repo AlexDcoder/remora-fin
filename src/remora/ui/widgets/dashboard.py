@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Button, DataTable, Select, Static, ContentSwitcher
+from textual.containers import Container, Horizontal
+from textual.widgets import Button, ContentSwitcher, DataTable, Select
 
 from remora.ui.widgets.common.widgets import KPICard
 from remora.ui.widgets.cost_chart import CostChartWidget

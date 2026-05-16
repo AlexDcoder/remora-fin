@@ -310,13 +310,13 @@ class ForecastService:
             return self.get_aws_native_forecast(start, end, metric, granularity, **kwargs)
         except Exception as e:
             logger.warning("AWS native forecast failed, falling back to moving average: %s", e)
-            
+
             # Fetch historical data for moving average
             hist_start = start - timedelta(days=60)
             trend = self._cost_service.get_daily_trend(hist_start, start)
-            
+
             df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
-            
+
             strategy = MovingAverageForecast(window=7)
             return strategy.predict(
                 historical_data=df,

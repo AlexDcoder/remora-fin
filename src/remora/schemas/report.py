@@ -8,9 +8,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from remora.schemas.anomaly import AnomalyReport
 from remora.schemas.common import DateRange
 from remora.schemas.cost import CostBreakdown, CostTrend
-from remora.schemas.anomaly import AnomalyReport
 from remora.schemas.forecast import ForecastResult
 
 

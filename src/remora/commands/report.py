@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
-import logging
+import rich_argparse
 from rich import print
 from rich.console import Console
-from rich.status import Status
 from rich.panel import Panel
-from remora.schemas.report import ReportFilters, ReportFormat, ReportMetadata, ReportConfig
-from remora.schemas.common import DateRange
-from remora.services import CostService, AWSSession, ReportService
+from rich.status import Status
+
 from remora.commands.utils import parse_dates, validate_aws_session
+from remora.schemas.common import DateRange
+from remora.schemas.report import ReportConfig, ReportFilters, ReportFormat, ReportMetadata
+from remora.services import AWSSession, CostService, ReportService
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -27,7 +29,7 @@ def report(args: argparse.Namespace) -> None:
         region=args.region or "us-east-1",
         profile=args.profile or "default",
     )
-    
+
     # Pre-flight check
     if not validate_aws_session(session):
         logger.error("AWS session validation failed")
@@ -43,18 +45,18 @@ def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
-    
-    with Status(f"[bold cyan]Fetching {metric} data...", console=console) as status:
+
+    with Status(f"[bold cyan]Fetching {metric} data...\n", console=console) as status:
         logger.info("Period: [green]%s[/] to [green]%s[/]", start, end)
-        
+
         if args.type == "trend":
             data = cost_service.get_daily_trend(start, end, metric=metric)
         elif args.type == "account":
             data = cost_service.get_cost_by_account(start, end, metric=metric)
         else:  # breakdown/service
             data = cost_service.get_cost_by_service(start, end, metric=metric)
-        
-        status.update("\n[bold magenta]Generating report...")
+
+        status.update("\n[bold magenta]Generating report...\n")
 
         # Prepare metadata
         identity = session.get_caller_identity()
@@ -76,15 +78,9 @@ def report(args: argparse.Namespace) -> None:
 
         # Generate
         report_service.generate_report(data, config, metadata)
-    
-    # Final Success Message
-    if fmt == ReportFormat.TABLE:
-        # If it was a table, it was already printed to console by the formatter (actually generate_report returns it)
-        # But ReportService.generate_report for TABLE format returns the string.
-        # We should print it if it's TABLE or any text format that wasn't saved to file.
-        if not args.output:
-            # Re-run without output path to get content if we want to print it? 
-            # Actually generate_report always returns content.
+
+        # Final Success Message
+        if fmt == ReportFormat.TABLE and not args.output:
             content = report_service.generate_report(data, ReportConfig(format=fmt), metadata)
             print(content)
 
@@ -98,8 +94,6 @@ def report(args: argparse.Namespace) -> None:
     )
     console.print(success_panel)
 
-
-import rich_argparse
 
 def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """Add report subparser."""

@@ -32,13 +32,13 @@ class GovernanceService:
         """
         tagging = self._session.tagging()
         resources = []
-        
+
         paginator = tagging.get_paginator("get_resources")
         for page in paginator.paginate():
             for mapping in page.get("ResourceTagMappingList", []):
                 arn = mapping["ResourceARN"]
                 tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
-                
+
                 missing = [rt for rt in required_tags if rt not in tags]
                 resources.append({
                     "arn": arn,
@@ -69,7 +69,7 @@ class GovernanceService:
         """
         orgs = self._session.organizations()
         accounts = []
-        
+
         try:
             paginator = orgs.get_paginator("list_accounts")
             for page in paginator.paginate():
@@ -89,5 +89,5 @@ class GovernanceService:
                 "email": "N/A",
                 "status": "ACTIVE"
             })
-            
+
         return accounts

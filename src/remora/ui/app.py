@@ -12,9 +12,11 @@ from typing import ClassVar
 from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.widgets import (
+    Button,
     Footer,
     Header,
     Label,
+    Select,
 )
 
 from remora.services import (
@@ -244,12 +246,11 @@ class DashboardScreen(Screen[None]):
 
         end = date.today()
         start = end - timedelta(days=self._days)
-        
+
         try:
             breakdown = self._cost_service.get_cost_by_service(start, end)
-            services = ["All Services"] + sorted([g.key for g in breakdown.groups if g.key])
-            
-            from textual.widgets import Select
+            services = ["All Services", *sorted([g.key for g in breakdown.groups if g.key])]
+
             selector = self.query_one("#service-selector", Select)
             selector.set_options([(s, s) for s in services])
         except Exception:
@@ -262,22 +263,22 @@ class DashboardScreen(Screen[None]):
 
         end = date.today()
         start = end - timedelta(days=self._days)
-        
+
         try:
             # 1. Update KPIs
             summary = self._cost_service.get_total_cost(start, end)
-            
+
             # If a specific service is selected, we should ideally filter the summary
             # For now, let's just get the breakdown and filter manually if needed
             breakdown = self._cost_service.get_cost_by_service(start, end)
-            
+
             anomalies = 0
             if self._anomaly_service:
                 anomaly_report = self._anomaly_service.get_anomaly_summary(start, end)
                 anomalies = anomaly_report.total_anomalies
 
             dashboard = self.query_one("#dashboard", DashboardWidget)
-            
+
             # Calculate metrics based on selection
             if self._selected_service == "All Services":
                 display_total = summary.total_cost
@@ -294,11 +295,11 @@ class DashboardScreen(Screen[None]):
                 anomaly_count=anomalies,
                 forecast_trend="—",
             )
-            
+
             # 2. Update Chart
             chart = self.query_one("#dashboard-chart", CostChartWidget)
             # If service filtered, we need trend for that service specifically
-            
+
             if self._selected_service == "All Services":
                 trend = self._cost_service.get_daily_trend(start, end)
                 chart_data = [(str(p.date), float(p.cost)) for p in trend.points]
@@ -312,7 +313,7 @@ class DashboardScreen(Screen[None]):
                 chart_data = sorted(daily_data.items())
 
             chart.show_daily_trend(chart_data)
-            
+
             # 3. Update Report Table
             table_data = []
             if self._selected_service == "All Services":
@@ -328,7 +329,7 @@ class DashboardScreen(Screen[None]):
                 )
                 for e in service_entries:
                     table_data.append((str(e.date), e.service, f"${e.unblended_cost:,.2f}"))
-            
+
             dashboard.update_report_table(table_data)
 
         except Exception as e:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from remora.schemas.common import DateRange

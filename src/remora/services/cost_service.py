@@ -190,7 +190,7 @@ class CostService:
                             "usage_quantity": Decimal(metrics.get("UsageQuantity", {}).get("Amount", "0")),
                         }
                     )
-                
+
                 if not result.get("Groups"):
                     totals = result.get("Total", {})
                     rows.append({
@@ -215,10 +215,10 @@ class CostService:
 
         pages = self._fetch_all_pages(query)
         df = self._parse_results(pages)
-        
+
         if use_cache:
             self._cache.set(query, df)
-        
+
         return df
 
     def get_total_cost(self, start: date, end: date) -> CostSummary:
@@ -228,11 +228,11 @@ class CostService:
                 .with_group_by("DIMENSION", "SERVICE")
                 .build())
         df = self._get_data(query)
-        
+
         total = df["unblended_cost"].sum()
         daily_agg = df.group_by("date").agg(pl.col("unblended_cost").sum())
         daily_avg = daily_agg["unblended_cost"].mean()
-        
+
         top_service = (df.filter(pl.col("service") != "Total")
                       .group_by("service")
                       .agg(pl.col("unblended_cost").sum())
@@ -256,7 +256,7 @@ class CostService:
                 .with_granularity("DAILY")
                 .build())
         df = self._get_data(query)
-        
+
         # metric name to column name mapping
         col_map = {
             "UnblendedCost": "unblended_cost",
@@ -269,7 +269,7 @@ class CostService:
 
         daily_data = (df.filter(pl.col("service") == "Total")
                      .sort("date"))
-        
+
         points = [
             CostTrendPoint(
                 date=r["date"],
@@ -278,7 +278,7 @@ class CostService:
             )
             for r in daily_data.iter_rows(named=True)
         ]
-        
+
         return CostTrend(
             period=DateRange(start=start, end=end),
             granularity="DAILY",
@@ -294,7 +294,7 @@ class CostService:
                 .with_group_by("DIMENSION", "SERVICE")
                 .build())
         df = self._get_data(query)
-        
+
         col_map = {
             "UnblendedCost": "unblended_cost",
             "BlendedCost": "blended_cost",
@@ -310,20 +310,20 @@ class CostService:
                       pl.col("usage_quantity").sum()
                   ])
                   .sort(col_name, descending=True))
-        
+
         total = grouped[col_name].sum()
-        
+
         groups = [
             CostGroup(
-                key=r["service"], 
-                label=r["service"], 
-                cost=Decimal(str(r[col_name])), 
+                key=r["service"],
+                label=r["service"],
+                cost=Decimal(str(r[col_name])),
                 percentage=float(r[col_name]/total*100) if total > 0 else 0,
                 usage_quantity=Decimal(str(r["usage_quantity"]))
             )
             for r in grouped.iter_rows(named=True)
         ]
-        
+
         entries = [
             CostEntry(
                 date=r["date"],
@@ -336,7 +336,7 @@ class CostService:
             )
             for r in df.iter_rows(named=True)
         ]
-        
+
         return CostBreakdown(
             period=DateRange(start=start, end=end),
             granularity="DAILY",
@@ -354,7 +354,7 @@ class CostService:
                 .with_group_by("DIMENSION", "LINKED_ACCOUNT")
                 .build())
         df = self._get_data(query)
-        
+
         col_map = {
             "UnblendedCost": "unblended_cost",
             "BlendedCost": "blended_cost",
@@ -370,20 +370,20 @@ class CostService:
                       pl.col("usage_quantity").sum()
                   ])
                   .sort(col_name, descending=True))
-        
+
         total = grouped[col_name].sum()
-        
+
         groups = [
             CostGroup(
-                key=r["account"], 
-                label=r["account"], 
-                cost=Decimal(str(r[col_name])), 
+                key=r["account"],
+                label=r["account"],
+                cost=Decimal(str(r[col_name])),
                 percentage=float(r[col_name]/total*100) if total > 0 else 0,
                 usage_quantity=Decimal(str(r["usage_quantity"]))
             )
             for r in grouped.iter_rows(named=True)
         ]
-        
+
         entries = [
             CostEntry(
                 date=r["date"],
@@ -396,7 +396,7 @@ class CostService:
             )
             for r in df.iter_rows(named=True)
         ]
-        
+
         return CostBreakdown(
             period=DateRange(start=start, end=end),
             granularity="DAILY",

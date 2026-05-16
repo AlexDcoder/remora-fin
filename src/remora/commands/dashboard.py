@@ -6,23 +6,24 @@ import argparse
 
 import rich_argparse
 from rich.console import Console
-from remora.ui.app import RemoraApp
+
+from remora.commands.utils import validate_aws_session
 from remora.services import AWSSession
 from remora.services.config_service import ConfigService
-from remora.commands.utils import validate_aws_session
+from remora.ui.app import RemoraApp
 
 console = Console()
 
 
 def dashboard(args: argparse.Namespace) -> None:
     """Launch the interactive FinOps dashboard (TUI)."""
-    
+
     config = ConfigService()
     settings = config.settings
 
     region = args.region or settings.aws.region
     profile = args.profile or settings.aws.profile
-    
+
     # Pre-flight check
     session = AWSSession.get_instance(region=region, profile=profile)
     if not validate_aws_session(session):
@@ -30,7 +31,7 @@ def dashboard(args: argparse.Namespace) -> None:
 
     from rich.panel import Panel
     from rich.text import Text
-    
+
     welcome_text = Text.assemble(
         ("Launching Remora FinOps Dashboard\n", "bold blue"),
         ("\nProfile: ", "dim"), (f"{profile}", "cyan"),
