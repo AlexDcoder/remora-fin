@@ -54,7 +54,7 @@ def dashboard(args: argparse.Namespace) -> None:
     app.run()
 
 
-def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_dashboard_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add dashboard subparser."""
     parser = subparsers.add_parser(
         "dashboard",

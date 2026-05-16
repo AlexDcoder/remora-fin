@@ -80,7 +80,7 @@ region = {region}
         console.print("  See: [link]https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html[/]")
 
 
-def add_login_parser(subparsers: argparse._SubParsersAction) -> None:  # [type-arg]
+def add_login_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add login subparser to the argument parser."""
     parser = subparsers.add_parser(
         "login",

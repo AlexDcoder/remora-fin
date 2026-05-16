@@ -71,7 +71,7 @@ class CostSummary(BaseModel):
                 pass
         return v
 
-    @computed_field  # [prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def peak_to_average_ratio(self) -> float:
         """Ratio indicating cost volatility."""
@@ -117,7 +117,7 @@ class CostBreakdown(BaseModel):
     groups: list[CostGroup] = Field(default_factory=list)
     summary: CostSummary | None = None
 
-    @computed_field  # [prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_cost(self) -> Decimal:
         if self.summary:
@@ -158,7 +158,7 @@ class CostTrend(BaseModel):
     metric: str
     points: list[CostTrendPoint]
 
-    @computed_field  # [prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def trend_direction(self) -> str:
         """Simple trend: 'increasing', 'decreasing', or 'stable'."""

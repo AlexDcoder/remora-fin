@@ -6,6 +6,7 @@ from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal
+from textual.message import Message
 from textual.widgets import Button, Input, Select, Static
 
 
@@ -158,10 +159,11 @@ class PeriodSelector(Horizontal):
             for btn in self.query("Button"):
                 btn.set_classes("")
             event.button.set_classes("-active")
-            self.post_message(self.Changed(days))  # [arg-type]
+            self.post_message(self.Changed(days))
 
-    class Changed:
+    class Changed(Message):
         def __init__(self, days: int) -> None:
+            super().__init__()
             self.days = days
 
 
@@ -189,8 +191,8 @@ class FilterBar(Horizontal):
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Filter by service...", id="filter-service")
         yield Input(placeholder="Filter by account...", id="filter-account")
-        yield Select(  # [call-arg]
-            choices=[
+        yield Select(
+            options=[
                 ("All Metrics", "all"),
                 ("Unblended Cost", "unblended"),
                 ("Amortized Cost", "amortized"),
@@ -221,8 +223,8 @@ class ExportButton(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield Button("Export", id="btn-export")
-        yield Select(  # [call-arg]
-            choices=[
+        yield Select(
+            options=[
                 ("JSON", "json"),
                 ("CSV", "csv"),
                 ("Markdown", "markdown"),

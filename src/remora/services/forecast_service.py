@@ -125,11 +125,12 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
         if not historical_data.is_empty():
             actual_start = historical_data["date"].min()
             actual_end = historical_data["date"].max()
-            if actual_start is not None and actual_end is not None:
+            if isinstance(actual_start, date) and isinstance(actual_end, date):
                 actual_period = DateRange(
-                    start=date.fromordinal(int(actual_start)),  # [arg-type]
-                    end=date.fromordinal(int(actual_end)),  # [arg-type]
+                    start=actual_start,
+                    end=actual_end,
                 )
+
 
         model = ForecastModel.AWS_NATIVE_ARIMA
 

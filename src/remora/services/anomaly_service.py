@@ -229,7 +229,7 @@ class AnomalyService:
         if metadata and metadata.get("specification"):
             anomaly_monitor["MonitorSpecification"] = metadata["specification"]
 
-        resp = ce.create_anomaly_monitor(AnomalyMonitor=anomaly_monitor)  # [arg-type]
+        resp = ce.create_anomaly_monitor(AnomalyMonitor=anomaly_monitor)  # type: ignore[arg-type]
         monitor_arn: str = resp["MonitorArn"]
         logger.info("Created anomaly monitor: %s (%s)", name, monitor_arn)
         return monitor_arn

@@ -75,7 +75,7 @@ def anomalies(args: argparse.Namespace) -> None:
         console.print(summary_panel)
 
 
-def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add anomalies subparser."""
     parser = subparsers.add_parser(
         "anomalies",

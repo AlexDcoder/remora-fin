@@ -98,7 +98,7 @@ def report(args: argparse.Namespace) -> None:
     console.print(success_panel)
 
 
-def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # [type-arg]
+def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",

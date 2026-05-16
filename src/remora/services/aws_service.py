@@ -84,10 +84,13 @@ class AWSSession:
         cfg = Config(
             retries={"max_attempts": 5, "mode": "adaptive"},
         )
-        return self._sync_session.client(service, config=cfg, **kwargs)  # [call-overload]
+        # Using Any to avoid complex boto3 type overloads
+        client_func: Any = self._sync_session.client
+        return client_func(service, config=cfg, **kwargs)
 
     def cost_explorer(self) -> SyncCEClient:
         return cast("SyncCEClient", self._sync_client("ce"))
+
 
     def budgets(self) -> BudgetsClient:
         return cast("BudgetsClient", self._sync_client("budgets"))
@@ -211,7 +214,9 @@ def retry_with_backoff(
                         )
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
-            raise last_exception  # [misc]
+            if last_exception is not None:
+                raise last_exception
+            raise RuntimeError("Retry loop ended unexpectedly")
 
         return wrapper
 

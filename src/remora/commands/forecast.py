@@ -120,7 +120,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     console.print(summary_panel)
 
 
-def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
+def add_forecast_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add forecast subparser."""
     parser = subparsers.add_parser(
         "forecast",

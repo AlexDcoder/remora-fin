@@ -145,15 +145,18 @@ class ForecastScreen(Screen[None]):
             self.notify(f"Error loading forecast: {e}", severity="error", markup=False)
 
 
+from textual.binding import Binding
+
 class RemoraApp(App[None]):
-    """Main Remora FinOps TUI application."""
+    """Main application facade."""
 
     CSS = ""  # Set dynamically based on theme
 
-    BINDINGS: ClassVar[Sequence[tuple[str, str, str]]] = [  # [assignment]
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh Data"),
     ]
+
 
     def __init__(
         self,
@@ -172,7 +175,7 @@ class RemoraApp(App[None]):
 
     def on_mount(self) -> None:
         # Set theme
-        self.CSS = get_theme_css(self._theme)  # [misc]
+        type(self).CSS = get_theme_css(self._theme)
 
         # Initialize AWS session
         self._session = AWSSession.get_instance(
@@ -333,12 +336,12 @@ class DashboardScreen(Screen[None]):
         except Exception as e:
             self.notify(f"Error refreshing dashboard: {e}", severity="error", markup=False)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:  # [name-defined]
+    def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "view-toggle":
             dashboard = self.query_one("#dashboard", DashboardWidget)
             dashboard.toggle_view()
 
-    def on_select_changed(self, event: Select.Changed) -> None:  # [name-defined]
+    def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "service-selector":
             self._selected_service = str(event.value)
             self._refresh_data()
