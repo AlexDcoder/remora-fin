@@ -91,7 +91,6 @@ class AWSSession:
     def cost_explorer(self) -> SyncCEClient:
         return cast("SyncCEClient", self._sync_client("ce"))
 
-
     def budgets(self) -> BudgetsClient:
         return cast("BudgetsClient", self._sync_client("budgets"))
 

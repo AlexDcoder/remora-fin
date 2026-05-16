@@ -130,7 +130,6 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
                     end=actual_end,
                 )
 
-
         model = ForecastModel.AWS_NATIVE_ARIMA
 
         return ForecastResult(

@@ -145,7 +145,6 @@ class ForecastScreen(Screen[None]):
             self.notify(f"Error loading forecast: {e}", severity="error", markup=False)
 
 
-
 class RemoraApp(App[None]):
     """Main application facade."""
 
@@ -155,7 +154,6 @@ class RemoraApp(App[None]):
         ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh Data"),
     ]
-
 
     def __init__(
         self,

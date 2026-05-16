@@ -123,9 +123,18 @@ class PDFFormatter(ReportFormatter):
         pdf.cell(100, 5, f"Generated: {gen_time}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
         if metadata:
-            pdf.cell(0, 5, f"Account: {metadata.account_id or 'Unknown'}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+            pdf.cell(
+                0, 5, f"Account: {metadata.account_id or 'Unknown'}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R"
+            )
             pdf.cell(100, 5, f"User: {metadata.generated_by or 'Unknown'}", new_x=XPos.RIGHT, new_y=YPos.TOP)
-            pdf.cell(0, 5, f"Period: {metadata.period.start} to {metadata.period.end}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+            pdf.cell(
+                0,
+                5,
+                f"Period: {metadata.period.start} to {metadata.period.end}",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+                align="R",
+            )
         else:
             pdf.ln(5)
 
@@ -324,7 +333,14 @@ class PDFFormatter(ReportFormatter):
         if data.total_predicted_cost:
             pdf.set_fill_color(230, 240, 230)
             pdf.set_font("Arial", "B", 11)
-            pdf.cell(0, 12, f"  Estimated Total for Period: ${data.total_predicted_cost:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
+            pdf.cell(
+                0,
+                12,
+                f"  Estimated Total for Period: ${data.total_predicted_cost:,.2f}",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+                fill=True,
+            )
             pdf.ln(6)
 
         # Draw progression line for forecast
@@ -341,7 +357,9 @@ class PDFFormatter(ReportFormatter):
             pdf.set_font("Arial", "B", 9)
             pdf.set_fill_color(240, 240, 240)
             pdf.cell(100, 8, " Service", border=1, fill=True)
-            pdf.cell(80, 8, " Predicted Period Spend", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            pdf.cell(
+                80, 8, " Predicted Period Spend", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C"
+            )
 
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
