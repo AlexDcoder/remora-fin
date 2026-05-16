@@ -158,7 +158,7 @@ class PeriodSelector(Horizontal):
             for btn in self.query("Button"):
                 btn.set_classes("")
             event.button.set_classes("-active")
-            self.post_message(self.Changed(days))  # type: ignore[arg-type]
+            self.post_message(self.Changed(days))  # [arg-type]
 
     class Changed:
         def __init__(self, days: int) -> None:
@@ -189,7 +189,7 @@ class FilterBar(Horizontal):
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Filter by service...", id="filter-service")
         yield Input(placeholder="Filter by account...", id="filter-account")
-        yield Select(  # type: ignore[call-arg]
+        yield Select(  # [call-arg]
             choices=[
                 ("All Metrics", "all"),
                 ("Unblended Cost", "unblended"),
@@ -221,7 +221,7 @@ class ExportButton(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield Button("Export", id="btn-export")
-        yield Select(  # type: ignore[call-arg]
+        yield Select(  # [call-arg]
             choices=[
                 ("JSON", "json"),
                 ("CSV", "csv"),

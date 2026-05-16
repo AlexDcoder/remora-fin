@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import ClassVar
 
 from textual.app import App, ComposeResult
@@ -49,7 +50,7 @@ class CostScreen(Screen[None]):
         super().__init__()
         self._session = session
         self._days = days
-        self._cost_service = CostService(session)  # type: ignore[arg-type]
+        self._cost_service = CostService(session)
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]Cost Analysis[/]", id="title")
@@ -86,11 +87,11 @@ class AnomalyScreen(Screen[None]):
         super().__init__()
         self._session = session
         self._days = days
-        self._anomaly_service = AnomalyService(session)  # type: ignore[arg-type]
+        self._anomaly_service = AnomalyService(session)
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]Anomaly Detection[/]", id="title")
-        yield AnomalyPanel(id="anomaly-panel")  # type: ignore[call-arg]
+        yield AnomalyPanel(id="anomaly-panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -119,11 +120,11 @@ class ForecastScreen(Screen[None]):
         super().__init__()
         self._session = session
         self._days = days
-        self._forecast_service = ForecastService(session)  # type: ignore[arg-type]
+        self._forecast_service = ForecastService(session)
 
     def compose(self) -> ComposeResult:
         yield Label("[bold]Cost Forecast[/]", id="title")
-        yield ForecastPanel(id="forecast-panel")  # type: ignore[call-arg]
+        yield ForecastPanel(id="forecast-panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -149,7 +150,7 @@ class RemoraApp(App[None]):
 
     CSS = ""  # Set dynamically based on theme
 
-    BINDINGS: ClassVar[Sequence[tuple[str, str, str]]] = [  # type: ignore[assignment]
+    BINDINGS: ClassVar[Sequence[tuple[str, str, str]]] = [  # [assignment]
         ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh Data"),
     ]
@@ -171,7 +172,7 @@ class RemoraApp(App[None]):
 
     def on_mount(self) -> None:
         # Set theme
-        self.CSS = get_theme_css(self._theme)  # type: ignore[misc]
+        self.CSS = get_theme_css(self._theme)  # [misc]
 
         # Initialize AWS session
         self._session = AWSSession.get_instance(
@@ -180,10 +181,7 @@ class RemoraApp(App[None]):
         )
 
         # Install screens for quick switching
-        self.install_screen(
-            DashboardScreen(self._session, self._default_days),
-            name="dashboard"
-        )
+        self.install_screen(DashboardScreen(self._session, self._default_days), name="dashboard")
         self.push_screen("dashboard")
 
     def compose(self) -> ComposeResult:
@@ -206,9 +204,9 @@ class RemoraApp(App[None]):
     def action_refresh(self) -> None:
         """Trigger refresh on current screen if supported."""
         if hasattr(self.screen, "_refresh_data"):
-            self.screen._refresh_data()  # type: ignore[attr-defined]
+            self.screen._refresh_data()
         elif hasattr(self.screen, "_load_data"):
-            self.screen._load_data()  # type: ignore[attr-defined]
+            self.screen._load_data()
         self.notify("Data refreshed")
 
 
@@ -286,7 +284,7 @@ class DashboardScreen(Screen[None]):
             else:
                 # Find the specific service in groups
                 service_group = next((g for g in breakdown.groups if g.key == self._selected_service), None)
-                display_total = service_group.cost if service_group else 0
+                display_total = service_group.cost if service_group else Decimal("0")
                 display_avg = display_total / self._days
 
             dashboard.update_kpis(
@@ -307,7 +305,7 @@ class DashboardScreen(Screen[None]):
                 # Filter entries for the specific service
                 service_entries = [e for e in breakdown.entries if e.service == self._selected_service]
                 # Group by date
-                daily_data = {}
+                daily_data: dict[str, float] = {}
                 for e in service_entries:
                     daily_data[str(e.date)] = daily_data.get(str(e.date), 0.0) + float(e.unblended_cost)
                 chart_data = sorted(daily_data.items())
@@ -325,7 +323,7 @@ class DashboardScreen(Screen[None]):
                 service_entries = sorted(
                     [e for e in breakdown.entries if e.service == self._selected_service],
                     key=lambda x: x.date,
-                    reverse=True
+                    reverse=True,
                 )
                 for e in service_entries:
                     table_data.append((str(e.date), e.service, f"${e.unblended_cost:,.2f}"))
@@ -335,12 +333,12 @@ class DashboardScreen(Screen[None]):
         except Exception as e:
             self.notify(f"Error refreshing dashboard: {e}", severity="error", markup=False)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:  # type: ignore[name-defined]
+    def on_button_pressed(self, event: Button.Pressed) -> None:  # [name-defined]
         if event.button.id == "view-toggle":
             dashboard = self.query_one("#dashboard", DashboardWidget)
             dashboard.toggle_view()
 
-    def on_select_changed(self, event: Select.Changed) -> None:  # type: ignore[name-defined]
+    def on_select_changed(self, event: Select.Changed) -> None:  # [name-defined]
         if event.select.id == "service-selector":
             self._selected_service = str(event.value)
             self._refresh_data()

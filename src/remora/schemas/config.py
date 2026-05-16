@@ -52,7 +52,6 @@ class AppSettings(BaseModel):
         """Load settings from environment variables (python-dotenv pattern)."""
         import os
 
-
         load_dotenv()
 
         return cls(

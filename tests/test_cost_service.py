@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import polars as pl
@@ -8,17 +9,14 @@ from remora.services.cost_service import CostService
 
 
 @patch("remora.services.cost_service.AWSSession")
-def test_cost_service_uses_cache(mock_aws_session_class):
+def test_cost_service_uses_cache(mock_aws_session_class: Any) -> None:
     mock_aws_session = MagicMock()
     mock_aws_session_class.get_instance.return_value = mock_aws_session
 
     mock_cache = MagicMock(spec=CacheService)
-    mock_df = pl.DataFrame({
-        "unblended_cost": [10.0],
-        "date": [date(2023, 1, 1)],
-        "service": ["S3"],
-        "account": ["123"]
-    })
+    mock_df = pl.DataFrame(
+        {"unblended_cost": [10.0], "date": [date(2023, 1, 1)], "service": ["S3"], "account": ["123"]}
+    )
     mock_cache.get.return_value = mock_df
 
     service = CostService(session=mock_aws_session, cache=mock_cache)

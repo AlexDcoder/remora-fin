@@ -34,10 +34,13 @@ def dashboard(args: argparse.Namespace) -> None:
 
     welcome_text = Text.assemble(
         ("Launching Remora FinOps Dashboard\n", "bold blue"),
-        ("\nProfile: ", "dim"), (f"{profile}", "cyan"),
-        ("\nRegion:  ", "dim"), (f"{region}", "cyan"),
-        ("\nTheme:   ", "dim"), (f"{settings.ui.theme}", "cyan"),
-        ("\n\nStarting Textual TUI...", "italic dim")
+        ("\nProfile: ", "dim"),
+        (f"{profile}", "cyan"),
+        ("\nRegion:  ", "dim"),
+        (f"{region}", "cyan"),
+        ("\nTheme:   ", "dim"),
+        (f"{settings.ui.theme}", "cyan"),
+        ("\n\nStarting Textual TUI...", "italic dim"),
     )
     console.print(Panel(welcome_text, border_style="blue", expand=False))
 
@@ -51,7 +54,7 @@ def dashboard(args: argparse.Namespace) -> None:
     app.run()
 
 
-def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+def add_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
     """Add dashboard subparser."""
     parser = subparsers.add_parser(
         "dashboard",

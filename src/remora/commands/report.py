@@ -14,11 +14,13 @@ from rich.status import Status
 
 from remora.commands.utils import parse_dates, validate_aws_session
 from remora.schemas.common import DateRange
+from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.report import ReportConfig, ReportFilters, ReportFormat, ReportMetadata
 from remora.services import AWSSession, CostService, ReportService
 
 logger = logging.getLogger(__name__)
 console = Console()
+
 
 def report(args: argparse.Namespace) -> None:
     """Generate a cost report."""
@@ -45,6 +47,7 @@ def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
+    data: CostBreakdown | CostTrend
 
     with Status(f"[bold cyan]Fetching {metric} data...\n", console=console) as status:
         logger.info("Period: [green]%s[/] to [green]%s[/]", start, end)
@@ -90,12 +93,12 @@ def report(args: argparse.Namespace) -> None:
         f"Format:      [magenta]{fmt.value.upper()}[/]\n"
         f"Location:    [blue]{output_path.absolute()}[/]",
         title="REMORA | Report Engine",
-        border_style="green"
+        border_style="green",
     )
     console.print(success_panel)
 
 
-def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+def add_report_parser(subparsers: argparse._SubParsersAction) -> None:  # [type-arg]
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",

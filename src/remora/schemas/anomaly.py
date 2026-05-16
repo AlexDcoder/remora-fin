@@ -133,7 +133,7 @@ class Anomaly(BaseModel):
     anomaly_type: AnomalyType = AnomalyType.UNKNOWN
     is_recurring: bool = False
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def variance_percentage(self) -> float:
         """Calculated from native impact fields."""
@@ -143,7 +143,7 @@ class Anomaly(BaseModel):
             (self.impact.total_actual_spend - self.impact.total_expected_spend) / self.impact.total_expected_spend * 100
         )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def top_root_cause(self) -> str | None:
         """Service contributing most to the anomaly."""
@@ -175,7 +175,7 @@ class AnomalyReport(BaseModel):
     anomalies: list[Anomaly] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=datetime.now)
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def net_financial_impact(self) -> Decimal:
         """Total extra cost caused by anomalies."""

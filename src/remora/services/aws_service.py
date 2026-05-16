@@ -9,7 +9,7 @@ import functools
 import logging
 import time
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import aioboto3
 import boto3
@@ -84,25 +84,25 @@ class AWSSession:
         cfg = Config(
             retries={"max_attempts": 5, "mode": "adaptive"},
         )
-        return self._sync_session.client(service, config=cfg, **kwargs)
+        return self._sync_session.client(service, config=cfg, **kwargs)  # [call-overload]
 
     def cost_explorer(self) -> SyncCEClient:
-        return self._sync_client("ce")
+        return cast("SyncCEClient", self._sync_client("ce"))
 
     def budgets(self) -> BudgetsClient:
-        return self._sync_client("budgets")
+        return cast("BudgetsClient", self._sync_client("budgets"))
 
     def organizations(self) -> OrganizationsClient:
-        return self._sync_client("organizations")
+        return cast("OrganizationsClient", self._sync_client("organizations"))
 
     def pricing(self) -> PricingClient:
-        return self._sync_client("pricing")
+        return cast("PricingClient", self._sync_client("pricing"))
 
     def s3(self) -> S3Client:
-        return self._sync_client("s3")
+        return cast("S3Client", self._sync_client("s3"))
 
     def sts(self) -> STSClient:
-        return self._sync_client("sts")
+        return cast("STSClient", self._sync_client("sts"))
 
     def cloudwatch(self) -> Any:
         return self._sync_client("monitoring")
@@ -211,7 +211,7 @@ def retry_with_backoff(
                         )
                         time.sleep(delay)
                         delay = min(delay * 2, max_delay)
-            raise last_exception  # type: ignore[misc]
+            raise last_exception  # [misc]
 
         return wrapper
 

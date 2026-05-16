@@ -97,18 +97,23 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
         resp = ce.get_cost_forecast(**params)
 
         # Parse native forecast
-        total_results = resp.get("Total", {})
         forecast_points = []
 
-        for period_str, data in total_results.items():
-            forecast_date = date.fromisoformat(period_str)
-            amount = Decimal(data.get("Amount", "0"))
-            is_predicted = data.get("predicted", False)
+        for res in resp.get("ForecastResultsByTime", []):
+            time_period = res.get("TimePeriod", {})
+            start_str = time_period.get("Start", "")
+            if not start_str:
+                continue
 
+            forecast_date = date.fromisoformat(start_str)
+            amount = Decimal(res.get("MeanValue", "0"))
+            
             point = ForecastPoint(
                 date=forecast_date,
                 predicted_cost=amount,
-                is_predicted=is_predicted,
+                lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
+                upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
+                is_predicted=True,
             )
             forecast_points.append(point)
 
@@ -122,8 +127,8 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
             actual_end = historical_data["date"].max()
             if actual_start is not None and actual_end is not None:
                 actual_period = DateRange(
-                    start=date.fromordinal(int(actual_start)),  # type: ignore[arg-type]
-                    end=date.fromordinal(int(actual_end)),  # type: ignore[arg-type]
+                    start=date.fromordinal(int(actual_start)),  # [arg-type]
+                    end=date.fromordinal(int(actual_end)),  # [arg-type]
                 )
 
         model = ForecastModel.AWS_NATIVE_ARIMA

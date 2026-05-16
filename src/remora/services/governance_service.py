@@ -40,12 +40,7 @@ class GovernanceService:
                 tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
 
                 missing = [rt for rt in required_tags if rt not in tags]
-                resources.append({
-                    "arn": arn,
-                    "tags": tags,
-                    "missing_tags": missing,
-                    "is_compliant": len(missing) == 0
-                })
+                resources.append({"arn": arn, "tags": tags, "missing_tags": missing, "is_compliant": len(missing) == 0})
 
         total = len(resources)
         compliant = sum(1 for r in resources if r["is_compliant"])
@@ -56,7 +51,7 @@ class GovernanceService:
             "total_resources": total,
             "compliant_resources": compliant,
             "non_compliant_resources": total - compliant,
-            "details": resources
+            "details": resources,
         }
 
     def list_organization_accounts(self) -> list[dict[str, str]]:
@@ -74,20 +69,12 @@ class GovernanceService:
             paginator = orgs.get_paginator("list_accounts")
             for page in paginator.paginate():
                 for acct in page.get("Accounts", []):
-                    accounts.append({
-                        "id": acct["Id"],
-                        "name": acct["Name"],
-                        "email": acct["Email"],
-                        "status": acct["Status"]
-                    })
+                    accounts.append(
+                        {"id": acct["Id"], "name": acct["Name"], "email": acct["Email"], "status": acct["Status"]}
+                    )
         except Exception as e:
             logger.warning("Failed to list organization accounts (falling back to current account): %s", e)
             identity = self._session.get_caller_identity()
-            accounts.append({
-                "id": identity["account"],
-                "name": "Current Account",
-                "email": "N/A",
-                "status": "ACTIVE"
-            })
+            accounts.append({"id": identity["account"], "name": "Current Account", "email": "N/A", "status": "ACTIVE"})
 
         return accounts

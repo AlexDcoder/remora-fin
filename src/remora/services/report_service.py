@@ -17,6 +17,7 @@ from typing import Any, ClassVar
 
 import polars as pl
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 from rich.console import Console
 from rich.table import Table as RichTable
 
@@ -79,9 +80,7 @@ class ReportFormatter(ABC):
         ...
 
     @abstractmethod
-    def format_full(
-        self, data: FullReport, metadata: ReportMetadata | None = None
-    ) -> bytes | str:
+    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes | str:
         """Format a comprehensive report."""
         ...
 
@@ -101,7 +100,7 @@ class PDFFormatter(ReportFormatter):
         # Header
         pdf.set_font("Arial", "B", 20)
         pdf.set_text_color(44, 62, 80)  # Dark Blue
-        pdf.cell(0, 15, "REMORA | FinOps Report", ln=True, align="L")
+        pdf.cell(0, 15, "REMORA | FinOps Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
         pdf.set_draw_color(44, 62, 80)
         pdf.line(10, 25, 200, 25)
@@ -110,19 +109,23 @@ class PDFFormatter(ReportFormatter):
         # Title and Dates
         pdf.set_font("Arial", "B", 14)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 10, title, ln=True)
+        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # Metadata / User Info
         pdf.set_font("Arial", "", 9)
         pdf.set_text_color(100, 100, 100)
 
-        gen_time = metadata.generated_at.strftime("%Y-%m-%d %H:%M:%S") if metadata else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        pdf.cell(100, 5, f"Generated: {gen_time}", ln=False)
+        gen_time = (
+            metadata.generated_at.strftime("%Y-%m-%d %H:%M:%S")
+            if metadata
+            else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        pdf.cell(100, 5, f"Generated: {gen_time}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
         if metadata:
-            pdf.cell(0, 5, f"Account: {metadata.account_id or 'Unknown'}", ln=True, align="R")
-            pdf.cell(100, 5, f"User: {metadata.generated_by or 'Unknown'}", ln=False)
-            pdf.cell(0, 5, f"Period: {metadata.period.start} to {metadata.period.end}", ln=True, align="R")
+            pdf.cell(0, 5, f"Account: {metadata.account_id or 'Unknown'}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+            pdf.cell(100, 5, f"User: {metadata.generated_by or 'Unknown'}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(0, 5, f"Period: {metadata.period.start} to {metadata.period.end}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         else:
             pdf.ln(5)
 
@@ -132,7 +135,7 @@ class PDFFormatter(ReportFormatter):
         """Draw a horizontal bar chart for the top services based on Usage Quantity."""
         pdf.set_font("Arial", "B", 10)
         pdf.set_text_color(44, 62, 80)
-        pdf.cell(0, 10, title, ln=True)
+        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
 
         max_w = 140  # Max width of a bar
@@ -148,7 +151,7 @@ class PDFFormatter(ReportFormatter):
             # Label
             pdf.set_font("Arial", "", 8)
             pdf.set_text_color(0, 0, 0)
-            pdf.cell(40, 6, f"{g.key[:18]}", ln=False)
+            pdf.cell(40, 6, f"{g.key[:18]}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
             # Bar
             bar_w = (float(g.usage_quantity) / max_val) * max_w if max_val > 0 else 0
@@ -157,7 +160,7 @@ class PDFFormatter(ReportFormatter):
 
             # Value label
             pdf.set_x(pdf.get_x() + max_w + 5)
-            pdf.cell(0, 6, f"{g.usage_quantity:,.2f}", ln=True)
+            pdf.cell(0, 6, f"{g.usage_quantity:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(2)
         pdf.ln(8)
 
@@ -165,14 +168,14 @@ class PDFFormatter(ReportFormatter):
         """Draw a progression line chart for cost trends."""
         pdf.set_font("Arial", "B", 10)
         pdf.set_text_color(44, 62, 80)
-        pdf.cell(0, 10, title, ln=True)
+        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
 
         if not points:
             return
 
         h = 40  # Chart height
-        w = 180 # Chart width
+        w = 180  # Chart width
         x_start = pdf.get_x()
         y_start = pdf.get_y()
 
@@ -202,10 +205,12 @@ class PDFFormatter(ReportFormatter):
         pdf.set_y(y_start + h + 5)
         pdf.set_font("Arial", "I", 7)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, f"Min: ${min_cost:,.2f} | Max: ${max_cost:,.2f}", ln=True, align="R")
+        pdf.cell(0, 5, f"Min: ${min_cost:,.2f} | Max: ${max_cost:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         pdf.ln(8)
 
-    def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
+    def format_cost(
+        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | FPDF:
         title = "Cost Analysis Report"
         is_partial = pdf is not None
 
@@ -220,11 +225,11 @@ class PDFFormatter(ReportFormatter):
             if data.summary:
                 pdf.set_fill_color(240, 240, 240)
                 pdf.set_font("Arial", "B", 11)
-                pdf.cell(0, 12, "  Executive Summary", ln=True, fill=True)
+                pdf.cell(0, 12, "  Executive Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
                 pdf.set_font("Arial", "", 10)
-                pdf.cell(60, 10, f"  Total Cost: ${data.summary.total_cost:,.2f}", ln=False)
-                pdf.cell(60, 10, f"  Daily Avg: ${data.summary.daily_average:,.2f}", ln=False)
-                pdf.cell(0, 10, f"  Top Service: {data.summary.top_service}", ln=True)
+                pdf.cell(60, 10, f"  Total Cost: ${data.summary.total_cost:,.2f}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+                pdf.cell(60, 10, f"  Daily Avg: ${data.summary.daily_average:,.2f}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+                pdf.cell(0, 10, f"  Top Service: {data.summary.top_service}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 pdf.ln(8)
 
             # Chart Section
@@ -237,7 +242,7 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(70, 10, " Service / Dimension", border=1, fill=True)
             pdf.cell(45, 10, " Usage (Quantity)", border=1, fill=True, align="C")
             pdf.cell(40, 10, " Cost (USD)", border=1, fill=True, align="C")
-            pdf.cell(35, 10, " % of Total", border=1, fill=True, ln=True, align="C")
+            pdf.cell(35, 10, " % of Total", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
             # Table Rows
             pdf.set_font("Arial", "", 9)
@@ -246,7 +251,7 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(70, 8, f" {g.key[:40]}", border=1)
                 pdf.cell(45, 8, f"{g.usage_quantity:,.2f}", border=1, align="R")
                 pdf.cell(40, 8, f"${g.cost:,.2f}", border=1, align="R")
-                pdf.cell(35, 8, f"{g.percentage:.1f}%", border=1, ln=True, align="R")
+                pdf.cell(35, 8, f"{g.percentage:.1f}%", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         else:
             # Trend Chart
             self._draw_line_chart(pdf, data.points, "Cost Progression Over Time")
@@ -257,18 +262,20 @@ class PDFFormatter(ReportFormatter):
             pdf.set_text_color(255, 255, 255)
             pdf.cell(50, 10, " Date", border=1, fill=True)
             pdf.cell(70, 10, " Usage Quantity", border=1, fill=True, align="C")
-            pdf.cell(70, 10, " Cost (USD)", border=1, fill=True, ln=True, align="C")
+            pdf.cell(70, 10, " Cost (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
             for p in data.points[-60:]:
                 pdf.cell(50, 8, f" {p.date}", border=1)
                 pdf.cell(70, 8, f"{p.usage:,.2f}", border=1, align="R")
-                pdf.cell(70, 8, f"${p.cost:,.2f}", border=1, ln=True, align="R")
+                pdf.cell(70, 8, f"${p.cost:,.2f}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
-        return pdf if is_partial else pdf.output()
+        return pdf if is_partial else bytes(pdf.output())
 
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
+    def format_anomalies(
+        self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | FPDF:
         title = "Anomaly Detection Report"
         is_partial = pdf is not None
 
@@ -279,7 +286,7 @@ class PDFFormatter(ReportFormatter):
             self._add_header(pdf, title, metadata)
 
         pdf.set_font("Arial", "B", 11)
-        pdf.cell(0, 10, f"Total Spikes Detected: {data.total_anomalies}", ln=True)
+        pdf.cell(0, 10, f"Total Spikes Detected: {data.total_anomalies}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(8)
 
         pdf.set_font("Arial", "B", 10)
@@ -289,7 +296,7 @@ class PDFFormatter(ReportFormatter):
         pdf.cell(30, 10, " Severity", border=1, fill=True, align="C")
         pdf.cell(35, 10, " Actual Cost", border=1, fill=True, align="C")
         pdf.cell(35, 10, " Expected", border=1, fill=True, align="C")
-        pdf.cell(40, 10, " Variance %", border=1, fill=True, ln=True, align="C")
+        pdf.cell(40, 10, " Variance %", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
         pdf.set_font("Arial", "", 8)
         pdf.set_text_color(0, 0, 0)
@@ -298,11 +305,13 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(30, 8, f" {a.severity.value.upper()}", border=1, align="C")
             pdf.cell(35, 8, f"${a.impact.total_actual_spend:,.2f} ", border=1, align="R")
             pdf.cell(35, 8, f"${a.impact.total_expected_spend:,.2f} ", border=1, align="R")
-            pdf.cell(40, 8, f"{a.variance_percentage:+.1f}% ", border=1, ln=True, align="R")
+            pdf.cell(40, 8, f"{a.variance_percentage:+.1f}% ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
-        return pdf if is_partial else pdf.output()
+        return pdf if is_partial else bytes(pdf.output())
 
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None) -> bytes | FPDF:
+    def format_forecast(
+        self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | FPDF:
         title = "Spend Forecast Projection"
         is_partial = pdf is not None
 
@@ -315,49 +324,46 @@ class PDFFormatter(ReportFormatter):
         if data.total_predicted_cost:
             pdf.set_fill_color(230, 240, 230)
             pdf.set_font("Arial", "B", 11)
-            pdf.cell(0, 12, f"  Estimated Total for Period: ${data.total_predicted_cost:,.2f}", ln=True, fill=True)
+            pdf.cell(0, 12, f"  Estimated Total for Period: ${data.total_predicted_cost:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
             pdf.ln(6)
 
         # Draw progression line for forecast
-        trend_points = [
-            CostTrendPoint(date=p.date, cost=p.predicted_cost)
-            for p in data.predictions
-        ]
+        trend_points = [CostTrendPoint(date=p.date, cost=p.predicted_cost) for p in data.predictions]
         self._draw_line_chart(pdf, trend_points, "Projected Spend Progression")
 
         # Service Breakdown for Forecast (if available)
         if data.grouped_predictions:
             pdf.set_font("Arial", "B", 10)
             pdf.set_text_color(44, 62, 80)
-            pdf.cell(0, 10, "Projected Service Breakdown", ln=True)
+            pdf.cell(0, 10, "Projected Service Breakdown", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(4)
 
             pdf.set_font("Arial", "B", 9)
             pdf.set_fill_color(240, 240, 240)
             pdf.cell(100, 8, " Service", border=1, fill=True)
-            pdf.cell(80, 8, " Predicted Period Spend", border=1, fill=True, ln=True, align="C")
+            pdf.cell(80, 8, " Predicted Period Spend", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
             pdf.set_font("Arial", "", 9)
             pdf.set_text_color(0, 0, 0)
             for svc, points in data.grouped_predictions.items():
                 svc_total = sum(p.predicted_cost for p in points)
                 pdf.cell(100, 7, f" {svc}", border=1)
-                pdf.cell(80, 7, f"${svc_total:,.2f} ", border=1, ln=True, align="R")
+                pdf.cell(80, 7, f"${svc_total:,.2f} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
             pdf.ln(8)
 
         pdf.set_font("Arial", "B", 10)
         pdf.set_fill_color(39, 174, 96)  # Soft Green
         pdf.set_text_color(255, 255, 255)
         pdf.cell(95, 10, " Date", border=1, fill=True)
-        pdf.cell(95, 10, " Predicted Cost (USD)", border=1, fill=True, ln=True, align="C")
+        pdf.cell(95, 10, " Predicted Cost (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
         pdf.set_font("Arial", "", 10)
         pdf.set_text_color(0, 0, 0)
         for p in data.predictions[:60]:
             pdf.cell(95, 8, f" {p.date}", border=1)
-            pdf.cell(95, 8, f"${p.predicted_cost:,.2f} ", border=1, ln=True, align="R")
+            pdf.cell(95, 8, f"${p.predicted_cost:,.2f} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
-        return pdf if is_partial else pdf.output()
+        return pdf if is_partial else bytes(pdf.output())
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
         pdf = FPDF()
@@ -369,7 +375,7 @@ class PDFFormatter(ReportFormatter):
             self.format_anomalies(data.anomalies, metadata, pdf=pdf)
         if data.forecast:
             self.format_forecast(data.forecast, metadata, pdf=pdf)
-        return pdf.output()
+        return bytes(pdf.output())
 
 
 class TableFormatter(ReportFormatter):
@@ -378,7 +384,9 @@ class TableFormatter(ReportFormatter):
     def __init__(self, console: Console | None = None):
         self._console = console or Console()
 
-    def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_cost(
+        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> str:
         table = RichTable(
             title=f"Cost Report ({data.period.start} → {data.period.end})",
             show_lines=True,
@@ -498,7 +506,9 @@ class JsonFormatter(ReportFormatter):
 
         return json.dumps(obj, indent=self._indent, default=default_handler)
 
-    def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_cost(
+        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> str:
         return self._serialize(data.model_dump(mode="json"))
 
     def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
@@ -519,18 +529,25 @@ class FastTableFormatter(ReportFormatter):
 
     def _to_df(self, data: Any) -> pl.DataFrame:
         if isinstance(data, CostBreakdown):
-            return pl.DataFrame([{"service": g.key, "cost": float(g.cost), "percentage": g.percentage} for g in data.groups])
+            return pl.DataFrame(
+                [{"service": g.key, "cost": float(g.cost), "percentage": g.percentage} for g in data.groups]
+            )
         elif isinstance(data, CostTrend):
             return pl.DataFrame([{"date": p.date, "cost": float(p.cost)} for p in data.points])
         elif isinstance(data, AnomalyReport):
-            return pl.DataFrame([{
-                "id": a.id,
-                "service": a.top_root_cause,
-                "severity": a.severity.value,
-                "actual": float(a.impact.total_actual_spend),
-                "expected": float(a.impact.total_expected_spend),
-                "variance": a.variance_percentage
-            } for a in data.anomalies])
+            return pl.DataFrame(
+                [
+                    {
+                        "id": a.id,
+                        "service": a.top_root_cause,
+                        "severity": a.severity.value,
+                        "actual": float(a.impact.total_actual_spend),
+                        "expected": float(a.impact.total_expected_spend),
+                        "variance": a.variance_percentage,
+                    }
+                    for a in data.anomalies
+                ]
+            )
         elif isinstance(data, ForecastResult):
             return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
         return pl.DataFrame()
@@ -545,13 +562,19 @@ class FastTableFormatter(ReportFormatter):
             return buf.getvalue()
         return ""
 
-    def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes | str:
+    def format_cost(
+        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes | str:
         return self._serialize(self._to_df(data))
 
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes | str:
+    def format_anomalies(
+        self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes | str:
         return self._serialize(self._to_df(data))
 
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes | str:
+    def format_forecast(
+        self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes | str:
         return self._serialize(self._to_df(data))
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
@@ -561,12 +584,22 @@ class FastTableFormatter(ReportFormatter):
 class MarkdownFormatter(ReportFormatter):
     """Markdown formatter for documentation-ready reports."""
 
-    def format_cost(self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_cost(
+        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> str:
         lines = ["# Cost Report", "", f"**Period:** {data.period.start} → {data.period.end}", ""]
         if isinstance(data, CostBreakdown) and data.summary:
-            lines.extend(["## Summary", "", "| Metric | Value |", "|--------|-------|",
-                         f"| Total Cost | ${data.summary.total_cost:,.2f} |",
-                         f"| Daily Average | ${data.summary.daily_average:,.2f} |", ""])
+            lines.extend(
+                [
+                    "## Summary",
+                    "",
+                    "| Metric | Value |",
+                    "|--------|-------|",
+                    f"| Total Cost | ${data.summary.total_cost:,.2f} |",
+                    f"| Daily Average | ${data.summary.daily_average:,.2f} |",
+                    "",
+                ]
+            )
         if isinstance(data, CostBreakdown):
             lines.extend(["## By Service", "", "| Service | Cost | % |", "|---------|------|---|"])
             for g in data.groups[:20]:
@@ -579,17 +612,31 @@ class MarkdownFormatter(ReportFormatter):
 
     def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         lines = ["# Anomaly Report", "", f"**Total Anomalies:** {data.total_anomalies}", ""]
-        lines.extend(["## Details", "", "| ID | Service | Severity | Actual | Expected | Variance |",
-                     "|----|---------|----------|--------|----------|----------|"])
+        lines.extend(
+            [
+                "## Details",
+                "",
+                "| ID | Service | Severity | Actual | Expected | Variance |",
+                "|----|---------|----------|--------|----------|----------|",
+            ]
+        )
         for a in data.anomalies[:30]:
-            lines.append(f"| {a.id[:18]} | {a.top_root_cause or ''} | {a.severity.value.upper()} | "
-                         f"${a.impact.total_actual_spend:,.2f} | ${a.impact.total_expected_spend:,.2f} | "
-                         f"{a.variance_percentage:.1f}% |")
+            lines.append(
+                f"| {a.id[:18]} | {a.top_root_cause or ''} | {a.severity.value.upper()} | "
+                f"${a.impact.total_actual_spend:,.2f} | ${a.impact.total_expected_spend:,.2f} | "
+                f"{a.variance_percentage:.1f}% |"
+            )
         return "\n".join(lines)
 
     def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        lines = ["# Cost Forecast", "", f"**Total Predicted:** ${data.total_predicted_cost:,.2f}", "",
-                 "| Date | Predicted Cost |", "|------|---------------|"]
+        lines = [
+            "# Cost Forecast",
+            "",
+            f"**Total Predicted:** ${data.total_predicted_cost:,.2f}",
+            "",
+            "| Date | Predicted Cost |",
+            "|------|---------------|",
+        ]
         for p in data.predictions[:30]:
             lines.append(f"| {p.date} | ${p.predicted_cost:,.2f} |")
         return "\n".join(lines)
@@ -644,8 +691,15 @@ class ReportService:
             config.output_path.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(content, (bytes, bytearray)):
                 config.output_path.write_bytes(content)
-            else:
+            elif isinstance(content, str):
                 config.output_path.write_text(content, encoding="utf-8")
-            logger.info("Report saved locally to %s", config.output_path)
+            else:
+                # Should not happen when final output is expected, but satisfies mypy
+                logger.warning("Report content is neither bytes nor string (type: %s). Not saved.", type(content))
 
+        # Final safety check for return type
+        if isinstance(content, FPDF):
+            return bytes(content.output())
+        if isinstance(content, bytearray):
+            return bytes(content)
         return content

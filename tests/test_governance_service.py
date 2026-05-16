@@ -1,10 +1,11 @@
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from remora.services.governance_service import GovernanceService
 
 
 @patch("remora.services.governance_service.AWSSession")
-def test_tag_compliance_scoring(mock_session_class):
+def test_tag_compliance_scoring(mock_session_class: Any) -> None:
     mock_session = MagicMock()
     mock_session_class.get_instance.return_value = mock_session
 
@@ -13,8 +14,8 @@ def test_tag_compliance_scoring(mock_session_class):
     mock_tagging.get_paginator.return_value.paginate.return_value = [
         {
             "ResourceTagMappingList": [
-                {"ResourceARN": "arn1", "Tags": [{"Key": "Project", "Value": "X"}]}, # Compliant
-                {"ResourceARN": "arn2", "Tags": []} # Non-compliant
+                {"ResourceARN": "arn1", "Tags": [{"Key": "Project", "Value": "X"}]},  # Compliant
+                {"ResourceARN": "arn2", "Tags": []},  # Non-compliant
             ]
         }
     ]

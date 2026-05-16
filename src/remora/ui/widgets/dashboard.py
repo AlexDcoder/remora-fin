@@ -125,13 +125,11 @@ class DashboardWidget(Container):
             self.query_one("#kpi-avg", KPICard).update_value(daily_avg)
         if anomaly_count is not None:
             self.query_one("#kpi-anomalies", KPICard).update_value(
-                str(anomaly_count),
-                variant="warning" if anomaly_count > 5 else "normal"
+                str(anomaly_count), variant="warning" if anomaly_count > 5 else "normal"
             )
         if forecast_trend is not None:
             self.query_one("#kpi-forecast", KPICard).update_value(
-                forecast_trend,
-                variant=("danger" if "↑" in forecast_trend else "normal")
+                forecast_trend, variant=("danger" if "↑" in forecast_trend else "normal")
             )
 
     def toggle_view(self) -> None:

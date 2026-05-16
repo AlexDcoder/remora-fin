@@ -5,19 +5,18 @@ import polars as pl
 from remora.services.cost_service import CostService
 
 
-def test_unit_economics_calculation():
+def test_unit_economics_calculation() -> None:
     # Use None for dependencies not needed for this logic-only test
     service = CostService(session=MagicMock(), cache=MagicMock())
 
-    cost_df = pl.DataFrame({
-        "date": ["2024-01-01", "2024-01-02"],
-        "unblended_cost": [100.0, 150.0]
-    })
+    cost_df = pl.DataFrame({"date": ["2024-01-01", "2024-01-02"], "unblended_cost": [100.0, 150.0]})
 
-    business_df = pl.DataFrame({
-        "date": ["2024-01-01", "2024-01-02"],
-        "metric_value": [10, 30] # e.g., Active Customers
-    })
+    business_df = pl.DataFrame(
+        {
+            "date": ["2024-01-01", "2024-01-02"],
+            "metric_value": [10, 30],  # e.g., Active Customers
+        }
+    )
 
     result = service.get_unit_economics(cost_df, business_df)
 

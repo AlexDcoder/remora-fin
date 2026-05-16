@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 def forecast_cmd(args: argparse.Namespace) -> None:
-
     """Predict future AWS costs."""
     # Parse forecast period (forecast usually starts tomorrow)
     default_start = date.today() + timedelta(days=1)
@@ -94,10 +93,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         scenarios = forecast_service.scenario_analysis(result, variations)
 
         scenario_table = Table(
-            show_lines=True,
-            header_style="bold magenta",
-            title="Forecast Scenario Analysis",
-            title_style="bold cyan"
+            show_lines=True, header_style="bold magenta", title="Forecast Scenario Analysis", title_style="bold cyan"
         )
         scenario_table.add_column("Scenario", style="cyan")
         scenario_table.add_column("Total Cost", justify="right", style="green")
@@ -119,13 +115,12 @@ def forecast_cmd(args: argparse.Namespace) -> None:
         f"Model Used:     [cyan]{result.model_used.value}[/]",
         title="REMORA | Forecast Engine",
         border_style="magenta",
-        expand=False
+        expand=False,
     )
     console.print(summary_panel)
 
 
-
-def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+def add_forecast_parser(subparsers: argparse._SubParsersAction) -> None:
     """Add forecast subparser."""
     parser = subparsers.add_parser(
         "forecast",

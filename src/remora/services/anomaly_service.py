@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from remora.schemas.anomaly import (
     Anomaly,
@@ -221,12 +221,15 @@ class AnomalyService:
         Returns: MonitorArn
         """
         ce = self._session.cost_explorer()
-        resp = ce.create_anomaly_monitor(
-            MonitorName=name,
-            MonitorType=monitor_type,
-            DimensionalMonitorParameters={"MonitorDimension": dimension},
-            MonitorSpecification=(metadata.get("specification") if metadata else None),
-        )
+        anomaly_monitor: dict[str, Any] = {
+            "MonitorName": name,
+            "MonitorType": monitor_type,
+            "DimensionalMonitorParameters": {"MonitorDimension": dimension},
+        }
+        if metadata and metadata.get("specification"):
+            anomaly_monitor["MonitorSpecification"] = metadata["specification"]
+
+        resp = ce.create_anomaly_monitor(AnomalyMonitor=anomaly_monitor)  # [arg-type]
         monitor_arn: str = resp["MonitorArn"]
         logger.info("Created anomaly monitor: %s (%s)", name, monitor_arn)
         return monitor_arn
@@ -235,8 +238,8 @@ class AnomalyService:
     def list_monitors(self) -> list[dict[str, Any]]:
         """List all anomaly monitors."""
         ce = self._session.cost_explorer()
-        resp: dict[str, Any] = ce.get_anomaly_monitors()
-        monitors: list[dict[str, Any]] = resp.get("AnomalyMonitors", [])
+        resp = ce.get_anomaly_monitors()
+        monitors: list[dict[str, Any]] = cast("list[dict[str, Any]]", resp.get("AnomalyMonitors", []))
         return monitors
 
     @retry_with_backoff(max_retries=3)

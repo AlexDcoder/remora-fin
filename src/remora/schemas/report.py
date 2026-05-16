@@ -67,10 +67,12 @@ class ReportMetadata(BaseModel):
 
 class FullReport(BaseModel):
     """A comprehensive report containing all analysis types."""
+
     cost_breakdown: CostBreakdown | None = None
     cost_trend: CostTrend | None = None
     anomalies: AnomalyReport | None = None
     forecast: ForecastResult | None = None
+
 
 # Ensure all forward refs are resolved
 FullReport.model_rebuild()

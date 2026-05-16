@@ -67,18 +67,15 @@ def anomalies(args: argparse.Namespace) -> None:
             print("\n[bold green]No cost anomalies detected in the selected period.[/] ✨\n")
 
         summary_panel = Panel(
-            f"Total Anomalies: [bold red]{report_data.total_anomalies}[/]\n"
-            f"Period:         [cyan]{start} to {end}[/]",
+            f"Total Anomalies: [bold red]{report_data.total_anomalies}[/]\nPeriod:         [cyan]{start} to {end}[/]",
             title="REMORA | Anomaly Insight",
             border_style="yellow",
-            expand=False
+            expand=False,
         )
         console.print(summary_panel)
 
 
-
-
-def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+def add_anomalies_parser(subparsers: argparse._SubParsersAction) -> None:
     """Add anomalies subparser."""
     parser = subparsers.add_parser(
         "anomalies",

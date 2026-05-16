@@ -78,13 +78,13 @@ class ForecastResult(BaseModel):
     model_used: ForecastModel = ForecastModel.AWS_NATIVE_ARIMA
     accuracy_score: float | None = Field(default=None, ge=0, le=1)
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def total_predicted_cost(self) -> Decimal:
         """Sum of all predicted costs."""
         return sum((p.predicted_cost for p in self.predictions), Decimal("0"))
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def prediction_count(self) -> int:
         return len(self.predictions)
@@ -115,7 +115,7 @@ class ForecastComparison(BaseModel):
     actuals_total: Decimal = Field(default=Decimal("0"), ge=0)
     variance_analysis: VarianceAnalysis
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # [prop-decorator]
     @property
     def overall_variance_pct(self) -> float:
         if self.actuals_total == 0:
