@@ -1,127 +1,94 @@
-# 🦈 Remora-Fin: AWS FinOps CLI
+# 🦈 Remora-Fin: High-Performance AWS FinOps CLI
 
-**Remora** é um kit de ferramentas FinOps de alto desempenho e leve para AWS. Assim como as rêmoras se fixam em tubarões para mantê-los limpos, esta CLI se anexa ao seu ambiente AWS para limpar custos, analisar gastos e detectar anomalias.
-
----
-
-## 🚀 Funcionalidades Principais
-
-* **📈 Gráficos Vetoriais:** Visualizações nativas em PDF (Barras e Linhas) sem dependências externas.
-* **📂 Multi-formato:** Exportação para humanos (PDF, MD, Table) ou máquinas (JSON, Parquet, CSV).
-* **🔍 Inteligência de Anomalias:** Identifica picos inesperados usando algoritmos do AWS Cost Explorer.
-* **🔮 Análise Preditiva:** Previsão de gastos integrada para evitar sustos no fechamento da fatura.
-* **🖥️ Terminal UI:** Dashboard interativo (TUI) para monitoramento em tempo real.
+**Remora** is a lightweight, high-performance FinOps toolkit for AWS. Built with Polars and Textual, it attaches to your AWS environment to analyze spending, detect anomalies, and export professional-grade reports.
 
 ---
 
-## 🔐 Configuração de Permissões (IAM)
+## 🚀 Key Features
 
-Antes de usar a Remora, garanta que sua identidade AWS possui as permissões mínimas de **leitura**.
-
-| Ação | Propósito |
-| --- | --- |
-| `ce:GetCostAndUsage` | Relatórios de custos e tendências. |
-| `ce:GetAnomalies` | Detecção de picos de gastos e acesso a monitores. |
-| `ce:GetCostForecast` | Projeções nativas de gastos. |
-| `sts:GetCallerIdentity` | Identificação de conta e usuário atual. |
-| `tagging:GetResources` | Verificação de conformidade de tags de recursos. |
-| `organizations:ListAccounts` | Listagem de contas em ambientes multi-account. |
+* **📈 Vector Graphics:** Native PDF visualizations (Bars & Lines) with zero external dependencies.
+* **📂 High-Speed Analysis:** Powered by **Polars** for near-instant processing of large billing datasets.
+* **🔍 Anomaly Intelligence:** Identify unexpected cost spikes using AWS Cost Explorer algorithms.
+* **🔮 Predictive Analysis:** Integrated spending forecasts to avoid end-of-month surprises.
+* **🖥️ Terminal UI:** Interactive dashboard (TUI) for real-time cost monitoring.
+* **🔒 Privacy First:** All data processing happens locally on your machine. Remora never sends your billing data to external servers.
 
 ---
 
-## 📊 Formatos de Exportação
+## 📦 Installation
 
-O comando `report` suporta diversos formatos para visualização ou ingestão de dados:
+Install Remora using `pip` or `uv`:
 
-| Formato | Argumento | Extensão | Descrição |
-| --- | --- | --- | --- |
-| **PDF** | `pdf` | `.pdf` | Documento profissional com gráficos vetoriais. |
-| **Table** | `table` | `N/A` | Saída estilizada para o terminal (Padrão). |
-| **Markdown** | `markdown` | `.md` | Tabelas formatadas para documentação/GitHub. |
-| **JSON** | `json` | `.json` | Dados estruturados para integrações. |
-| **CSV** | `csv` | `.csv` | Formato padrão para Excel/Spreadsheets. |
-| **Parquet** | `parquet` | `.parquet` | Alta performance para análise de Big Data. |
+```bash
+# Using uv (Recommended)
+uv tool install remora
+
+# Using pip
+pip install remora
+
+```
 
 ---
 
-## 🛠️ Comandos & Uso
+## 🛠️ Commands & Usage
 
 ### 📊 `report`
 
-Gera relatórios abrangentes de custo e uso.
+Generate comprehensive cost and usage reports.
+
+| Argument | Shortcut | Default | Description |
+| --- | --- | --- | --- |
+| `--type` | `-t` | `breakdown` | Report type: `breakdown`, `trend`, `account`. |
+| `--format` | `-f` | `table` | Output: `pdf`, `json`, `csv`, `parquet`, `markdown`. |
+| `--days` | `-d` | `30` | Lookback period in days. |
+| `--group-by` |  | `SERVICE` | Agrupar por: `SERVICE`, `REGION`, `LINKED_ACCOUNT`. |
 
 ```bash
-# Exemplo: Breakdown mensal em PDF dos últimos 30 dias
-remora report --type breakdown --format pdf --output mensal.pdf
+# Generate a monthly breakdown in PDF for the last 30 days
+remora report --type breakdown --format pdf --output monthly_report.pdf
 
-# Exemplo: Relatório de conta filtrado por serviço EC2
+# Get a CSV report filtered by EC2 service
 remora report --type account --service EC2 --format csv
 
 ```
 
-| Argumento | Atalho | Padrão | Descrição |
-| --- | --- | --- | --- |
-| `--type` | `-t` | `breakdown` | Tipo: breakdown, trend, account. |
-| `--days` | `-d` | `30` | Período de retrocesso em dias. |
-| `--metric` | `-m` | `UnblendedCost` | Métrica (Blended, Amortized, Usage). |
-| `--group-by` |  | `None` | Agrupar por: SERVICE, REGION, LINKED_ACCOUNT. |
-| `--profile` | `-p` | `default` | Perfil do AWS CLI. |
-
----
-
-### ⚠️ `anomalies`
-
-Detecta e analisa desvios de custo no ambiente.
-
-```bash
-# Verifica anomalias de alta severidade nos últimos 60 dias
-remora anomalies --days 60 --severity high --detail
-
-```
-
----
-
-### 🔮 `forecast`
-
-Projeta gastos futuros com base em padrões históricos.
-
-```bash
-# Projeção para os próximos 30 dias com análise de cenários "what-if"
-remora forecast --days 30 --scenarios --granularity MONTHLY
-
-```
-
----
-
 ### 🖥️ `dashboard`
 
-Inicia a Interface de Terminal Interativa (TUI).
+Launch the interactive Terminal User Interface.
 
 ```bash
-# Dashboard em tempo real com tema claro
-remora dashboard --theme light --days 60
+remora dashboard --days 60
 
 ```
 
 ---
 
-### 🔑 `login`
+## 🔐 IAM Permissions
 
-Valida e configura o acesso ao ambiente AWS.
+Remora requires **read-only** access to AWS Cost Explorer and Organizations. Ensure your IAM identity has the following permissions:
 
-```bash
-# Realiza um teste de conectividade e permissões
-remora login --test
+| Action | Purpose |
+| --- | --- |
+| `ce:GetCostAndUsage` | Cost reports and trends. |
+| `ce:GetAnomalies` | Cost spike detection and monitor access. |
+| `ce:GetCostForecast` | Native spend projections. |
+| `sts:GetCallerIdentity` | Current account and user identification. |
+| `organizations:ListAccounts` | Multi-account environment support. |
 
-# Configuração interativa
-remora login --configure
+---
 
-```
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
-## 📝 Licença
+## 📝 License
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
-
----
+Distributed under the MIT License. See `LICENSE` for more information.
