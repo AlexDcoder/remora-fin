@@ -107,7 +107,6 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
 
             forecast_date = date.fromisoformat(start_str)
             amount = Decimal(res.get("MeanValue", "0"))
-            
             point = ForecastPoint(
                 date=forecast_date,
                 predicted_cost=amount,

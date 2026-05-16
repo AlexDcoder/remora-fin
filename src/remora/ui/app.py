@@ -5,12 +5,12 @@ Design Patterns: Facade + Observer
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import ClassVar
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import (
     Button,
@@ -145,7 +145,6 @@ class ForecastScreen(Screen[None]):
             self.notify(f"Error loading forecast: {e}", severity="error", markup=False)
 
 
-from textual.binding import Binding
 
 class RemoraApp(App[None]):
     """Main application facade."""
