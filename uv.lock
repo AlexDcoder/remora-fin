@@ -1995,7 +1995,7 @@ wheels = [
 
 [[package]]
 name = "remora"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aioboto3" },
@@ -2005,7 +2005,6 @@ dependencies = [
     { name = "polars" },
     { name = "pydantic" },
     { name = "pypdf" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "rich-argparse" },
@@ -2033,7 +2032,6 @@ requires-dist = [
     { name = "polars", specifier = ">=1.39.3" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pypdf", specifier = ">=6.11.0" },
-    { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
