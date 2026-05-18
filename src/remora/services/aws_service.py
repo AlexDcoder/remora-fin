@@ -107,6 +107,9 @@ class AWSSession:
     def sts(self) -> STSClient:
         return cast("STSClient", self._sync_client("sts"))
 
+    def ec2(self) -> Any:
+        return self._sync_client("ec2")
+
     def cloudwatch(self) -> Any:
         return self._sync_client("monitoring")
 

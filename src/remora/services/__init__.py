@@ -7,6 +7,7 @@ Service modules:
     forecast_service → Cost forecasting (Strategy pattern)
     report_service   → Multi-format export (Strategy + Template Method)
     config_service   → App configuration (Singleton + Builder)
+    ec2_service      → EC2 metadata and management
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from remora.services.anomaly_service import AnomalyService
 from remora.services.aws_service import AWSSession, paginate_all, retry_with_backoff
 from remora.services.config_service import ConfigBuilder, ConfigService
 from remora.services.cost_service import CostQueryBuilder, CostService
+from remora.services.ec2_service import EC2Service
 from remora.services.forecast_service import (
     AWSCostExplorerNativeForecast,
     ForecastService,
@@ -39,6 +41,7 @@ __all__ = [
     "ConfigService",
     "CostQueryBuilder",
     "CostService",
+    "EC2Service",
     "ForecastService",
     "ForecastStrategy",
     "JsonFormatter",

@@ -317,7 +317,7 @@ class DashboardScreen(Screen[None]):
             if self._selected_service == "All Services":
                 # Show top services
                 for g in breakdown.groups[:50]:
-                    table_data.append(("-", g.key, f"${g.cost:,.2f}"))
+                    table_data.append(("•", g.key, f"${g.cost:,.2f}"))
             else:
                 # Show daily breakdown for that service
                 service_entries = sorted(
