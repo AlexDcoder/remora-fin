@@ -52,16 +52,27 @@ def login(args: argparse.Namespace) -> None:
         default=args.region or "us-east-1",
     )
 
-    # Write to ~/.aws/credentials
+    # Write to ~/.aws/config
     aws_dir = Path.home() / ".aws"
     aws_dir.mkdir(exist_ok=True)
-    creds_file = aws_dir / "config"
+    config_file = aws_dir / "config"
 
-    config_content = f"""[profile {profile}]
-region = {region}
-"""
-    creds_file.write_text(config_content)
-    console.print(f"[green]Profile '{profile}' saved to {creds_file}[/]")
+    import configparser
+
+    config = configparser.ConfigParser()
+    if config_file.exists():
+        config.read(config_file)
+
+    section = f"profile {profile}" if profile != "default" else "default"
+    if section not in config.sections() and section != "default":
+        config.add_section(section)
+
+    config[section]["region"] = region
+
+    with config_file.open("w") as f:
+        config.write(f)
+
+    console.print(f"[green]Profile '{profile}' updated in {config_file}[/]")
 
     # Test the credentials
     console.print()

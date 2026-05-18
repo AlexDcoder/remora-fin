@@ -51,7 +51,7 @@ class S3Exporter:
         s3 = self._session.s3()
         body = content if isinstance(content, bytes) else content.encode("utf-8")
         s3.put_object(Bucket=bucket, Key=key, Body=body)
-        logger.info("Report uploaded to s3://%s/%s", bucket, key)
+        logger.info("Report uploaded to [blue]s3://%s/%s[/]", bucket, key)
         return f"s3://{bucket}/{key}"
 
 
@@ -713,7 +713,7 @@ class ReportService:
                 config.output_path.write_text(content, encoding="utf-8")
             else:
                 # Should not happen when final output is expected, but satisfies mypy
-                logger.warning("Report content is neither bytes nor string (type: %s). Not saved.", type(content))
+                logger.warning("[yellow]Report content is neither bytes nor string[/] (type: [cyan]%s[/]). Not saved.", type(content))
 
         # Final safety check for return type
         if isinstance(content, FPDF):

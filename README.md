@@ -61,6 +61,26 @@ remora dashboard --days 60
 
 ```
 
+### 🔐 `login`
+
+Configure and test AWS credentials.
+
+```bash
+# Configure interactively
+remora login --configure
+
+# Test existing credentials
+remora login --test
+```
+
+### 👤 `profile`
+
+View current remora configuration and AWS session identity.
+
+```bash
+remora profile
+```
+
 ---
 
 ## 🔐 IAM Permissions

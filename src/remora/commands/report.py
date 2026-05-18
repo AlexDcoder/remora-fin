@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 
 import rich_argparse
-from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
@@ -72,7 +71,9 @@ def report(args: argparse.Namespace) -> None:
 
         # Output path logic
         fmt = ReportFormat(args.format)
-        output_path = Path(args.output) if args.output else Path(f"remora_report_{args.type}.{fmt.value}")
+        account_id = identity.get("account", "unknown")
+        region = session._region
+        output_path = Path(args.output) if args.output else Path(f"remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
 
         config = ReportConfig(
             format=fmt,
@@ -85,7 +86,7 @@ def report(args: argparse.Namespace) -> None:
         # Final Success Message
         if fmt == ReportFormat.TABLE and not args.output:
             content = report_service.generate_report(data, ReportConfig(format=fmt), metadata)
-            print(content)
+            console.print(content)
 
     success_panel = Panel(
         f"[bold green]Success![/]\n\n"

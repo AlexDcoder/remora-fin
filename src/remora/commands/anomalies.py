@@ -58,13 +58,13 @@ def anomalies(args: argparse.Namespace) -> None:
     # Output
     if args.json:
         config = ReportConfig(format=ReportFormat.JSON)
-        print(report_service.generate_report(report_data, config, metadata))
+        console.print(report_service.generate_report(report_data, config, metadata))
     else:
         config = ReportConfig(format=ReportFormat.TABLE)
-        print(report_service.generate_report(report_data, config, metadata))
+        console.print(report_service.generate_report(report_data, config, metadata))
 
         if report_data.total_anomalies == 0:
-            print("\n[bold green]No cost anomalies detected in the selected period.[/] ✨\n")
+            console.print("\n[bold green]No cost anomalies detected in the selected period.[/] ✨\n")
 
         summary_panel = Panel(
             f"Total Anomalies: [bold red]{report_data.total_anomalies}[/]\nPeriod:         [cyan]{start} to {end}[/]",

@@ -7,7 +7,6 @@ import logging
 from datetime import date, timedelta
 
 import rich_argparse
-from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
@@ -75,16 +74,16 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     # Output
     if args.json:
         config = ReportConfig(format=ReportFormat.JSON)
-        print(report_service.generate_report(result, config, metadata))
+        console.print(report_service.generate_report(result, config, metadata))
     else:
         config = ReportConfig(format=ReportFormat.TABLE)
-        print(report_service.generate_report(result, config, metadata))
+        console.print(report_service.generate_report(result, config, metadata))
 
     # Scenario analysis if requested (kept as extra CLI output)
     if args.scenarios and not args.json:
         from rich.table import Table
 
-        print()
+        console.print()
         variations = {
             "optimistic": -0.10,
             "baseline": 0.0,
@@ -108,7 +107,7 @@ def forecast_cmd(args: argparse.Namespace) -> None:
                 f"${total:,.2f}",
                 f"{diff:+.1f}%",
             )
-        print(scenario_table)
+        console.print(scenario_table)
 
     summary_panel = Panel(
         f"Total Predicted: [bold green]${result.total_predicted_cost:,.2f}[/]\n"

@@ -22,6 +22,7 @@ from remora.commands.anomalies import add_anomalies_parser
 from remora.commands.dashboard import add_dashboard_parser
 from remora.commands.forecast import add_forecast_parser
 from remora.commands.login import add_login_parser
+from remora.commands.profile import add_profile_parser
 from remora.commands.report import add_report_parser
 from remora.ui.app import RemoraApp
 
@@ -78,6 +79,7 @@ def execute_cli() -> None:
     add_forecast_parser(subparsers)
     add_dashboard_parser(subparsers)
     add_login_parser(subparsers)
+    add_profile_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -90,10 +92,12 @@ def execute_cli() -> None:
         try:
             args.func(args)
         except KeyboardInterrupt:
-            print("\nAborted.")
+            from rich import print as rprint
+            rprint("\n[yellow]Aborted.[/]")
             sys.exit(130)
         except Exception as e:
-            print(f"Error: {e}")
+            from rich import print as rprint
+            rprint(f"[bold red]Error:[/] {e}")
             sys.exit(1)
     else:
         parser.print_help()

@@ -9,7 +9,7 @@ import functools
 import logging
 import time
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 import aioboto3
 import boto3
@@ -30,32 +30,33 @@ T = TypeVar("T")
 
 
 class AWSSession:
-    """Thread-safe singleton for AWS sessions (sync + async).
+    """Thread-safe multiton for AWS sessions (sync + async).
 
     Usage:
-        session = AWSSession.get_instance()
+        session = AWSSession.get_instance(region="us-west-2", profile="dev")
         ce_client = session.cost_explorer()
     """
 
-    _instance: AWSSession | None = None
-    _initialized: bool = False
+    _instances: ClassVar[dict[tuple[str, str], AWSSession]] = {}
 
     def __new__(
         cls,
         region: str = "us-east-1",
         profile: str = "default",
     ) -> AWSSession:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+        key = (region, profile)
+        if key not in cls._instances:
+            instance = super().__new__(cls)
+            instance._initialized = False
+            cls._instances[key] = instance
+        return cls._instances[key]
 
     def __init__(
         self,
         region: str = "us-east-1",
         profile: str = "default",
     ) -> None:
-        if self._initialized:
+        if getattr(self, "_initialized", False):
             return
         self._region = region
         self._profile = profile
@@ -68,7 +69,7 @@ class AWSSession:
             profile_name=profile,
         )
         self._initialized = True
-        logger.info("AWSSession initialized (region=%s, profile=%s)", region, profile)
+        logger.info("AWSSession initialized (region=[cyan]%s[/], profile=[cyan]%s[/])", region, profile)
 
     @classmethod
     def get_instance(
@@ -112,13 +113,9 @@ class AWSSession:
     def tagging(self) -> Any:
         return self._sync_client("resource-groups-tagging-api")
 
-    # -- Async session --
-
     @property
     def async_session(self) -> aioboto3.Session:
         return self._async_session
-
-    # -- Validation --
 
     def validate_credentials(self) -> bool:
         """Check if AWS credentials are valid."""
@@ -158,9 +155,6 @@ class AWSSession:
         return pages
 
 
-# -- Paginator Helper --
-
-
 def paginate_all(
     client_method: Any,
     **kwargs: Any,
@@ -174,10 +168,6 @@ def paginate_all(
     """
     paginator = client_method.__self__.get_paginator(client_method.__name__)
     yield from paginator.paginate(**kwargs)
-
-
-# -- Retry Decorator --
-
 
 def retry_with_backoff(
     max_retries: int = 3,
@@ -205,7 +195,7 @@ def retry_with_backoff(
                     last_exception = e
                     if attempt < max_retries:
                         logger.warning(
-                            "AWS throttling on %s (attempt %d/%d). Retrying in %.1fs...",
+                            "[yellow]AWS throttling[/] on [cyan]%s[/] (attempt [bold]%d/%d[/]). Retrying in [bold]%.1fs[/]...",
                             func.__name__,
                             attempt + 1,
                             max_retries,
