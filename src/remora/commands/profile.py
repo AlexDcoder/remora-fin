@@ -41,10 +41,7 @@ def show_profile(args: argparse.Namespace) -> None:
     # AWS Session Info
     console.print("[bold blue]AWS Session Identity[/]")
 
-    session = AWSSession.get_instance(
-        region=settings.aws.region,
-        profile=settings.aws.profile
-    )
+    session = AWSSession.get_instance(region=settings.aws.region, profile=settings.aws.profile)
 
     try:
         if session.validate_credentials():

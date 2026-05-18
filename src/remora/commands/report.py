@@ -73,7 +73,9 @@ def report(args: argparse.Namespace) -> None:
         fmt = ReportFormat(args.format)
         account_id = identity.get("account", "unknown")
         region = session._region
-        output_path = Path(args.output) if args.output else Path(f"remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
+        output_path = (
+            Path(args.output) if args.output else Path(f"remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
+        )
 
         config = ReportConfig(
             format=fmt,

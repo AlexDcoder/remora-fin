@@ -169,6 +169,7 @@ def paginate_all(
     paginator = client_method.__self__.get_paginator(client_method.__name__)
     yield from paginator.paginate(**kwargs)
 
+
 def retry_with_backoff(
     max_retries: int = 3,
     base_delay: float = 1.0,

@@ -713,7 +713,10 @@ class ReportService:
                 config.output_path.write_text(content, encoding="utf-8")
             else:
                 # Should not happen when final output is expected, but satisfies mypy
-                logger.warning("[yellow]Report content is neither bytes nor string[/] (type: [cyan]%s[/]). Not saved.", type(content))
+                logger.warning(
+                    "[yellow]Report content is neither bytes nor string[/] (type: [cyan]%s[/]). Not saved.",
+                    type(content),
+                )
 
         # Final safety check for return type
         if isinstance(content, FPDF):

@@ -7,7 +7,9 @@ from remora.commands.profile import show_profile
 @patch("remora.commands.profile.ConfigService")
 @patch("remora.commands.profile.AWSSession")
 @patch("remora.commands.profile.Console")
-def test_show_profile(mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock) -> None:
+def test_show_profile(
+    mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock
+) -> None:
     # Setup mocks
     mock_console = MagicMock()
     mock_console_class.return_value = mock_console
@@ -29,7 +31,7 @@ def test_show_profile(mock_console_class: MagicMock, mock_aws_session_class: Mag
     mock_aws_session.get_caller_identity.return_value = {
         "account": "123456789012",
         "arn": "arn:aws:iam::123456789012:user/test",
-        "user_id": "AIDATEST"
+        "user_id": "AIDATEST",
     }
     mock_aws_session_class.get_instance.return_value = mock_aws_session
 
@@ -41,10 +43,7 @@ def test_show_profile(mock_console_class: MagicMock, mock_aws_session_class: Mag
     # We check if console.print was called. Since it uses Rich, we can't easily check the exact strings
     # without deeper inspection, but we can verify the mocks were interacted with.
     mock_config_service_class.assert_called_once()
-    mock_aws_session_class.get_instance.assert_called_once_with(
-        region="us-west-2",
-        profile="test-profile"
-    )
+    mock_aws_session_class.get_instance.assert_called_once_with(region="us-west-2", profile="test-profile")
     mock_aws_session.validate_credentials.assert_called_once()
     mock_aws_session.get_caller_identity.assert_called_once()
 
@@ -52,7 +51,9 @@ def test_show_profile(mock_console_class: MagicMock, mock_aws_session_class: Mag
 @patch("remora.commands.profile.ConfigService")
 @patch("remora.commands.profile.AWSSession")
 @patch("remora.commands.profile.Console")
-def test_show_profile_credential_failure(mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock) -> None:
+def test_show_profile_credential_failure(
+    mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock
+) -> None:
     # Setup mocks
     mock_console = MagicMock()
     mock_console_class.return_value = mock_console
@@ -95,5 +96,5 @@ def test_add_profile_parser() -> None:
         "profile",
         help="View current profile and AWS identity",
         description="Displays remora configuration and the active AWS caller identity.",
-        formatter_class=ANY
+        formatter_class=ANY,
     )
