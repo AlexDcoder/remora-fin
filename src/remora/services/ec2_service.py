@@ -26,7 +26,7 @@ class EC2Service:
         """List all EC2 instances in the current region with basic metadata."""
         ec2 = self._session.ec2()
         instances = []
-        
+
         paginator = ec2.get_paginator("describe_instances")
         for page in paginator.paginate():
             for reservation in page.get("Reservations", []):
@@ -37,17 +37,19 @@ class EC2Service:
                         if tag["Key"] == "Name":
                             name = tag["Value"]
                             break
-                            
-                    instances.append({
-                        "id": instance["InstanceId"],
-                        "name": name,
-                        "type": instance["InstanceType"],
-                        "state": instance["State"]["Name"],
-                        "launch_time": instance["LaunchTime"].isoformat(),
-                        "platform": instance.get("PlatformDetails", "Linux/UNIX"),
-                        "vpc_id": instance.get("VpcId"),
-                    })
-        
+
+                    instances.append(
+                        {
+                            "id": instance["InstanceId"],
+                            "name": name,
+                            "type": instance["InstanceType"],
+                            "state": instance["State"]["Name"],
+                            "launch_time": instance["LaunchTime"].isoformat(),
+                            "platform": instance.get("PlatformDetails", "Linux/UNIX"),
+                            "vpc_id": instance.get("VpcId"),
+                        }
+                    )
+
         logger.info("Found [bold cyan]%d[/] EC2 instances", len(instances))
         return instances
 
