@@ -48,7 +48,7 @@ def get_available_profiles() -> list[str]:
 
 def interactive_select(label: str, choices: list[str], default: str | None = None) -> str:
     """A visual select list using rich."""
-    console.print(f"\n [bold blue]❯[/] [white]{label}[/]")
+    console.print(f"\n [bold blue]>[/] [white]{label}[/]")
 
     for i, choice in enumerate(choices, 1):
         style = "bold cyan" if choice == default else "white"
@@ -98,7 +98,7 @@ def login(args: argparse.Namespace) -> None:
             "Choose Target AWS Region", COMMON_REGIONS, os.getenv("AWS_DEFAULT_REGION", "us-east-1")
         )
 
-    console.print("\n [bold blue]❯[/] [white]Step 3: Validating Access...[/]")
+    console.print("\n [bold blue]>[/] [white]Step 3: Validating Access...[/]")
 
     with console.status("[bold blue]Connecting to AWS Global Infrastructure...", spinner="dots"):
         session = AWSSession.get_instance(region=region, profile=selected_profile)
