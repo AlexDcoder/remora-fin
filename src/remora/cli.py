@@ -21,7 +21,7 @@ import rich_argparse
 from remora.commands.anomalies import add_anomalies_parser
 from remora.commands.dashboard import add_dashboard_parser
 from remora.commands.forecast import add_forecast_parser
-from remora.commands.login import add_login_parser
+from remora.commands.login import add_login_parser, add_login_root_parser
 from remora.commands.profile import add_profile_parser
 from remora.commands.report import add_report_parser
 from remora.ui.app import RemoraApp
@@ -81,6 +81,13 @@ def execute_cli() -> None:
     add_login_parser(subparsers)
     add_profile_parser(subparsers)
 
+    # Enable argcomplete support
+    try:
+        import argcomplete
+        argcomplete.autocomplete(parser)
+    except ImportError:
+        pass
+
     args = parser.parse_args()
 
     if not args.command:
@@ -106,3 +113,4 @@ def execute_cli() -> None:
 
 if __name__ == "__main__":
     execute_cli()
+ execute_cli()

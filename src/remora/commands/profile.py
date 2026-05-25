@@ -47,12 +47,27 @@ def show_profile(args: argparse.Namespace) -> None:
         if session.validate_credentials():
             identity = session.get_caller_identity()
 
+            # Check billing access
+            billing_access = "[bold red]Denied[/]"
+            try:
+                ce = session.cost_explorer()
+                ce.get_cost_and_usage(
+                    TimePeriod={"Start": "2024-01-01", "End": "2024-01-02"},
+                    Granularity="DAILY",
+                    Metrics=["UnblendedCost"],
+                )
+                billing_access = "[bold green]Active[/]"
+            except Exception as e:
+                if "InvalidParameterException" in str(e) or "ValidationException" in str(e):
+                    billing_access = "[bold green]Active[/]"
+
             identity_table = Table(box=None, show_header=False)
             identity_table.add_column("Property", style="bold green")
             identity_table.add_column("Value")
 
             identity_table.add_row("Account", identity["account"])
             identity_table.add_row("ARN", identity["arn"])
+            identity_table.add_row("Billing Access", billing_access)
             identity_table.add_row("User ID", identity["user_id"])
 
             console.print(identity_table)

@@ -97,6 +97,12 @@ Remora requires **read-only** access to AWS Cost Explorer and Organizations. Ens
 
 ---
 
+## 🌍 Multi-Cloud Support (Coming Soon)
+
+We are planning to expand Remora to support Azure and GCP. See our [Multi-Cloud Roadmap](MULTI_CLOUD.md) for more details.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome!

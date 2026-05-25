@@ -16,6 +16,7 @@ from remora.schemas.common import DateRange
 from remora.schemas.forecast import ForecastMetric
 from remora.schemas.report import ReportConfig, ReportFormat, ReportMetadata
 from remora.services import AWSSession, ForecastService, ReportService
+from remora.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +35,13 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     else:
         end = start + timedelta(days=30)
 
+    config_service = ConfigService()
+    settings = config_service.settings
+
     # Initialize services
     session = AWSSession.get_instance(
-        region=args.region or "us-east-1",
-        profile=args.profile or "default",
+        region=args.region or settings.aws.region,
+        profile=args.profile or settings.aws.profile,
     )
 
     # Pre-flight check

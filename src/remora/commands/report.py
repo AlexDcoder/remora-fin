@@ -16,6 +16,7 @@ from remora.schemas.common import DateRange
 from remora.schemas.cost import CostBreakdown, CostTrend
 from remora.schemas.report import ReportConfig, ReportFilters, ReportFormat, ReportMetadata
 from remora.services import AWSSession, CostService, ReportService
+from remora.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -25,10 +26,13 @@ def report(args: argparse.Namespace) -> None:
     """Generate a cost report."""
     start, end = parse_dates(args)
 
+    config_service = ConfigService()
+    settings = config_service.settings
+
     # Initialize services
     session = AWSSession.get_instance(
-        region=args.region or "us-east-1",
-        profile=args.profile or "default",
+        region=args.region or settings.aws.region,
+        profile=args.profile or settings.aws.profile,
     )
 
     # Pre-flight check
@@ -74,7 +78,9 @@ def report(args: argparse.Namespace) -> None:
         account_id = identity.get("account", "unknown")
         region = session._region
         output_path = (
-            Path(args.output) if args.output else Path(f"remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
+            Path(args.output)
+            if args.output
+            else Path(f"docs\\remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
         )
 
         config = ReportConfig(

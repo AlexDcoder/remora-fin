@@ -14,6 +14,7 @@ from remora.commands.utils import parse_dates, validate_aws_session
 from remora.schemas.common import DateRange
 from remora.schemas.report import ReportConfig, ReportFormat, ReportMetadata
 from remora.services import AnomalyService, AWSSession, ReportService
+from remora.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,13 @@ def anomalies(args: argparse.Namespace) -> None:
     """Detect and display AWS cost anomalies."""
     start, end = parse_dates(args)
 
+    config_service = ConfigService()
+    settings = config_service.settings
+
     # Initialize services
     session = AWSSession.get_instance(
-        region=args.region or "us-east-1",
-        profile=args.profile or "default",
+        region=args.region or settings.aws.region,
+        profile=args.profile or settings.aws.profile,
     )
 
     # Pre-flight check

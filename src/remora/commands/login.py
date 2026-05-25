@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 
@@ -13,7 +14,9 @@ from rich.prompt import IntPrompt
 from rich.table import Table
 
 from remora.services.aws_service import AWSSession
+from remora.services.config_service import ConfigBuilder, ConfigService
 
+logger = logging.getLogger(__name__)
 console = Console()
 
 COMMON_REGIONS = [
@@ -72,6 +75,8 @@ def interactive_select(label: str, choices: list[str], default: str | None = Non
 
 def login(args: argparse.Namespace) -> None:
     """Configure and validate AWS credentials interactively with select lists."""
+    config_service = ConfigService()
+
     console.print()
     console.print(
         Panel(
@@ -88,14 +93,17 @@ def login(args: argparse.Namespace) -> None:
     if args.profile and args.profile in profiles:
         selected_profile = args.profile
     else:
-        selected_profile = interactive_select("Select AWS Identity (Profile)", profiles, "default")
+        # If profile provided in args but not in list, we still use it if it's not the default
+        current_profile = config_service.get_aws_profile()
+        selected_profile = interactive_select("Select AWS Identity (Profile)", profiles, current_profile)
 
     # Step 2: Region Selection
     if args.region:
         region = args.region
     else:
+        current_region = config_service.get_default_region()
         region = interactive_select(
-            "Choose Target AWS Region", COMMON_REGIONS, os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+            "Choose Target AWS Region", COMMON_REGIONS, current_region or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
         )
 
     console.print("\n [bold blue]>[/] [white]Step 3: Validating Access...[/]")
@@ -104,8 +112,34 @@ def login(args: argparse.Namespace) -> None:
         session = AWSSession.get_instance(region=region, profile=selected_profile)
         is_valid = session.validate_credentials()
 
+        # Check Billing (Cost Explorer) access
+        billing_access = False
+        if is_valid:
+            try:
+                # Try a very small query to verify CE access
+                ce = session.cost_explorer()
+                ce.get_cost_and_usage(
+                    TimePeriod={
+                        "Start": "2024-01-01",  # Dummy date, doesn't matter much if it fails with data error
+                        "End": "2024-01-02",
+                    },
+                    Granularity="DAILY",
+                    Metrics=["UnblendedCost"],
+                )
+                billing_access = True
+            except Exception as e:
+                # If it's just a Date error, we still have access
+                if "InvalidParameterException" in str(e) or "ValidationException" in str(e):
+                    billing_access = True
+                else:
+                    logger.debug("Billing access check failed: %s", e)
+
     if is_valid:
         identity = session.get_caller_identity()
+
+        # Save configuration
+        new_settings = ConfigBuilder().with_aws_profile(selected_profile).with_region(region).build()
+        config_service.save_config(new_settings)
 
         # Check for Root/Organization status
         is_root = False
@@ -130,10 +164,18 @@ def login(args: argparse.Namespace) -> None:
         success_table.add_row("Identity Type", f"[{status_color}]{account_type}[/]")
         success_table.add_row("Active Region", f"[bold cyan]{region}[/]")
         success_table.add_row("Organization", org_info)
+        success_table.add_row("Billing Access", "[bold green]Active[/]" if billing_access else "[bold red]Denied[/]")
         success_table.add_row("User ARN", f"[dim]{identity['arn']}[/]")
 
         console.print()
-        console.print(Panel(success_table, title="[bold green]✓ ACCESS GRANTED[/]", border_style="green", expand=False))
+        console.print(
+            Panel(success_table, title="[bold green]✓ ACCESS GRANTED & SAVED[/]", border_style="green", expand=False)
+        )
+
+        if not billing_access:
+            console.print("\n[bold yellow]⚠️ BILLING ACCESS DENIED[/]")
+            console.print("   [dim]Credentials are valid, but you lack permissions for Cost Explorer.[/]")
+            console.print("   [dim]Ensure 'ce:GetCostAndUsage' is allowed in your IAM policy.[/]")
 
         if is_root:
             console.print("\n[bold gold1]✨ ROOT PRIVILEGES DETECTED[/]")
