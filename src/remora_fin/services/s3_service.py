@@ -7,7 +7,7 @@ useful for identifying high-cost storage patterns.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from remora_fin.services.aws_service import AWSSession, retry_with_backoff
 from remora_fin.services.cache_service import CacheService
@@ -31,7 +31,7 @@ class S3Service:
         if use_cache:
             cached = self._cache.get_json(query, max_age_hours=1)
             if cached is not None:
-                return cached
+                return cast("list[dict[str, Any]]", cached)
 
         s3 = self._session.s3()
         resp = s3.list_buckets()

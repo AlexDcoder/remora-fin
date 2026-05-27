@@ -11,13 +11,13 @@ from remora_fin.services.s3_service import S3Service
 
 
 @pytest.fixture
-def mock_session():
+def mock_session() -> MagicMock:
     mock = MagicMock(spec=AWSSession)
     mock.region = "us-east-1"
     return mock
 
 
-def test_rds_service_list_instances(mock_session):
+def test_rds_service_list_instances(mock_session: MagicMock) -> None:
     mock_rds = mock_session.rds.return_value
     mock_rds.get_paginator.return_value.paginate.return_value = [
         {
@@ -43,7 +43,7 @@ def test_rds_service_list_instances(mock_session):
     assert instances[0]["engine"] == "postgres"
 
 
-def test_s3_service_list_buckets(mock_session):
+def test_s3_service_list_buckets(mock_session: MagicMock) -> None:
     from datetime import datetime
 
     mock_s3 = mock_session.s3.return_value
@@ -56,7 +56,7 @@ def test_s3_service_list_buckets(mock_session):
     assert buckets[0]["name"] == "bucket-1"
 
 
-def test_lambda_service_list_functions(mock_session):
+def test_lambda_service_list_functions(mock_session: MagicMock) -> None:
     mock_lambda = mock_session.lambda_client.return_value
     mock_lambda.get_paginator.return_value.paginate.return_value = [
         {
@@ -81,7 +81,7 @@ def test_lambda_service_list_functions(mock_session):
     assert functions[0]["runtime"] == "python3.9"
 
 
-def test_dynamodb_service_list_tables(mock_session):
+def test_dynamodb_service_list_tables(mock_session: MagicMock) -> None:
     mock_ddb = mock_session.dynamodb.return_value
     mock_ddb.get_paginator.return_value.paginate.return_value = [{"TableNames": ["table-1"]}]
 
@@ -92,7 +92,7 @@ def test_dynamodb_service_list_tables(mock_session):
     assert tables[0] == "table-1"
 
 
-def test_cloudfront_service_list_distributions(mock_session):
+def test_cloudfront_service_list_distributions(mock_session: MagicMock) -> None:
     mock_cf = mock_session.cloudfront.return_value
     mock_cf.get_paginator.return_value.paginate.return_value = [
         {

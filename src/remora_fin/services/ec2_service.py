@@ -7,7 +7,7 @@ which can be used to correlate infrastructure with billing data.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from remora_fin.services.aws_service import AWSSession, retry_with_backoff
 from remora_fin.services.cache_service import CacheService
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class EC2Service:
-    """Service layer for AWS EC2 instance management."""
+    """Service layer for AWS EC2 management."""
 
     def __init__(self, session: AWSSession | None = None, cache: CacheService | None = None) -> None:
         """Initialize EC2Service with optional AWS session and Cache service."""
@@ -31,7 +31,8 @@ class EC2Service:
         if use_cache:
             cached = self._cache.get_json(query, max_age_hours=1)
             if cached is not None:
-                return cached
+                return cast("list[dict[str, Any]]", cached)
+
 
         ec2 = self._session.ec2()
         instances = []

@@ -35,12 +35,19 @@ pip install remora-fin
 
 Generate comprehensive cost and usage reports.
 
-| Argument | Shortcut | Default | Description |
-| --- | --- | --- | --- |
-| `--type` | `-t` | `breakdown` | Report type: `breakdown`, `trend`, `account`. |
-| `--format` | `-f` | `table` | Output: `pdf`, `json`, `csv`, `parquet`, `markdown`. |
-| `--days` | `-d` | `30` | Lookback period in days. |
-| `--group-by` |  | `SERVICE` | Agrupar por: `SERVICE`, `REGION`, `LINKED_ACCOUNT`. |
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--type` | `-t` | `breakdown`, `trend`, `account` | `breakdown` | Report type. |
+| `--format` | `-f` | `pdf`, `table`, `json`, `csv`, `parquet`, `markdown` | `pdf` | Output format. |
+| `--days` | `-d` | `int` | `30` | Lookback period in days. |
+| `--start` | | `YYYY-MM-DD` | | Start date. |
+| `--end` | | `YYYY-MM-DD` | | End date. |
+| `--metric` | | `UnblendedCost`, `BlendedCost`, `NetUnblendedCost`, `AmortizedCost`, `UsageQuantity` | `UnblendedCost` | Cost metric. |
+| `--group-by` | | `SERVICE`, `LINKED_ACCOUNT`, `REGION`, `USAGE_TYPE` | | Group results by dimension. |
+| `--service` | `-s` | `string` | | Filter by AWS service. |
+| `--output` | `-o` | `path` | | Output file path. |
+| `--profile` | `-p` | `string` | | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
 
 ```bash
 # Generate a monthly breakdown in PDF for the last 30 days
@@ -48,21 +55,77 @@ remora-fin report --type breakdown --format pdf --output monthly_report.pdf
 
 # Get a CSV report filtered by EC2 service
 remora-fin report --type account --service EC2 --format csv
+```
 
+### 🔍 `anomalies`
+
+Detect and display AWS cost anomalies using ML-based detection.
+
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--days` | `-d` | `int` | `30` | Lookback period (max 90). |
+| `--start` | | `YYYY-MM-DD` | | Start date. |
+| `--end` | | `YYYY-MM-DD` | | End date. |
+| `--severity` | | `low`, `medium`, `high`, `critical` | | Filter by severity. |
+| `--monitor-arn` | | `string` | | Filter by specific monitor ARN. |
+| `--detail` | | flag | | Show detailed anomaly list. |
+| `--json` | | flag | | Output as JSON. |
+| `--profile` | `-p` | `string` | | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
+
+```bash
+# Detect anomalies in the last 60 days
+remora-fin anomalies --days 60 --severity high
+```
+
+### 🔮 `forecast`
+
+Predict future AWS costs using ML-based forecasting.
+
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--days` | `-d` | `int` | `30` | Days to forecast (max 365). |
+| `--start` | | `YYYY-MM-DD` | | Forecast start date. |
+| `--end` | | `YYYY-MM-DD` | | End date. |
+| `--metric` | | `UnblendedCost`, `BlendedCost`, `NetUnblendedCost`, `AmortizedCost`, `UsageQuantity` | `UnblendedCost` | Metric to forecast. |
+| `--granularity` | | `DAILY`, `MONTHLY` | `DAILY` | Forecast granularity. |
+| `--group-by-type`| | `DIMENSION`, `TAG`, `COST_CATEGORY` | | Group forecast by type. |
+| `--group-by-key` | | `SERVICE`, `LINKED_ACCOUNT`, `REGION`, `USAGE_TYPE`, `INSTANCE_TYPE`, `PLATFORM` | | Group forecast by key. |
+| `--scenarios` | | flag | | Show what-if scenario analysis. |
+| `--json` | | flag | | Output as JSON. |
+| `--profile` | `-p` | `string` | | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
+
+```bash
+# Forecast next 30 days of spend
+remora-fin forecast --days 30 --scenarios
 ```
 
 ### 🖥️ `dashboard`
 
 Launch the interactive Terminal User Interface.
 
-```bash
-remora-fin dashboard --days 60
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--days` | `-d` | `int` | | Default period in days. |
+| `--theme` | | `dark`, `light` | | UI theme. |
+| `--profile` | `-p` | `string` | | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
 
+```bash
+remora-fin dashboard --days 60 --theme dark
 ```
 
 ### 🔐 `login`
 
 Configure and test AWS credentials.
+
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--profile` | `-p` | `string` | `default` | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
+| `--test` | `-t` | flag | | Test existing credentials. |
+| `--configure` | `-c` | flag | | Interactive configuration. |
 
 ```bash
 # Configure interactively
