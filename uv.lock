@@ -1608,7 +1608,7 @@ dependencies = [
     { name = "textual" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "moto", extra = ["all"] },
     { name = "mypy" },
@@ -1618,11 +1618,6 @@ dev = [
     { name = "ruff" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "aioboto3", specifier = ">=15.0.0" },
@@ -1630,24 +1625,24 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.40.0" },
     { name = "boto3-stubs", extras = ["budgets", "ce", "organizations", "pricing", "s3", "sts"], specifier = ">=1.40.0" },
     { name = "fpdf2", specifier = ">=2.8.2" },
-    { name = "moto", extras = ["all"], marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15.0" },
     { name = "polars", specifier = ">=1.39.3" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pypdf", specifier = ">=6.11.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "rich-argparse", specifier = ">=1.7.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "textual", specifier = ">=8.2.3" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.0.3" }]
+dev = [
+    { name = "moto", extras = ["all"], specifier = ">=5.0.0" },
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "ruff", specifier = ">=0.9.0" },
+]
 
 [[package]]
 name = "requests"
