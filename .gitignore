@@ -58,4 +58,4 @@ htmlcov/
 # GitHub
 .github/CODEOWNERS
 
-auto/
+Makefile

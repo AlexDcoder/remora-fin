@@ -33,7 +33,6 @@ class EC2Service:
             if cached is not None:
                 return cast("list[dict[str, Any]]", cached)
 
-
         ec2 = self._session.ec2()
         instances = []
 
