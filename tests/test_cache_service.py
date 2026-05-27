@@ -2,7 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
-from remora.services.cache_service import CacheService
+from remora_fin.services.cache_service import CacheService
 
 
 def test_cache_key_consistency() -> None:
@@ -40,3 +40,31 @@ def test_cache_expiration(tmp_path: Path) -> None:
         os.utime(f, (old_time, old_time))
 
     assert cache.get(query, max_age_hours=24) is None
+
+
+def test_cache_json_set_get(tmp_path: Path) -> None:
+    cache = CacheService(cache_dir=tmp_path)
+    data = {"anomalies": 10, "total": "100.0"}
+    query = {"id": "json_test"}
+
+    cache.set_json(query, data)
+    cached_data = cache.get_json(query)
+
+    assert cached_data == data
+
+
+def test_cache_json_expiration(tmp_path: Path) -> None:
+    cache = CacheService(cache_dir=tmp_path)
+    data = {"a": 1}
+    query = {"id": "json_exp"}
+    cache.set_json(query, data)
+
+    # Simulate old file
+    import os
+    import time
+
+    old_time = time.time() - (2 * 3600)
+    for f in tmp_path.glob("*.json"):
+        os.utime(f, (old_time, old_time))
+
+    assert cache.get_json(query, max_age_hours=1) is None

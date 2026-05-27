@@ -1,10 +1,10 @@
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from remora.services.governance_service import GovernanceService
+from remora_fin.services.governance_service import GovernanceService
 
 
-@patch("remora.services.governance_service.AWSSession")
+@patch("remora_fin.services.governance_service.AWSSession")
 def test_tag_compliance_scoring(mock_session_class: Any) -> None:
     mock_session = MagicMock()
     mock_session_class.get_instance.return_value = mock_session

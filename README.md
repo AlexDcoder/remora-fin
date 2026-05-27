@@ -1,6 +1,6 @@
 # 🦈 Remora-Fin: High-Performance AWS FinOps CLI
 
-**Remora** is a lightweight, high-performance FinOps toolkit for AWS. Built with Polars and Textual, it attaches to your AWS environment to analyze spending, detect anomalies, and export professional-grade reports.
+**Remora-Fin** is a lightweight, high-performance FinOps toolkit for AWS. Built with Polars and Textual, it attaches to your AWS environment to analyze spending, detect anomalies, and export professional-grade reports.
 
 ---
 
@@ -11,21 +11,20 @@
 * **🔍 Anomaly Intelligence:** Identify unexpected cost spikes using AWS Cost Explorer algorithms.
 * **🔮 Predictive Analysis:** Integrated spending forecasts to avoid end-of-month surprises.
 * **🖥️ Terminal UI:** Interactive dashboard (TUI) for real-time cost monitoring.
-* **🔒 Privacy First:** All data processing happens locally on your machine. Remora never sends your billing data to external servers.
+* **🔒 Privacy First:** All data processing happens locally on your machine. Remora-Fin never sends your billing data to external servers.
 
 ---
 
 ## 📦 Installation
 
-Install Remora using `pip` or `uv`:
+Install Remora-Fin using `pip` or `uv`:
 
 ```bash
 # Using uv (Recommended)
-uv tool install remora
+uv tool install remora-fin
 
 # Using pip
-pip install remora
-
+pip install remora-fin
 ```
 
 ---
@@ -45,10 +44,10 @@ Generate comprehensive cost and usage reports.
 
 ```bash
 # Generate a monthly breakdown in PDF for the last 30 days
-remora report --type breakdown --format pdf --output monthly_report.pdf
+remora-fin report --type breakdown --format pdf --output monthly_report.pdf
 
 # Get a CSV report filtered by EC2 service
-remora report --type account --service EC2 --format csv
+remora-fin report --type account --service EC2 --format csv
 
 ```
 
@@ -57,7 +56,7 @@ remora report --type account --service EC2 --format csv
 Launch the interactive Terminal User Interface.
 
 ```bash
-remora dashboard --days 60
+remora-fin dashboard --days 60
 
 ```
 
@@ -67,25 +66,25 @@ Configure and test AWS credentials.
 
 ```bash
 # Configure interactively
-remora login --configure
+remora-fin login --configure
 
 # Test existing credentials
-remora login --test
+remora-fin login --test
 ```
 
 ### 👤 `profile`
 
-View current remora configuration and AWS session identity.
+View current remora-fin configuration and AWS session identity.
 
 ```bash
-remora profile
+remora-fin profile
 ```
 
 ---
 
 ## 🔐 IAM Permissions
 
-Remora requires **read-only** access to AWS Cost Explorer and Organizations. Ensure your IAM identity has the following permissions:
+Remora-Fin requires **read-only** access to AWS Cost Explorer and Organizations. Ensure your IAM identity has the following permissions:
 
 | Action | Purpose |
 | --- | --- |
@@ -99,7 +98,7 @@ Remora requires **read-only** access to AWS Cost Explorer and Organizations. Ens
 
 ## 🌍 Multi-Cloud Support (Coming Soon)
 
-We are planning to expand Remora to support Azure and GCP. See our [Multi-Cloud Roadmap](MULTI_CLOUD.md) for more details.
+We are planning to expand Remora-Fin to support Azure and GCP. See our [Multi-Cloud Roadmap](MULTI_CLOUD.md) for more details.
 
 ---
 

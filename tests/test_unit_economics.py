@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import polars as pl
 
-from remora.services.cost_service import CostService
+from remora_fin.services.cost_service import CostService
 
 
 def test_unit_economics_calculation() -> None:

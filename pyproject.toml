@@ -1,5 +1,5 @@
 [project]
-name = "remora"
+name = "remora-fin"
 version = "1.0.0"
 description = "Lightweight, high-performance FinOps toolkit for AWS"
 readme = "README.md"
@@ -57,14 +57,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Alex/RemoraProject"
-Documentation = "https://github.com/Alex/RemoraProject#readme"
-Repository = "https://github.com/Alex/RemoraProject"
-Issues = "https://github.com/Alex/RemoraProject/issues"
-Changelog = "https://github.com/Alex/RemoraProject/releases"
+Homepage = "https://github.com/AlexDcoder/remora-fin"
+Documentation = "https://github.com/AlexDcoder/remora-fin#readme"
+Repository = "https://github.com/AlexDcoder/remora-fin"
+Issues = "https://github.com/AlexDcoder/remora-fin/issues"
+Changelog = "https://github.com/AlexDcoder/remora-fin/releases"
 
 [project.scripts]
-remora = "remora.cli:execute_cli"
+remora-fin = "remora_fin.cli:execute_cli"
 
 [build-system]
 requires = ["uv_build>=0.8.15,<0.9.0"]
@@ -72,7 +72,7 @@ build-backend = "uv_build"
 
 # -- Native UV Build Tool Settings --
 [tool.uv.build-backend]
-packages = ["src/remora"]
+packages = ["src/remora_fin"]
 source-exclude = [
     "/.github",
     "/tests",
@@ -84,7 +84,7 @@ source-exclude = [
 target-version = "py312"
 line-length = 120
 src = ["src"]
-extend-exclude = ["src/remora/cli.py"]
+extend-exclude = ["src/remora_fin/cli.py"]
 
 [tool.ruff.lint]
 select = [
@@ -102,12 +102,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["remora"]
+known-first-party = ["remora_fin"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["src/remora"]
+packages = ["src/remora_fin"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -116,7 +116,12 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 addopts = [
     "--import-mode=importlib",
-    "--cov=remora",
+    "--cov=remora_fin",
     "--cov-report=term-missing",
     "--no-cov-on-fail",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
 ]

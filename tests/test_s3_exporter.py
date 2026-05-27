@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from remora.services.report_service import S3Exporter
+from remora_fin.services.report_service import S3Exporter
 
 
 def test_s3_upload_call() -> None:

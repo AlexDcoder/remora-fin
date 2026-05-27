@@ -1590,7 +1590,7 @@ wheels = [
 ]
 
 [[package]]
-name = "remora"
+name = "remora-fin"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
@@ -1618,6 +1618,11 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aioboto3", specifier = ">=15.0.0" },
@@ -1640,6 +1645,9 @@ requires-dist = [
     { name = "textual", specifier = ">=8.2.3" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 
 [[package]]
 name = "requests"

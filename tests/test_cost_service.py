@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 
-from remora.services.cache_service import CacheService
-from remora.services.cost_service import CostService
+from remora_fin.services.cache_service import CacheService
+from remora_fin.services.cost_service import CostService
 
 
-@patch("remora.services.cost_service.AWSSession")
+@patch("remora_fin.services.cost_service.AWSSession")
 def test_cost_service_uses_cache(mock_aws_session_class: Any) -> None:
     mock_aws_session = MagicMock()
     mock_aws_session_class.get_instance.return_value = mock_aws_session

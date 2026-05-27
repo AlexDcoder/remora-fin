@@ -26,7 +26,7 @@ jobs:
         with:
           python-version-file: ".python-version"
       - run: uv sync --all-extras
-      - run: uv run mypy src/remora tests --ignore-missing-imports
+      - run: uv run mypy src/remora_fin tests --ignore-missing-imports
 
   test:
     name: Test
@@ -40,7 +40,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -d "tests" ]; then
-            uv run pytest tests/ -v --cov=remora --cov-report=xml
+            uv run pytest tests/ -v --cov=remora_fin --cov-report=xml
           else
             echo "No tests directory found. Skipping tests."
           fi

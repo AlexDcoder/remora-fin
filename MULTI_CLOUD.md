@@ -6,7 +6,7 @@ Este documento descreve a estratégia e o roteiro para expandir o **Remora-Fin**
 
 ## 🎯 Objetivo
 
-Transformar o Remora em uma ferramenta de FinOps agnóstica de nuvem, permitindo que usuários gerenciem custos e visualizem métricas de múltiplos provedores através de uma interface unificada.
+Transformar o Remora-Fin em uma ferramenta de FinOps agnóstica de nuvem, permitindo que usuários gerenciem custos e visualizem métricas de múltiplos provedores através de uma interface unificada.
 
 ---
 
@@ -24,7 +24,7 @@ Criaremos interfaces base (`Abstract Base Classes`) para os principais serviços
 O `AWSSession` atual será evoluído para um sistema de gestão de sessões dinâmico que identifica o provedor ativo com base na configuração do usuário.
 
 ### 3. Esquemas de Dados Padronizados
-Utilizaremos os schemas em `remora.schemas` para garantir que, independentemente da origem (AWS, Azure, GCP), os dados sejam processados de forma idêntica pelo motor de análise **Polars**.
+Utilizaremos os schemas em `remora_fin.schemas` para garantir que, independentemente da origem (AWS, Azure, GCP), os dados sejam processados de forma idêntica pelo motor de análise **Polars**.
 
 ---
 
@@ -50,21 +50,21 @@ Para cada novo provedor, utilizaremos os SDKs oficiais para garantir compatibili
 ## 🗺️ Roteiro de Implementação (Roadmap)
 
 ### Fase 1: Refatoração e Abstração (Curto Prazo)
-- [ ] Isolar a lógica atual da AWS em `remora.services.aws`.
+- [ ] Isolar a lógica atual da AWS em `remora_fin.services.aws`.
 - [ ] Criar as interfaces abstratas `BaseCostService` e `BaseForecastService`.
 - [ ] Implementar o `AWSService` como a primeira implementação concreta dessas interfaces.
 
 ### Fase 2: Integração Azure (Médio Prazo)
 - [ ] Implementar `AzureSession` para gestão de credenciais.
 - [ ] Desenvolver `AzureCostService` utilizando a API de Cost Management.
-- [ ] Adaptar o comando `remora report` para aceitar a flag `--provider azure`.
+- [ ] Adaptar o comando `remora-fin report` para aceitar a flag `--provider azure`.
 
 ### Fase 3: Integração GCP (Médio Prazo)
 - [ ] Implementar `GCPSession` e autenticação via ADC (Application Default Credentials).
 - [ ] Desenvolver `GCPCostService` integrando com exportações do BigQuery ou Cloud Billing API.
 
 ### Fase 4: Dashboard Unificado (Longo Prazo)
-- [ ] Evoluir o `remora dashboard` (TUI) para exibir uma visão consolidada de todos os provedores configurados.
+- [ ] Evoluir o `remora-fin dashboard` (TUI) para exibir uma visão consolidada de todos os provedores configurados.
 - [ ] Suporte a "Unit Economics" entre nuvens (ex: custo por transação global).
 
 ---

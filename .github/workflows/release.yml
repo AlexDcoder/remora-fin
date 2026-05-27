@@ -42,7 +42,7 @@ jobs:
     needs: create-github-release
     environment:
       name: pypi
-      url: https://pypi.org/p/remora
+      url: https://pypi.org/p/remora-fin
     permissions:
       id-token: write
     steps:

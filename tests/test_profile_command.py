@@ -1,12 +1,12 @@
 import argparse
 from unittest.mock import MagicMock, patch
 
-from remora.commands.profile import show_profile
+from remora_fin.commands.profile import show_profile
 
 
-@patch("remora.commands.profile.ConfigService")
-@patch("remora.commands.profile.AWSSession")
-@patch("remora.commands.profile.Console")
+@patch("remora_fin.commands.profile.ConfigService")
+@patch("remora_fin.commands.profile.AWSSession")
+@patch("remora_fin.commands.profile.Console")
 def test_show_profile(
     mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock
 ) -> None:
@@ -48,9 +48,9 @@ def test_show_profile(
     mock_aws_session.get_caller_identity.assert_called_once()
 
 
-@patch("remora.commands.profile.ConfigService")
-@patch("remora.commands.profile.AWSSession")
-@patch("remora.commands.profile.Console")
+@patch("remora_fin.commands.profile.ConfigService")
+@patch("remora_fin.commands.profile.AWSSession")
+@patch("remora_fin.commands.profile.Console")
 def test_show_profile_credential_failure(
     mock_console_class: MagicMock, mock_aws_session_class: MagicMock, mock_config_service_class: MagicMock
 ) -> None:
@@ -87,7 +87,7 @@ def test_show_profile_credential_failure(
 def test_add_profile_parser() -> None:
     from unittest.mock import ANY
 
-    from remora.commands.profile import add_profile_parser
+    from remora_fin.commands.profile import add_profile_parser
 
     mock_subparsers = MagicMock()
     add_profile_parser(mock_subparsers)
@@ -95,6 +95,6 @@ def test_add_profile_parser() -> None:
     mock_subparsers.add_parser.assert_called_once_with(
         "profile",
         help="View current profile and AWS identity",
-        description="Displays remora configuration and the active AWS caller identity.",
+        description="Displays remora-fin configuration and the active AWS caller identity.",
         formatter_class=ANY,
     )
