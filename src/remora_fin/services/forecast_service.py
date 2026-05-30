@@ -26,8 +26,8 @@ from remora_fin.schemas.forecast import (
     ForecastResult,
     VarianceAnalysis,
 )
-from remora_fin.services.aws_service import AWSSession, retry_with_backoff
-from remora_fin.services.cost_service import CostService
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
+from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +271,67 @@ class ForecastService:
     ):
         self._session = session or AWSSession.get_instance()
         self._cost_service = cost_service or CostService(session)
+        self._cache = CacheService()
+
+    @async_retry_with_backoff(max_retries=3)
+    async def get_aws_native_forecast_async(
+        self,
+        start: date,
+        end: date,
+        metric: ForecastMetric = ForecastMetric.UNBLENDED_COST,
+        granularity: str = "DAILY",
+        use_cache: bool = True,
+    ) -> ForecastResult:
+        """Async version of get_aws_native_forecast."""
+        query = {
+            "service": "forecast",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "metric": metric.value,
+            "granularity": granularity,
+        }
+
+        if use_cache:
+            cached = self._cache.get_json(query)
+            if cached:
+                return ForecastResult.model_validate(cached)
+
+        async with self._session.async_client("ce") as ce:
+            resp = await ce.get_cost_forecast(
+                TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
+                Metric=metric.value,
+                Granularity=granularity,
+            )
+
+        forecast_points = []
+        for res in resp.get("ForecastResultsByTime", []):
+            time_period = res.get("TimePeriod", {})
+            start_str = time_period.get("Start", "")
+            if not start_str:
+                continue
+
+            forecast_date = date.fromisoformat(start_str)
+            point = ForecastPoint(
+                date=forecast_date,
+                predicted_cost=Decimal(res.get("MeanValue", "0")),
+                lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
+                upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
+                is_predicted=True,
+            )
+            forecast_points.append(point)
+
+        result = ForecastResult(
+            forecast_period=DateRange(start=start, end=end),
+            metric=metric,
+            granularity=granularity,
+            predictions=forecast_points,
+            model_used=ForecastModel.AWS_NATIVE_ARIMA,
+        )
+
+        if use_cache:
+            self._cache.set_json(query, result.model_dump(mode="json"))
+
+        return result
 
     def get_aws_native_forecast(
         self,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from remora_fin.services.aws_service import AWSSession, retry_with_backoff
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,49 @@ class EC2Service:
                     )
 
         logger.info("Found [bold cyan]%d[/] EC2 instances", len(instances))
+
+        if use_cache:
+            self._cache.set_json(query, instances)
+
+        return instances
+
+    @async_retry_with_backoff(max_retries=3)
+    async def list_instances_async(self, use_cache: bool = True) -> list[dict[str, Any]]:
+        """Async version of list_instances."""
+        query = {"service": "ec2", "action": "list_instances", "region": self._session.region}
+
+        if use_cache:
+            cached = self._cache.get_json(query, max_age_hours=1)
+            if cached is not None:
+                return cast("list[dict[str, Any]]", cached)
+
+        instances = []
+        try:
+            async with self._session.async_client("ec2") as ec2:
+                paginator = ec2.get_paginator("describe_instances")
+                async for page in paginator.paginate():
+                    for reservation in page.get("Reservations", []):
+                        for instance in reservation.get("Instances", []):
+                            name = ""
+                            for tag in instance.get("Tags", []):
+                                if tag["Key"] == "Name":
+                                    name = tag["Value"]
+                                    break
+
+                            instances.append(
+                                {
+                                    "id": instance["InstanceId"],
+                                    "name": name,
+                                    "type": instance["InstanceType"],
+                                    "state": instance["State"]["Name"],
+                                    "launch_time": instance["LaunchTime"].isoformat(),
+                                    "platform": instance.get("PlatformDetails", "Linux/UNIX"),
+                                    "vpc_id": instance.get("VpcId"),
+                                }
+                            )
+        except Exception as e:
+            logger.error(f"Error listing EC2 instances async: {e}")
+            return []
 
         if use_cache:
             self._cache.set_json(query, instances)

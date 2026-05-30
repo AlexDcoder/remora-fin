@@ -23,7 +23,7 @@ from remora_fin.schemas.cost import (
     CostTrend,
     CostTrendPoint,
 )
-from remora_fin.services.aws_service import AWSSession, retry_with_backoff
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -167,6 +167,21 @@ class CostService:
         ce = self._session.cost_explorer()
         return self._session.fetch_token_paginated(ce.get_cost_and_usage, **query)
 
+    @async_retry_with_backoff(max_retries=5)
+    async def _fetch_all_pages_async(self, query: dict[str, Any]) -> list[dict[str, Any]]:
+        """Async version of fetch_all_pages."""
+        pages = []
+        current_kwargs = query.copy()
+        async with self._session.async_client("ce") as ce:
+            while True:
+                resp = await ce.get_cost_and_usage(**current_kwargs)
+                pages.append(resp)
+                token = resp.get("NextPageToken")
+                if not token:
+                    break
+                current_kwargs["NextPageToken"] = token
+        return pages
+
     def _parse_results(self, pages: list[dict[str, Any]]) -> pl.DataFrame:
         """Parse raw AWS Cost Explorer pages into a standardized Polars DataFrame."""
         rows = []
@@ -223,16 +238,55 @@ class CostService:
 
         return df
 
+    async def _get_data_async(self, query: dict[str, Any], use_cache: bool = True) -> pl.DataFrame:
+        """Async version of _get_data."""
+        if use_cache:
+            cached_df = self._cache.get(query)
+            if cached_df is not None:
+                return cached_df
+
+        try:
+            pages = await self._fetch_all_pages_async(query)
+            df = self._parse_results(pages)
+        except Exception as e:
+            logger.error(f"Error fetching cost data async: {e}")
+            return pl.DataFrame()  # Return empty DF on failure for safety
+
+        if use_cache:
+            self._cache.set(query, df)
+
+        return df
+
     def get_total_cost(self, start: date, end: date) -> CostSummary:
         """Get summary of total costs for a given period."""
         query = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE").build()
         df = self._get_data(query)
+        return self._summarize_df(df)
+
+    async def get_total_cost_async(self, start: date, end: date) -> CostSummary:
+        """Async version of get_total_cost."""
+        query = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE").build()
+        df = await self._get_data_async(query)
+        return self._summarize_df(df)
+
+    def _summarize_df(self, df: pl.DataFrame) -> CostSummary:
+        """Helper to create CostSummary from DataFrame."""
+        if df.is_empty():
+            return CostSummary(
+                total_cost=Decimal("0"),
+                daily_average=Decimal("0"),
+                max_daily_cost=Decimal("0"),
+                min_daily_cost=Decimal("0"),
+                top_service="N/A",
+                num_services=0,
+                num_accounts=0,
+            )
 
         total = df["unblended_cost"].sum()
         daily_agg = df.group_by("date").agg(pl.col("unblended_cost").sum())
         daily_avg = daily_agg["unblended_cost"].mean()
 
-        top_service = (
+        top_service_df = (
             df.filter(pl.col("service") != "Total")
             .group_by("service")
             .agg(pl.col("unblended_cost").sum())
@@ -244,7 +298,7 @@ class CostService:
             daily_average=Decimal(str(daily_avg or 0)),
             max_daily_cost=Decimal(str(daily_agg["unblended_cost"].max() or 0)),
             min_daily_cost=Decimal(str(daily_agg["unblended_cost"].min() or 0)),
-            top_service=top_service["service"][0] if len(top_service) > 0 else "N/A",
+            top_service=top_service_df["service"][0] if len(top_service_df) > 0 else "N/A",
             num_services=df.filter(pl.col("service") != "Total")["service"].n_unique(),
             num_accounts=df["account"].n_unique(),
         )
@@ -272,6 +326,101 @@ class CostService:
         ]
 
         return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=points)
+
+    async def get_daily_trend_async(self, start: date, end: date, metric: str = "UnblendedCost") -> CostTrend:
+        """Async version of get_daily_trend."""
+        query = CostQueryBuilder().with_time_period(start, end).with_metric(metric).with_granularity("DAILY").build()
+        df = await self._get_data_async(query)
+
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+            "UsageQuantity": "usage_quantity",
+        }
+        col_name = col_map.get(metric, "unblended_cost")
+
+        if df.is_empty():
+            return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=[])
+
+        daily_data = df.filter(pl.col("service") == "Total").sort("date")
+        points = [
+            CostTrendPoint(date=r["date"], cost=Decimal(str(r[col_name])), usage=Decimal(str(r["usage_quantity"])))
+            for r in daily_data.iter_rows(named=True)
+        ]
+
+        return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=points)
+
+    async def get_cost_by_service_async(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
+        """Async version of get_cost_by_service."""
+        query = (
+            CostQueryBuilder()
+            .with_time_period(start, end)
+            .with_metric(metric)
+            .with_group_by("DIMENSION", "SERVICE")
+            .build()
+        )
+        df = await self._get_data_async(query)
+
+        if df.is_empty():
+            return CostBreakdown(
+                period=DateRange(start=start, end=end),
+                granularity="DAILY",
+                metric=metric,
+                entries=[],
+                groups=[],
+                summary=await self.get_total_cost_async(start, end),
+            )
+
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+        }
+        col_name = col_map.get(metric, "unblended_cost")
+
+        grouped = (
+            df.filter(pl.col("service") != "Total")
+            .group_by("service")
+            .agg([pl.col(col_name).sum(), pl.col("usage_quantity").sum()])
+            .sort(col_name, descending=True)
+        )
+
+        total = grouped[col_name].sum()
+        groups = [
+            CostGroup(
+                key=r["service"],
+                label=r["service"],
+                cost=Decimal(str(r[col_name])),
+                percentage=float(r[col_name] / total * 100) if total > 0 else 0,
+                usage_quantity=Decimal(str(r["usage_quantity"])),
+            )
+            for r in grouped.iter_rows(named=True)
+        ]
+
+        entries = [
+            CostEntry(
+                date=r["date"],
+                service=r["service"],
+                linked_account=r["account"],
+                unblended_cost=Decimal(str(r["unblended_cost"])),
+                blended_cost=Decimal(str(r["blended_cost"])),
+                amortized_cost=Decimal(str(r["amortized_cost"])),
+                usage_quantity=Decimal(str(r["usage_quantity"])),
+            )
+            for r in df.iter_rows(named=True)
+        ]
+
+        return CostBreakdown(
+            period=DateRange(start=start, end=end),
+            granularity="DAILY",
+            metric=metric,
+            entries=entries,
+            groups=groups,
+            summary=await self.get_total_cost_async(start, end),
+        )
 
     def get_cost_by_service(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
         """Get cost breakdown grouped by AWS service."""

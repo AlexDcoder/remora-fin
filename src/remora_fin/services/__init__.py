@@ -19,6 +19,8 @@ from remora_fin.services.config_service import ConfigBuilder, ConfigService
 from remora_fin.services.cost_service import CostQueryBuilder, CostService
 from remora_fin.services.dynamodb_service import DynamoDBService
 from remora_fin.services.ec2_service import EC2Service
+from remora_fin.services.elasticache_service import ElastiCacheService
+from remora_fin.services.emr_service import EMRService
 from remora_fin.services.forecast_service import (
     AWSCostExplorerNativeForecast,
     ForecastService,
@@ -28,6 +30,7 @@ from remora_fin.services.forecast_service import (
 )
 from remora_fin.services.lambda_service import LambdaService
 from remora_fin.services.rds_service import RDSService
+from remora_fin.services.redshift_service import RedshiftService
 from remora_fin.services.report_service import (
     JsonFormatter,
     MarkdownFormatter,
@@ -37,6 +40,9 @@ from remora_fin.services.report_service import (
     TableFormatter,
 )
 from remora_fin.services.s3_service import S3Service
+from remora_fin.services.sagemaker_service import SageMakerService
+from remora_fin.services.sns_service import SNSService
+from remora_fin.services.sqs_service import SQSService
 
 __all__ = [
     "AWSCostExplorerNativeForecast",
@@ -49,6 +55,8 @@ __all__ = [
     "CostService",
     "DynamoDBService",
     "EC2Service",
+    "EMRService",
+    "ElastiCacheService",
     "ForecastService",
     "ForecastStrategy",
     "JsonFormatter",
@@ -58,10 +66,15 @@ __all__ = [
     "MovingAverageForecast",
     "PDFFormatter",
     "RDSService",
+    "RedshiftService",
     "ReportFormatter",
     "ReportService",
     "S3Service",
+    "SNSService",
+    "SQSService",
+    "SageMakerService",
     "TableFormatter",
+    "async_retry_with_backoff",
     "paginate_all",
     "retry_with_backoff",
 ]

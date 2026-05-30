@@ -5,6 +5,7 @@ Design Patterns: Facade + Observer
 
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import ClassVar
@@ -21,10 +22,22 @@ from textual.widgets import (
     Select,
 )
 
+logger = logging.getLogger(__name__)
+
 from remora_fin.services import (
     AnomalyService,
     CostService,
+    EC2Service,
+    ElastiCacheService,
+    EMRService,
     ForecastService,
+    LambdaService,
+    RDSService,
+    RedshiftService,
+    S3Service,
+    SageMakerService,
+    SNSService,
+    SQSService,
 )
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.ui.styles.theme import get_theme_css
@@ -61,19 +74,16 @@ class CostScreen(Screen[None]):
     def on_mount(self) -> None:
         self._load_data()
 
-    @work(exclusive=True, thread=True)
-    def _load_data(self) -> None:
-        """Load cost data in background."""
+    @work(exclusive=True)
+    async def _load_data(self) -> None:
+        """Load cost data async."""
         end = date.today()
         start = end - timedelta(days=self._days)
 
         try:
-            trend = self._cost_service.get_daily_trend(start, end)
-
-            # Update chart
+            trend = await self._cost_service.get_daily_trend_async(start, end)
             chart = self.query_one("#cost-chart", CostChartWidget)
             chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points])
-
         except Exception as e:
             self.notify(f"Error loading cost data: {e}", severity="error", markup=False)
 
@@ -99,14 +109,14 @@ class AnomalyScreen(Screen[None]):
     def on_mount(self) -> None:
         self._load_data()
 
-    @work(exclusive=True, thread=True)
-    def _load_data(self) -> None:
-        """Load anomalies in background."""
+    @work(exclusive=True)
+    async def _load_data(self) -> None:
+        """Load anomalies async."""
         end = date.today()
         start = end - timedelta(days=min(self._days, 90))
 
         try:
-            report = self._anomaly_service.get_anomaly_summary(start, end)
+            report = await self._anomaly_service.get_anomaly_summary_async(start, end)
             panel = self.query_one("#anomaly-panel", AnomalyPanel)
             panel.update_report(report)
         except Exception as e:
@@ -134,14 +144,14 @@ class ForecastScreen(Screen[None]):
     def on_mount(self) -> None:
         self._load_data()
 
-    @work(exclusive=True, thread=True)
-    def _load_data(self) -> None:
-        """Load forecast in background."""
+    @work(exclusive=True)
+    async def _load_data(self) -> None:
+        """Load forecast async."""
         start = date.today() + timedelta(days=1)
         end = start + timedelta(days=self._days)
 
         try:
-            result = self._forecast_service.get_aws_native_forecast(
+            result = await self._forecast_service.get_aws_native_forecast_async(
                 start=start,
                 end=end,
             )
@@ -261,9 +271,11 @@ class DashboardScreen(Screen[None]):
         except Exception:
             pass
 
-    @work(exclusive=True, thread=True)
-    def _refresh_data(self) -> None:
-        """Load and update all dashboard components in background."""
+    @work(exclusive=True)
+    async def _refresh_data(self) -> None:
+        """Load and update all dashboard components in parallel."""
+        import asyncio
+
         if not self._cost_service:
             return
 
@@ -271,48 +283,97 @@ class DashboardScreen(Screen[None]):
         start = end - timedelta(days=self._days)
 
         try:
-            # 1. Update KPIs
-            summary = self._cost_service.get_total_cost(start, end)
+            # Fetch core cost and anomaly data
+            tasks = [
+                self._cost_service.get_cost_by_service_async(start, end),
+                self._cost_service.get_daily_trend_async(start, end),
+            ]
 
-            # If a specific service is selected, we should ideally filter the summary
-            # For now, let's just get the breakdown and filter manually if needed
-            breakdown = self._cost_service.get_cost_by_service(start, end)
-
-            anomalies = 0
             if self._anomaly_service:
-                anomaly_report = self._anomaly_service.get_anomaly_summary(start, end)
-                anomalies = anomaly_report.total_anomalies
+                tasks.append(self._anomaly_service.get_anomaly_summary_async(start, end))
+
+            # Fetch specific service inventory if a service is selected
+            inventory_task = None
+            if self._selected_service != "All Services":
+                if "EC2" in self._selected_service:
+                    inventory_task = EC2Service(self._session).list_instances_async()
+                elif "RDS" in self._selected_service:
+                    inventory_task = asyncio.to_thread(RDSService(self._session).get_rds_stats)
+                elif "S3" in self._selected_service:
+                    inventory_task = asyncio.to_thread(S3Service(self._session).list_buckets)
+                elif "Lambda" in self._selected_service:
+                    inventory_task = asyncio.to_thread(LambdaService(self._session).list_functions)
+                elif "ElastiCache" in self._selected_service:
+                    inventory_task = asyncio.to_thread(ElastiCacheService(self._session).get_elasticache_stats)
+                elif "Redshift" in self._selected_service:
+                    inventory_task = asyncio.to_thread(RedshiftService(self._session).get_redshift_stats)
+                elif "EMR" in self._selected_service:
+                    inventory_task = asyncio.to_thread(EMRService(self._session).list_clusters)
+                elif "SageMaker" in self._selected_service:
+                    inventory_task = asyncio.to_thread(SageMakerService(self._session).list_notebook_instances)
+                elif "SNS" in self._selected_service:
+                    inventory_task = asyncio.to_thread(SNSService(self._session).list_topics)
+                elif "SQS" in self._selected_service:
+                    inventory_task = asyncio.to_thread(SQSService(self._session).list_queues)
+
+            if inventory_task:
+                tasks.append(inventory_task)
+
+            # Execute in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Unpack results with error handling
+            breakdown = results[0] if not isinstance(results[0], Exception) else None
+            trend = results[1] if not isinstance(results[1], Exception) else None
+            anomaly_report = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else None
+
+            # Inventory result is the last one if requested
+            inventory_data = results[-1] if inventory_task and not isinstance(results[-1], Exception) else None
+
+            if not breakdown or not trend:
+                self.notify("Some data failed to load, check logs", severity="warning")
 
             dashboard = self.query_one("#dashboard", DashboardWidget)
+            summary = breakdown.summary if breakdown else None
+            anomalies = anomaly_report.total_anomalies if anomaly_report else 0
 
             # Calculate metrics based on selection
             if self._selected_service == "All Services":
-                display_total = summary.total_cost
-                display_avg = summary.daily_average
+                display_total = summary.total_cost if summary else Decimal("0")
+                display_avg = summary.daily_average if summary else Decimal("0")
+                inventory_str = "—"
             else:
                 # Find the specific service in groups
-                service_group = next((g for g in breakdown.groups if g.key == self._selected_service), None)
+                service_group = (
+                    next((g for g in breakdown.groups if g.key == self._selected_service), None) if breakdown else None
+                )
                 display_total = service_group.cost if service_group else Decimal("0")
                 display_avg = display_total / self._days
+
+                # Format inventory string
+                if isinstance(inventory_data, list):
+                    inventory_str = f"{len(inventory_data)} Res"
+                elif isinstance(inventory_data, dict):
+                    inventory_str = f"{inventory_data.get('total_count', len(inventory_data))} Res"
+                else:
+                    inventory_str = "—"
 
             dashboard.update_kpis(
                 total_cost=f"${display_total:,.2f}",
                 daily_avg=f"${display_avg:,.2f}",
                 anomaly_count=anomalies,
-                forecast_trend="—",
+                inventory=inventory_str,
             )
 
-            # 2. Update Chart
+            # Update Chart
             chart = self.query_one("#dashboard-chart", CostChartWidget)
-            # If service filtered, we need trend for that service specifically
-
             if self._selected_service == "All Services":
-                trend = self._cost_service.get_daily_trend(start, end)
-                chart_data = [(str(p.date), float(p.cost)) for p in trend.points]
+                chart_data = [(str(p.date), float(p.cost)) for p in trend.points] if trend else []
             else:
                 # Filter entries for the specific service
-                service_entries = [e for e in breakdown.entries if e.service == self._selected_service]
-                # Group by date
+                service_entries = (
+                    [e for e in breakdown.entries if e.service == self._selected_service] if breakdown else []
+                )
                 daily_data: dict[str, float] = {}
                 for e in service_entries:
                     daily_data[str(e.date)] = daily_data.get(str(e.date), 0.0) + float(e.unblended_cost)
@@ -320,25 +381,26 @@ class DashboardScreen(Screen[None]):
 
             chart.show_daily_trend(chart_data)
 
-            # 3. Update Report Table
+            # Update Report Table
             table_data = []
             if self._selected_service == "All Services":
-                # Show top services
-                for g in breakdown.groups[:50]:
-                    table_data.append(("•", g.key, f"${g.cost:,.2f}"))
+                if breakdown:
+                    for g in breakdown.groups[:50]:
+                        table_data.append(("•", g.key, f"${g.cost:,.2f}"))
             else:
-                # Show daily breakdown for that service
-                service_entries = sorted(
-                    [e for e in breakdown.entries if e.service == self._selected_service],
-                    key=lambda x: x.date,
-                    reverse=True,
-                )
-                for e in service_entries:
-                    table_data.append((str(e.date), e.service, f"${e.unblended_cost:,.2f}"))
+                if breakdown:
+                    service_entries = sorted(
+                        [e for e in breakdown.entries if e.service == self._selected_service],
+                        key=lambda x: x.date,
+                        reverse=True,
+                    )
+                    for e in service_entries:
+                        table_data.append((str(e.date), e.service, f"${e.unblended_cost:,.2f}"))
 
             dashboard.update_report_table(table_data)
 
         except Exception as e:
+            logger.exception("Dashboard refresh failed")
             self.notify(f"Error refreshing dashboard: {e}", severity="error", markup=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

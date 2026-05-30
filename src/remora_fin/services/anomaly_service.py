@@ -22,7 +22,7 @@ from remora_fin.schemas.anomaly import (
     AnomalySeverity,
     AnomalyType,
 )
-from remora_fin.services.aws_service import AWSSession, retry_with_backoff
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,48 @@ class AnomalyService:
 
         pages = self._session.fetch_token_paginated(ce.get_anomalies, **params)
         logger.info("Fetched %d anomaly pages", len(pages))
+        return pages
+
+    @async_retry_with_backoff(max_retries=3)
+    async def _fetch_all_pages_async(
+        self,
+        start: date,
+        end: date,
+        monitor_arn: str | None = None,
+        feedback: AnomalyFeedback | None = None,
+        min_impact: Decimal | None = None,
+    ) -> list[dict[str, Any]]:
+        """Async fetch all paginated anomaly results."""
+        params: dict[str, Any] = {
+            "DateInterval": {
+                "StartDate": start.isoformat(),
+                "EndDate": end.isoformat(),
+            }
+        }
+        if monitor_arn:
+            params["MonitorArn"] = monitor_arn
+        if feedback:
+            params["Feedback"] = feedback.value
+        if min_impact is not None:
+            params["TotalImpact"] = {
+                "NumericOperator": "GREATER_THAN_OR_EQUAL",
+                "StartValue": str(min_impact),
+            }
+
+        pages = []
+        try:
+            async with self._session.async_client("ce") as ce:
+                while True:
+                    resp = await ce.get_anomalies(**params)
+                    pages.append(resp)
+                    token = resp.get("NextPageToken")
+                    if not token:
+                        break
+                    params["NextPageToken"] = token
+        except Exception as e:
+            logger.error(f"Error fetching anomalies async: {e}")
+            return []
+
         return pages
 
     def _parse_anomaly(self, raw: dict[str, Any]) -> Anomaly:
@@ -182,6 +224,61 @@ class AnomalyService:
                 return AnomalyReport.model_validate(cached_data)
 
         anomalies = self.fetch_anomalies(start, end, monitor_arn)
+
+        by_severity: dict[AnomalySeverity, int] = {}
+        by_type: dict[AnomalyType, int] = {}
+        total_actual = Decimal("0")
+        total_expected = Decimal("0")
+
+        for a in anomalies:
+            by_severity[a.severity] = by_severity.get(a.severity, 0) + 1
+            by_type[a.anomaly_type] = by_type.get(a.anomaly_type, 0) + 1
+            total_actual += a.impact.total_actual_spend
+            total_expected += a.impact.total_expected_spend
+
+        report = AnomalyReport(
+            total_anomalies=len(anomalies),
+            by_severity=by_severity,
+            by_type=by_type,
+            total_actual_impact=total_actual,
+            total_expected_without_anomalies=total_expected,
+            anomalies=anomalies,
+        )
+
+        if use_cache:
+            self._cache.set_json(query, report.model_dump(mode="json"))
+
+        return report
+
+    async def get_anomaly_summary_async(
+        self,
+        start: date,
+        end: date,
+        monitor_arn: str | None = None,
+        use_cache: bool = True,
+    ) -> AnomalyReport:
+        """Async version of get_anomaly_summary."""
+        query = {
+            "service": "anomaly",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "monitor_arn": monitor_arn,
+        }
+
+        if use_cache:
+            cached_data = self._cache.get_json(query)
+            if cached_data:
+                return AnomalyReport.model_validate(cached_data)
+
+        pages = await self._fetch_all_pages_async(start, end, monitor_arn)
+        anomalies = []
+        for page in pages:
+            for raw in page.get("Anomalies", []):
+                try:
+                    anomaly = self._parse_anomaly(raw)
+                    anomalies.append(anomaly)
+                except (KeyError, ValueError) as e:
+                    logger.warning("Failed to parse anomaly: %s", e)
 
         by_severity: dict[AnomalySeverity, int] = {}
         by_type: dict[AnomalyType, int] = {}

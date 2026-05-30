@@ -101,10 +101,9 @@ class DashboardWidget(Container):
                 id="kpi-anomalies",
             ),
             KPICard(
-                "Forecast",
-                self._forecast_trend,
-                variant=("danger" if "↑" in self._forecast_trend else "normal"),
-                id="kpi-forecast",
+                "Inventory",
+                "—",
+                id="kpi-inventory",
             ),
             id="kpi-row",
         )
@@ -124,7 +123,7 @@ class DashboardWidget(Container):
         total_cost: str | None = None,
         daily_avg: str | None = None,
         anomaly_count: int | None = None,
-        forecast_trend: str | None = None,
+        inventory: str | None = None,
     ) -> None:
         """Update KPI cards with new data."""
         if total_cost is not None:
@@ -135,10 +134,8 @@ class DashboardWidget(Container):
             self.query_one("#kpi-anomalies", KPICard).update_value(
                 str(anomaly_count), variant="warning" if anomaly_count > 5 else "normal"
             )
-        if forecast_trend is not None:
-            self.query_one("#kpi-forecast", KPICard).update_value(
-                forecast_trend, variant=("danger" if "↑" in forecast_trend else "normal")
-            )
+        if inventory is not None:
+            self.query_one("#kpi-inventory", KPICard).update_value(inventory)
 
     def toggle_view(self) -> None:
         """Toggle between chart and report table using ContentSwitcher."""

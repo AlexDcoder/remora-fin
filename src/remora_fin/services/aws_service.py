@@ -127,6 +127,24 @@ class AWSSession:
     def cloudfront(self) -> Any:
         return self._sync_client("cloudfront")
 
+    def elasticache(self) -> Any:
+        return self._sync_client("elasticache")
+
+    def redshift(self) -> Any:
+        return self._sync_client("redshift")
+
+    def sns(self) -> Any:
+        return self._sync_client("sns")
+
+    def sqs(self) -> Any:
+        return self._sync_client("sqs")
+
+    def emr(self) -> Any:
+        return self._sync_client("emr")
+
+    def sagemaker(self) -> Any:
+        return self._sync_client("sagemaker")
+
     def cloudwatch(self) -> Any:
         return self._sync_client("monitoring")
 
@@ -136,6 +154,10 @@ class AWSSession:
     @property
     def async_session(self) -> aioboto3.Session:
         return self._async_session
+
+    def async_client(self, service: str, **kwargs: Any) -> Any:
+        """Return an async context manager for an aioboto3 client."""
+        return self._async_session.client(service, **kwargs)
 
     def validate_credentials(self) -> bool:
         """Check if AWS credentials are valid."""
@@ -227,6 +249,51 @@ def retry_with_backoff(
             if last_exception is not None:
                 raise last_exception
             raise RuntimeError("Retry loop ended unexpectedly")
+
+        return wrapper
+
+    return decorator
+
+
+def async_retry_with_backoff(
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator: retry on throttling/transient errors with exponential backoff (async)."""
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            import asyncio
+
+            delay = base_delay
+            last_exception: Exception | None = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except ClientError as e:
+                    code = e.response["Error"]["Code"]
+                    if code not in (
+                        "ThrottlingException",
+                        "LimitExceededException",
+                        "RequestLimitExceeded",
+                    ):
+                        raise
+                    last_exception = e
+                    if attempt < max_retries:
+                        logger.warning(
+                            "[yellow]AWS async throttling[/] on [cyan]%s[/] (attempt [bold]%d/%d[/]). Retrying in [bold]%.1fs[/]...",
+                            func.__name__,
+                            attempt + 1,
+                            max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        delay = min(delay * 2, max_delay)
+            if last_exception is not None:
+                raise last_exception
+            raise RuntimeError("Async retry loop ended unexpectedly")
 
         return wrapper
 
