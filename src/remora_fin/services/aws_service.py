@@ -149,7 +149,7 @@ class AWSSession:
         return self._sync_client("monitoring")
 
     def tagging(self) -> Any:
-        return self._sync_client("resource-groups-tagging-api")
+        return self._sync_client("resourcegroupstaggingapi")
 
     @property
     def async_session(self) -> aioboto3.Session:
@@ -189,6 +189,26 @@ class AWSSession:
         current_kwargs = kwargs.copy()
         while True:
             resp = method(**current_kwargs)
+            pages.append(resp)
+            token = resp.get(token_field)
+            if not token:
+                break
+            current_kwargs[token_field] = token
+        return pages
+
+    async def fetch_token_paginated_async(
+        self,
+        client: Any,
+        method_name: str,
+        token_field: str = "NextPageToken",
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        """Async generic helper for APIs that use NextPageToken manually."""
+        pages = []
+        current_kwargs = kwargs.copy()
+        method = getattr(client, method_name)
+        while True:
+            resp = await method(**current_kwargs)
             pages.append(resp)
             token = resp.get(token_field)
             if not token:

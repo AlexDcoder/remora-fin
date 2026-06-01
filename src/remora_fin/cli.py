@@ -56,6 +56,7 @@ ASCII_ART = r"""
 def execute_cli() -> None:
     """Main CLI entry point."""
     setup_logging()
+    logger = logging.getLogger("remora_fin.cli")
 
     parser = argparse.ArgumentParser(
         prog="remora-fin",
@@ -101,14 +102,21 @@ def execute_cli() -> None:
 
     # Execute the command
     if hasattr(args, "func"):
+        import asyncio
+        import inspect
+
         try:
-            args.func(args)
+            if inspect.iscoroutinefunction(args.func):
+                asyncio.run(args.func(args))
+            else:
+                args.func(args)
         except KeyboardInterrupt:
             from rich import print as rprint
             rprint("\n[bold #ffff00]Session Aborted.[/]")
             sys.exit(130)
         except Exception as e:
             from rich import print as rprint
+            logger.exception("Command failed")
             rprint(f"[bold #ff4500]CRITICAL ERROR:[/] {e}")
             sys.exit(1)
     else:

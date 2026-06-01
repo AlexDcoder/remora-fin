@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
-from textual.widgets import Button, ContentSwitcher, DataTable, Select
+from textual.widgets import Button, ContentSwitcher, DataTable, Label, Select
 
 from remora_fin.ui.widgets.common.widgets import KPICard
 from remora_fin.ui.widgets.cost_chart import CostChartWidget
@@ -39,6 +39,16 @@ class DashboardWidget(Container):
         margin-left: 2;
         min-width: 25;
         border: tall #00f2ff;
+    }
+    #service-status-header {
+        width: 100%;
+        height: 3;
+        content-align: center middle;
+        background: #06060e;
+        color: #00f2ff;
+        border-bottom: double #4b86b4;
+        margin: 0 0 1 0;
+        text-style: bold italic;
     }
     #kpi-row {
         height: 6;
@@ -108,6 +118,9 @@ class DashboardWidget(Container):
             id="kpi-row",
         )
 
+        # Status Header
+        yield Label("GLOBAL_ENVIRONMENT | Comprehensive Monitoring", id="service-status-header")
+
         # Content Area with ContentSwitcher for better performance
         with ContentSwitcher(id="dashboard-content-switcher", initial="dashboard-chart"):
             yield CostChartWidget("Cost Trend", id="dashboard-chart")
@@ -136,6 +149,11 @@ class DashboardWidget(Container):
             )
         if inventory is not None:
             self.query_one("#kpi-inventory", KPICard).update_value(inventory)
+
+    def update_status_header(self, service_name: str, context: str) -> None:
+        """Update the status header with service context."""
+        header = self.query_one("#service-status-header", Label)
+        header.update(f"{service_name.upper()} | {context}")
 
     def toggle_view(self) -> None:
         """Toggle between chart and report table using ContentSwitcher."""

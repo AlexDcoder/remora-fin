@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,7 +19,7 @@ class ReportFormat(StrEnum):
     """Output format for reports."""
 
     PDF = "pdf"
-    TABLE = "table"
+    EXCEL = "excel"
     JSON = "json"
     CSV = "csv"
     PARQUET = "parquet"
@@ -72,6 +73,8 @@ class FullReport(BaseModel):
     cost_trend: CostTrend | None = None
     anomalies: AnomalyReport | None = None
     forecast: ForecastResult | None = None
+    infrastructure_summary: dict[str, int] | None = None
+    governance: dict[str, Any] | None = None
 
 
 # Ensure all forward refs are resolved

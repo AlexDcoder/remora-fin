@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
-def anomalies(args: argparse.Namespace) -> None:
+async def anomalies(args: argparse.Namespace) -> None:
     """Detect and display AWS cost anomalies."""
     start, end = parse_dates(args)
 
@@ -47,7 +47,7 @@ def anomalies(args: argparse.Namespace) -> None:
     # Fetch data
     with Status("[bold #ffff00]Detecting anomalies...", console=console) as status:
         logger.info(f"Period: [#39ff14]{start}[/] to [#39ff14]{end}[/]")
-        report_data = anomaly_service.get_anomaly_summary(start, end, monitor_arn)
+        report_data = await anomaly_service.get_anomaly_summary_async(start, end, monitor_arn)
 
         status.update("[bold #4b86b4]Formatting results...")
 

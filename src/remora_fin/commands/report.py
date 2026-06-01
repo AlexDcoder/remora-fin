@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from datetime import date, timedelta
 from pathlib import Path
 
 import rich_argparse
@@ -14,15 +15,15 @@ from rich.status import Status
 from remora_fin.commands.utils import parse_dates, validate_aws_session
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostTrend
-from remora_fin.schemas.report import ReportConfig, ReportFilters, ReportFormat, ReportMetadata
-from remora_fin.services import AWSSession, CostService, ReportService
+from remora_fin.schemas.report import FullReport, ReportConfig, ReportFilters, ReportFormat, ReportMetadata
+from remora_fin.services import AWSSession, CostService, DashboardService, ForecastService, ReportService
 from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
 
 
-def report(args: argparse.Namespace) -> None:
+async def report(args: argparse.Namespace) -> None:
     """Generate a cost report."""
     start, end = parse_dates(args)
 
@@ -50,17 +51,59 @@ def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
-    data: CostBreakdown | CostTrend
+    # Handle "table" as "excel" for backward compatibility or mapping
+    fmt_str = "excel" if args.format == "table" else args.format
+    fmt = ReportFormat(fmt_str)
+    
+    data: CostBreakdown | CostTrend | FullReport
 
     with Status(f"[bold #00f3ff]Fetching {metric} data...\n", console=console) as status:
         logger.info("Period: [#39ff14]%s[/] to [#39ff14]%s[/]", start, end)
 
-        if args.type == "trend":
-            data = cost_service.get_daily_trend(start, end, metric=metric)
+        if args.type == "full":
+            dashboard_service = DashboardService(session)
+            forecast_service = ForecastService(session)
+
+            # Fetch summary
+            summary_data = await dashboard_service.get_summary_parallel(days=args.days)
+
+            # Fetch detailed breakdown for full report
+            breakdown = await cost_service.get_cost_by_service_async(start, end, metric=metric)
+
+            # Fetch forecast
+            try:
+                forecast = await forecast_service.get_aws_native_forecast_async(
+                    start=date.today(), end=date.today() + timedelta(days=args.days)
+                )
+            except Exception:
+                forecast = None
+
+            # Handle the case where dashboard_service might return AnomalyReport or dict
+            anomalies = summary_data.get("anomalies")
+            if isinstance(anomalies, str):
+                # This should not happen with current service logic, but adding safety
+                logger.warning("Anomaly data received as string, attempting to skip")
+                anomalies = None
+
+            # Map infrastructure counts safely
+            infra_data = summary_data.get("infrastructure", {})
+            infra_counts = infra_data.get("counts") if isinstance(infra_data, dict) else None
+
+            data = FullReport(
+                cost_breakdown=breakdown,
+                cost_trend=summary_data.get("cost_trend"),
+                anomalies=anomalies,
+                forecast=forecast,
+                infrastructure_summary=infra_counts,
+                governance=summary_data.get("governance"),
+            )
+        elif args.type == "trend":
+            data = await cost_service.get_daily_trend_async(start, end, metric=metric)
         elif args.type == "account":
+            # Using sync as async not available yet for account breakdown
             data = cost_service.get_cost_by_account(start, end, metric=metric)
         else:  # breakdown/service
-            data = cost_service.get_cost_by_service(start, end, metric=metric)
+            data = await cost_service.get_cost_by_service_async(start, end, metric=metric)
 
         status.update("\n[bold #4b86b4]Generating report...\n")
 
@@ -73,15 +116,13 @@ def report(args: argparse.Namespace) -> None:
             filters_applied=filters,
         )
 
-        # Output path logic
-        fmt = ReportFormat(args.format)
-        account_id = identity.get("account", "unknown")
-        region = session._region
-        output_path = (
-            Path(args.output)
-            if args.output
-            else Path(f"docs\\remora_report_{args.type}_{account_id}_{region}.{fmt.value}")
-        )
+        # Output path
+        output_ext = "xlsx" if fmt == ReportFormat.EXCEL else fmt.value
+        if not args.output:
+            filename = f"remora_report_{args.type}_{metadata.account_id or 'unknown'}_{session.region}.{output_ext}"
+            output_path = Path.cwd() / "docs" / filename
+        else:
+            output_path = Path(args.output)
 
         config = ReportConfig(
             format=fmt,
@@ -90,11 +131,6 @@ def report(args: argparse.Namespace) -> None:
 
         # Generate
         report_service.generate_report(data, config, metadata)
-
-        # Final Success Message
-        if fmt == ReportFormat.TABLE and not args.output:
-            content = report_service.generate_report(data, ReportConfig(format=fmt), metadata)
-            console.print(content)
 
     success_panel = Panel(
         f"[bold #39ff14]Success![/]\n\n"
@@ -111,23 +147,23 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",
-        help="Generate cost reports (pdf/table/json/csv/parquet/markdown)",
+        help="Generate cost reports (pdf/excel/json/csv/parquet/markdown)",
         description="[bold #4b86b4]Generate AWS cost reports in various formats.[/]\n\nSupports deep analysis by service, account, or daily trends.",
         formatter_class=rich_argparse.RichHelpFormatter,
     )
     parser.add_argument(
         "--type",
         "-t",
-        choices=["breakdown", "trend", "account"],
-        default="breakdown",
-        help="Report type (default: breakdown)",
+        choices=["breakdown", "trend", "account", "full"],
+        default="full",
+        help="Report type (default: full)",
     )
     parser.add_argument(
         "--format",
         "-f",
-        choices=["pdf", "table", "json", "csv", "parquet", "markdown"],
+        choices=["pdf", "excel", "table", "json", "csv", "parquet", "markdown"],
         default="pdf",
-        help="Output format (default: pdf)",
+        help="Output format (default: pdf). 'table' is an alias for 'excel'.",
     )
     parser.add_argument(
         "--days",

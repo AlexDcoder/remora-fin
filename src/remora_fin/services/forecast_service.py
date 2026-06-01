@@ -27,7 +27,9 @@ from remora_fin.schemas.forecast import (
     VarianceAnalysis,
 )
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
+from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
+from remora_fin.services.cost_service import CostService
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
                 "Start": start.isoformat(),
                 "End": end.isoformat(),
             },
-            "Metric": metric.value,
+            "Metric": metric.name,
             "Granularity": granularity,
         }
 
@@ -256,7 +258,7 @@ class MovingAverageForecast(ForecastStrategy):
 # -- ForecastService --
 
 
-class ForecastService:
+class ForecastService(BaseService):
     """Cost forecasting using AWS native API + local fallbacks.
 
     Strategy Pattern:
@@ -268,10 +270,11 @@ class ForecastService:
         self,
         session: AWSSession | None = None,
         cost_service: CostService | None = None,
+        cache: CacheService | None = None,
     ):
-        self._session = session or AWSSession.get_instance()
-        self._cost_service = cost_service or CostService(session)
-        self._cache = CacheService()
+        super().__init__("forecast", session, cache)
+        from remora_fin.services.cost_service import CostService
+        self._cost_service = cost_service or CostService(self._session, self._cache)
 
     @async_retry_with_backoff(max_retries=3)
     async def get_aws_native_forecast_async(
@@ -291,47 +294,43 @@ class ForecastService:
             "granularity": granularity,
         }
 
-        if use_cache:
-            cached = self._cache.get_json(query)
-            if cached:
-                return ForecastResult.model_validate(cached)
+        async def _fetch():
+            async with self._session.async_client("ce") as ce:
+                resp = await ce.get_cost_forecast(
+                    TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
+                    Metric=metric.name,  # AWS Forecast API expects uppercase (e.g. UNBLENDED_COST)
+                    Granularity=granularity,
+                )
 
-        async with self._session.async_client("ce") as ce:
-            resp = await ce.get_cost_forecast(
-                TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
-                Metric=metric.value,
-                Granularity=granularity,
+            forecast_points = []
+            for res in resp.get("ForecastResultsByTime", []):
+                time_period = res.get("TimePeriod", {})
+                start_str = time_period.get("Start", "")
+                if not start_str:
+                    continue
+
+                forecast_date = date.fromisoformat(start_str)
+                point = ForecastPoint(
+                    date=forecast_date,
+                    predicted_cost=Decimal(res.get("MeanValue", "0")),
+                    lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
+                    upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
+                    is_predicted=True,
+                )
+                forecast_points.append(point)
+
+            return ForecastResult(
+                forecast_period=DateRange(start=start, end=end),
+                metric=metric,
+                granularity=granularity,
+                predictions=forecast_points,
+                model_used=ForecastModel.AWS_NATIVE_ARIMA,
             )
 
-        forecast_points = []
-        for res in resp.get("ForecastResultsByTime", []):
-            time_period = res.get("TimePeriod", {})
-            start_str = time_period.get("Start", "")
-            if not start_str:
-                continue
-
-            forecast_date = date.fromisoformat(start_str)
-            point = ForecastPoint(
-                date=forecast_date,
-                predicted_cost=Decimal(res.get("MeanValue", "0")),
-                lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
-                upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
-                is_predicted=True,
-            )
-            forecast_points.append(point)
-
-        result = ForecastResult(
-            forecast_period=DateRange(start=start, end=end),
-            metric=metric,
-            granularity=granularity,
-            predictions=forecast_points,
-            model_used=ForecastModel.AWS_NATIVE_ARIMA,
-        )
-
-        if use_cache:
-            self._cache.set_json(query, result.model_dump(mode="json"))
-
-        return result
+        data = await self.get_cached_or_fetch_async(query, _fetch, use_cache=use_cache)
+        if isinstance(data, dict):
+            return ForecastResult.model_validate(data)
+        return data
 
     def get_aws_native_forecast(
         self,
@@ -346,10 +345,11 @@ class ForecastService:
         """Get forecast using AWS native ARIMA-based API."""
         # Fetch historical data for context
         hist_start = start - timedelta(days=historical_days)
-        trend = self._cost_service.get_daily_trend(hist_start, start)
+        # CostService expects camelCase metric names
+        trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
 
         # Convert to DataFrame
-        df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
+        df = pl.DataFrame([{"date": p.date, "cost": p.cost} for p in trend.points])
 
         strategy = AWSCostExplorerNativeForecast(self._session)
         return strategy.predict(
@@ -378,9 +378,9 @@ class ForecastService:
 
             # Fetch historical data for moving average
             hist_start = start - timedelta(days=60)
-            trend = self._cost_service.get_daily_trend(hist_start, start)
+            trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
 
-            df = pl.DataFrame([{"date": p.date, "unblended_cost": p.cost} for p in trend.points])
+            df = pl.DataFrame([{"date": p.date, "cost": p.cost} for p in trend.points])
 
             strategy = MovingAverageForecast(window=7)
             return strategy.predict(
@@ -406,7 +406,7 @@ class ForecastService:
 
         # Fetch historical data for variance calculation
         hist_start = start - timedelta(days=90)
-        trend = self._cost_service.get_daily_trend(hist_start, start)
+        trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
         costs = [float(p.cost) for p in trend.points]
 
         if len(costs) >= 2:

@@ -23,12 +23,13 @@ from remora_fin.schemas.anomaly import (
     AnomalyType,
 )
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
+from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
 
-class AnomalyService:
+class AnomalyService(BaseService):
     """Repository for AWS Cost Explorer anomaly data.
 
     Uses AWS NATIVE get_anomalies() as PRIMARY source.
@@ -36,8 +37,7 @@ class AnomalyService:
     """
 
     def __init__(self, session: AWSSession | None = None, cache: CacheService | None = None) -> None:
-        self._session = session or AWSSession.get_instance()
-        self._cache = cache or CacheService()
+        super().__init__("anomaly", session, cache)
 
     @retry_with_backoff(max_retries=3)
     def _fetch_all_pages(
@@ -96,20 +96,10 @@ class AnomalyService:
                 "StartValue": str(min_impact),
             }
 
-        pages = []
-        try:
-            async with self._session.async_client("ce") as ce:
-                while True:
-                    resp = await ce.get_anomalies(**params)
-                    pages.append(resp)
-                    token = resp.get("NextPageToken")
-                    if not token:
-                        break
-                    params["NextPageToken"] = token
-        except Exception as e:
-            logger.error(f"Error fetching anomalies async: {e}")
-            return []
+        async with self._session.async_client("ce") as ce:
+            pages = await self._session.fetch_token_paginated_async(ce, "get_anomalies", **params)
 
+        logger.info("Fetched %d anomaly pages (async)", len(pages))
         return pages
 
     def _parse_anomaly(self, raw: dict[str, Any]) -> Anomaly:
@@ -224,26 +214,7 @@ class AnomalyService:
                 return AnomalyReport.model_validate(cached_data)
 
         anomalies = self.fetch_anomalies(start, end, monitor_arn)
-
-        by_severity: dict[AnomalySeverity, int] = {}
-        by_type: dict[AnomalyType, int] = {}
-        total_actual = Decimal("0")
-        total_expected = Decimal("0")
-
-        for a in anomalies:
-            by_severity[a.severity] = by_severity.get(a.severity, 0) + 1
-            by_type[a.anomaly_type] = by_type.get(a.anomaly_type, 0) + 1
-            total_actual += a.impact.total_actual_spend
-            total_expected += a.impact.total_expected_spend
-
-        report = AnomalyReport(
-            total_anomalies=len(anomalies),
-            by_severity=by_severity,
-            by_type=by_type,
-            total_actual_impact=total_actual,
-            total_expected_without_anomalies=total_expected,
-            anomalies=anomalies,
-        )
+        report = self._build_report(anomalies)
 
         if use_cache:
             self._cache.set_json(query, report.model_dump(mode="json"))
@@ -265,21 +236,25 @@ class AnomalyService:
             "monitor_arn": monitor_arn,
         }
 
-        if use_cache:
-            cached_data = self._cache.get_json(query)
-            if cached_data:
-                return AnomalyReport.model_validate(cached_data)
+        async def _fetch():
+            pages = await self._fetch_all_pages_async(start, end, monitor_arn)
+            anomalies = []
+            for page in pages:
+                for raw in page.get("Anomalies", []):
+                    try:
+                        anomaly = self._parse_anomaly(raw)
+                        anomalies.append(anomaly)
+                    except (KeyError, ValueError) as e:
+                        logger.warning("Failed to parse anomaly: %s", e)
+            return self._build_report(anomalies)
 
-        pages = await self._fetch_all_pages_async(start, end, monitor_arn)
-        anomalies = []
-        for page in pages:
-            for raw in page.get("Anomalies", []):
-                try:
-                    anomaly = self._parse_anomaly(raw)
-                    anomalies.append(anomaly)
-                except (KeyError, ValueError) as e:
-                    logger.warning("Failed to parse anomaly: %s", e)
+        data = await self.get_cached_or_fetch_async(query, _fetch, use_cache=use_cache)
+        if isinstance(data, dict):
+            return AnomalyReport.model_validate(data)
+        return data
 
+    def _build_report(self, anomalies: list[Anomaly]) -> AnomalyReport:
+        """Build AnomalyReport from a list of anomalies."""
         by_severity: dict[AnomalySeverity, int] = {}
         by_type: dict[AnomalyType, int] = {}
         total_actual = Decimal("0")
@@ -291,7 +266,7 @@ class AnomalyService:
             total_actual += a.impact.total_actual_spend
             total_expected += a.impact.total_expected_spend
 
-        report = AnomalyReport(
+        return AnomalyReport(
             total_anomalies=len(anomalies),
             by_severity=by_severity,
             by_type=by_type,
@@ -299,11 +274,6 @@ class AnomalyService:
             total_expected_without_anomalies=total_expected,
             anomalies=anomalies,
         )
-
-        if use_cache:
-            self._cache.set_json(query, report.model_dump(mode="json"))
-
-        return report
 
     def get_anomaly_details(self, anomaly_id: str) -> Anomaly | None:
         """Get details for a single anomaly (searches last 90 days)."""

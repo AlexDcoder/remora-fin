@@ -13,10 +13,12 @@ Service modules:
 from __future__ import annotations
 
 from remora_fin.services.anomaly_service import AnomalyService
-from remora_fin.services.aws_service import AWSSession, paginate_all, retry_with_backoff
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, paginate_all, retry_with_backoff
+from remora_fin.services.base_service import BaseService
 from remora_fin.services.cloudfront_service import CloudFrontService
 from remora_fin.services.config_service import ConfigBuilder, ConfigService
 from remora_fin.services.cost_service import CostQueryBuilder, CostService
+from remora_fin.services.dashboard_service import DashboardService
 from remora_fin.services.dynamodb_service import DynamoDBService
 from remora_fin.services.ec2_service import EC2Service
 from remora_fin.services.elasticache_service import ElastiCacheService
@@ -32,12 +34,12 @@ from remora_fin.services.lambda_service import LambdaService
 from remora_fin.services.rds_service import RDSService
 from remora_fin.services.redshift_service import RedshiftService
 from remora_fin.services.report_service import (
+    ExcelFormatter,
     JsonFormatter,
     MarkdownFormatter,
     PDFFormatter,
     ReportFormatter,
     ReportService,
-    TableFormatter,
 )
 from remora_fin.services.s3_service import S3Service
 from remora_fin.services.sagemaker_service import SageMakerService
@@ -48,15 +50,18 @@ __all__ = [
     "AWSCostExplorerNativeForecast",
     "AWSSession",
     "AnomalyService",
+    "BaseService",
     "CloudFrontService",
     "ConfigBuilder",
     "ConfigService",
     "CostQueryBuilder",
     "CostService",
+    "DashboardService",
     "DynamoDBService",
     "EC2Service",
     "EMRService",
     "ElastiCacheService",
+    "ExcelFormatter",
     "ForecastService",
     "ForecastStrategy",
     "JsonFormatter",
@@ -73,7 +78,6 @@ __all__ = [
     "SNSService",
     "SQSService",
     "SageMakerService",
-    "TableFormatter",
     "async_retry_with_backoff",
     "paginate_all",
     "retry_with_backoff",

@@ -9,19 +9,19 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from remora_fin.services.aws_service import AWSSession, retry_with_backoff
+from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
+from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
 
-class SNSService:
+class SNSService(BaseService):
     """Service layer for AWS SNS management."""
 
     def __init__(self, session: AWSSession | None = None, cache: CacheService | None = None) -> None:
         """Initialize SNSService with optional AWS session and Cache service."""
-        self._session = session or AWSSession.get_instance()
-        self._cache = cache or CacheService()
+        super().__init__("sns", session, cache)
 
     @retry_with_backoff(max_retries=3)
     def list_topics(self, use_cache: bool = True) -> list[dict[str, Any]]:
@@ -58,3 +58,31 @@ class SNSService:
             self._cache.set_json(query, topics)
 
         return topics
+
+    @async_retry_with_backoff(max_retries=3)
+    async def list_topics_async(self, use_cache: bool = True) -> list[dict[str, Any]]:
+        """Async version of list_topics."""
+        query = {"service": "sns", "action": "list_topics", "region": self._session.region}
+
+        async def _fetch():
+            topics = []
+            async with self._session.async_client("sns") as sns:
+                paginator = sns.get_paginator("list_topics")
+                async for page in paginator.paginate():
+                    for topic in page.get("Topics", []):
+                        arn = topic["TopicArn"]
+                        attrs_resp = await sns.get_topic_attributes(TopicArn=arn)
+                        attrs = attrs_resp.get("Attributes", {})
+
+                        topics.append(
+                            {
+                                "arn": arn,
+                                "name": arn.split(":")[-1],
+                                "subscriptions_confirmed": attrs.get("SubscriptionsConfirmed"),
+                                "subscriptions_pending": attrs.get("SubscriptionsPending"),
+                            }
+                        )
+            logger.info("Found [bold cyan]%d[/] SNS topics (async)", len(topics))
+            return topics
+
+        return await self.get_cached_or_fetch_async(query, _fetch, use_cache=use_cache)

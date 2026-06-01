@@ -1,7 +1,7 @@
 """Report Service — Export cost analysis in multiple formats.
 
 This service utilizes a Strategy pattern to support multiple export formats
-including PDF, terminal tables, JSON, CSV, Parquet, and Markdown. It also
+including PDF, Excel, JSON, CSV, Parquet, and Markdown. It also
 includes an S3 exporter for remote storage.
 """
 
@@ -16,6 +16,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 
 import polars as pl
+import xlsxwriter
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from rich.console import Console
@@ -77,6 +78,20 @@ class ReportFormatter(ABC):
         self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
     ) -> bytes | str | FPDF:
         """Format cost forecast results."""
+        ...
+
+    @abstractmethod
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | str | FPDF:
+        """Format infrastructure inventory summary."""
+        ...
+
+    @abstractmethod
+    def format_governance(
+        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | str | FPDF:
+        """Format governance and compliance data."""
         ...
 
     @abstractmethod
@@ -383,6 +398,85 @@ class PDFFormatter(ReportFormatter):
 
         return pdf if is_partial else bytes(pdf.output())
 
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | FPDF:
+        title = "Infrastructure Inventory Summary"
+        is_partial = pdf is not None
+
+        if not pdf:
+            pdf = self._create_base_pdf(title, metadata)
+        else:
+            pdf.add_page()
+            self._add_header(pdf, title, metadata)
+
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 10, "Resource Counts", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(4)
+
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_fill_color(52, 152, 219)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(100, 10, " Service", border=1, fill=True)
+        pdf.cell(80, 10, " Count", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+        pdf.set_font("Arial", "", 10)
+        pdf.set_text_color(0, 0, 0)
+        for svc, count in sorted(data.items()):
+            pdf.cell(100, 8, f" {svc.upper()}", border=1)
+            pdf.cell(80, 8, f"{count} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+
+        return pdf if is_partial else bytes(pdf.output())
+
+    def format_governance(
+        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+    ) -> bytes | FPDF:
+        title = "Governance & Compliance Report"
+        is_partial = pdf is not None
+
+        if not pdf:
+            pdf = self._create_base_pdf(title, metadata)
+        else:
+            pdf.add_page()
+            self._add_header(pdf, title, metadata)
+
+        score = data.get("score", 0)
+        compliant = data.get("compliant_resources", 0)
+        non_compliant = data.get("non_compliant_resources", 0)
+        total = data.get("total_resources", 0)
+
+        # Compliance Score Box
+        pdf.set_fill_color(245, 245, 245)
+        pdf.set_font("Arial", "B", 12)
+        color = (39, 174, 96) if score >= 80 else (230, 126, 34) if score >= 50 else (192, 57, 43)
+        pdf.set_text_color(*color)
+        pdf.cell(0, 15, f"  Tag Compliance Score: {score:.1f}%", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
+        pdf.ln(5)
+
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(60, 10, f"Compliant: {compliant}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(60, 10, f"Non-Compliant: {non_compliant}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(0, 10, f"Total Resources: {total}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(8)
+
+        # Details Table
+        if data.get("details"):
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_fill_color(44, 62, 80)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(140, 10, " Resource ARN", border=1, fill=True)
+            pdf.cell(50, 10, " Status", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+            pdf.set_font("Arial", "", 8)
+            pdf.set_text_color(0, 0, 0)
+            for item in data["details"][:50]:
+                status = "COMPLIANT" if item.get("is_compliant") else "NON-COMPLIANT"
+                pdf.cell(140, 8, f" {item['arn'][-80:]}", border=1)
+                pdf.cell(50, 8, f" {status}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+        return pdf if is_partial else bytes(pdf.output())
+
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
         pdf = FPDF()
         if data.cost_breakdown:
@@ -393,132 +487,99 @@ class PDFFormatter(ReportFormatter):
             self.format_anomalies(data.anomalies, metadata, pdf=pdf)
         if data.forecast:
             self.format_forecast(data.forecast, metadata, pdf=pdf)
+        if data.infrastructure_summary:
+            self.format_infrastructure(data.infrastructure_summary, metadata, pdf=pdf)
+        if data.governance:
+            self.format_governance(data.governance, metadata, pdf=pdf)
         return bytes(pdf.output())
 
 
-class TableFormatter(ReportFormatter):
-    """Rich Table formatter for styled terminal output."""
+class ExcelFormatter(ReportFormatter):
+    """Excel formatter using Polars and xlsxwriter."""
 
-    def __init__(self, console: Console | None = None):
-        self._console = console or Console()
+    def _to_df(self, data: Any) -> pl.DataFrame:
+        if isinstance(data, CostBreakdown):
+            return pl.DataFrame(
+                [{"service": g.key, "cost": float(g.cost), "percentage": g.percentage} for g in data.groups]
+            )
+        elif isinstance(data, CostTrend):
+            return pl.DataFrame([{"date": p.date, "cost": float(p.cost)} for p in data.points])
+        elif isinstance(data, AnomalyReport):
+            return pl.DataFrame(
+                [
+                    {
+                        "id": a.id,
+                        "service": a.top_root_cause,
+                        "severity": a.severity.value,
+                        "actual": float(a.impact.total_actual_spend),
+                        "expected": float(a.impact.total_expected_spend),
+                        "variance": a.variance_percentage,
+                    }
+                    for a in data.anomalies
+                ]
+            )
+        elif isinstance(data, ForecastResult):
+            return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
+        elif isinstance(data, dict):
+            # Infrastructure or Governance
+            if "score" in data:
+                # Simple flat view for Excel
+                return pl.DataFrame([{"metric": k, "value": v} for k, v in data.items() if k != "details"])
+            return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
+        return pl.DataFrame()
 
     def format_cost(
         self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
-        table = RichTable(
-            title=f"[bold #00f3ff]» COST REPORT ({data.period.start} → {data.period.end})[/]",
-            show_lines=True,
-            border_style="#4b86b4",
-            header_style="bold #00f3ff",
-        )
+    ) -> bytes:
+        df = self._to_df(data)
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
 
-        if isinstance(data, CostBreakdown):
-            table.add_column("Service", style="#e6f4f8")
-            table.add_column("Cost", justify="right", style="bold #39ff14")
-            table.add_column("%", justify="right", style="#4b86b4")
+    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+        df = self._to_df(data)
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
 
-            for g in data.groups[:20]:
-                table.add_row(g.key, f"${g.cost:,.2f}", f"{g.percentage:.1f}%")
+    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+        df = self._to_df(data)
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
 
-            if data.summary:
-                table.add_row(
-                    "[bold #00f3ff]TOTAL[/]",
-                    f"[bold #39ff14]${data.summary.total_cost:,.2f}[/]",
-                    "100%",
-                )
-        else:
-            table.add_column("Date", style="#e6f4f8")
-            table.add_column("Cost", justify="right", style="bold #39ff14")
-            table.add_column("Trend", justify="right")
+    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+        df = self._to_df(data)
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
 
-            for i, p in enumerate(data.points[-30:], 1):
-                trend = ""
-                if i > 1:
-                    prev = data.points[-30 + i - 1]
-                    if p.cost > prev.cost:
-                        trend = "[#ff4500]▲[/]"
-                    elif p.cost < prev.cost:
-                        trend = "[#39ff14]▼[/]"
-                    else:
-                        trend = "[#ffff00]━[/]"
-                table.add_row(str(p.date), f"${p.cost:,.2f}", trend)
+    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+        df = self._to_df(data)
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
 
-        output = io.StringIO()
-        temp_console = Console(file=output, force_terminal=True, width=120)
-        temp_console.print(table)
-        return output.getvalue()
-
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        table = RichTable(
-            title=f"[bold #ff4500]» ANOMALY REPORT ({data.total_anomalies} detected)[/]",
-            show_lines=True,
-            border_style="#4b86b4",
-            header_style="bold #00f3ff",
-        )
-        table.add_column("ID", style="#4b86b4", max_width=20)
-        table.add_column("Service", style="#e6f4f8")
-        table.add_column("Severity", justify="center")
-        table.add_column("Actual", justify="right", style="bold #39ff14")
-        table.add_column("Expected", justify="right", style="#ffff00")
-        table.add_column("Variance %", justify="right", style="#ff4500")
-
-        severity_colors = {
-            "low": "#39ff14",
-            "medium": "#ffff00",
-            "high": "#4b86b4",
-            "critical": "bold #ff4500",
-        }
-
-        for a in data.anomalies[:30]:
-            sev_color = severity_colors.get(a.severity.value, "#e6f4f8")
-            table.add_row(
-                a.id[:18],
-                a.top_root_cause or "Unknown",
-                f"[{sev_color}]{a.severity.value.upper()}[/{sev_color}]",
-                f"${a.impact.total_actual_spend:,.2f}",
-                f"${a.impact.total_expected_spend:,.2f}",
-                f"{a.variance_percentage:.1f}%",
-            )
-
-        output = io.StringIO()
-        temp_console = Console(file=output, force_terminal=True, width=120)
-        temp_console.print(table)
-        return output.getvalue()
-
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        table = RichTable(
-            title=f"[bold #39ff14]» COST FORECAST ({data.forecast_period.start} → {data.forecast_period.end})[/]",
-            show_lines=True,
-            border_style="#4b86b4",
-            header_style="bold #00f3ff",
-        )
-        table.add_column("Date", style="#e6f4f8")
-        table.add_column("Predicted", justify="right", style="bold #39ff14")
-        table.add_column("Model", style="dim #4b86b4")
-
-        for p in data.predictions[:30]:
-            table.add_row(str(p.date), f"${p.predicted_cost:,.2f}", data.model_used.value)
-
-        table.add_row(
-            "[bold #00f3ff]TOTAL[/]",
-            f"[bold #39ff14]${data.total_predicted_cost:,.2f}[/]",
-            "",
-        )
-
-        output = io.StringIO()
-        temp_console = Console(file=output, force_terminal=True, width=120)
-        temp_console.print(table)
-        return output.getvalue()
-
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
-        parts = []
+    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
+        sheets = {}
         if data.cost_breakdown:
-            parts.append(self.format_cost(data.cost_breakdown, metadata))
+            sheets["Cost Breakdown"] = self._to_df(data.cost_breakdown)
+        if data.cost_trend:
+            sheets["Cost Trend"] = self._to_df(data.cost_trend)
         if data.anomalies:
-            parts.append(self.format_anomalies(data.anomalies, metadata))
+            sheets["Anomalies"] = self._to_df(data.anomalies)
         if data.forecast:
-            parts.append(self.format_forecast(data.forecast, metadata))
-        return "\n\n\n".join(parts)
+            sheets["Forecast"] = self._to_df(data.forecast)
+        if data.infrastructure_summary:
+            sheets["Infrastructure"] = self._to_df(data.infrastructure_summary)
+        if data.governance:
+            sheets["Governance"] = self._to_df(data.governance)
+        
+        buf = io.BytesIO()
+        with xlsxwriter.Workbook(buf) as workbook:
+            for name, df in sheets.items():
+                df.write_excel(workbook=workbook, worksheet=name)
+        return buf.getvalue()
 
 
 class JsonFormatter(ReportFormatter):
@@ -549,6 +610,12 @@ class JsonFormatter(ReportFormatter):
 
     def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         return self._serialize(data.model_dump(mode="json"))
+
+    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+        return self._serialize(data)
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
         return self._serialize(data.model_dump(mode="json"))
@@ -583,6 +650,12 @@ class FastTableFormatter(ReportFormatter):
             )
         elif isinstance(data, ForecastResult):
             return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
+        elif isinstance(data, dict):
+            # Assume infrastructure or governance dict
+            if "score" in data:
+                # Governance
+                return pl.DataFrame([{"score": data["score"], "compliant": data["compliant_resources"]}])
+            return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
         return pl.DataFrame()
 
     def _serialize(self, df: pl.DataFrame) -> bytes | str:
@@ -607,6 +680,16 @@ class FastTableFormatter(ReportFormatter):
 
     def format_forecast(
         self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes | str:
+        return self._serialize(self._to_df(data))
+
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes | str:
+        return self._serialize(self._to_df(data))
+
+    def format_governance(
+        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None
     ) -> bytes | str:
         return self._serialize(self._to_df(data))
 
@@ -674,6 +757,19 @@ class MarkdownFormatter(ReportFormatter):
             lines.append(f"| {p.date} | ${p.predicted_cost:,.2f} |")
         return "\n".join(lines)
 
+    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+        lines = ["# Infrastructure Inventory", "", "| Service | Resource Count |", "|---------|----------------|"]
+        for svc, count in sorted(data.items()):
+            lines.append(f"| {svc.upper()} | {count} |")
+        return "\n".join(lines)
+
+    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+        lines = ["# Governance & Compliance", "", f"**Compliance Score:** {data.get('score', 0):.1f}%", ""]
+        lines.extend(["| Metric | Value |", "|--------|-------|"])
+        lines.append(f"| Compliant Resources | {data.get('compliant_resources', 0)} |")
+        lines.append(f"| Non-Compliant Resources | {data.get('non_compliant_resources', 0)} |")
+        return "\n".join(lines)
+
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
         parts = []
         if data.cost_breakdown:
@@ -682,6 +778,10 @@ class MarkdownFormatter(ReportFormatter):
             parts.append(self.format_anomalies(data.anomalies, metadata))
         if data.forecast:
             parts.append(self.format_forecast(data.forecast, metadata))
+        if data.infrastructure_summary:
+            parts.append(self.format_infrastructure(data.infrastructure_summary, metadata))
+        if data.governance:
+            parts.append(self.format_governance(data.governance, metadata))
         return "\n\n\n".join(parts)
 
 
@@ -690,7 +790,7 @@ class ReportService:
 
     _formatters: ClassVar[dict[str, ReportFormatter]] = {
         "pdf": PDFFormatter(),
-        "table": TableFormatter(),
+        "excel": ExcelFormatter(),
         "json": JsonFormatter(),
         "csv": FastTableFormatter(format="csv"),
         "parquet": FastTableFormatter(format="parquet"),
@@ -717,6 +817,8 @@ class ReportService:
             content = formatter.format_forecast(data, metadata)
         elif isinstance(data, FullReport):
             content = formatter.format_full(data, metadata)
+        elif isinstance(data, dict):
+            content = formatter.format_infrastructure(data, metadata)
         else:
             raise TypeError(f"Unsupported data type: {type(data)}")
 

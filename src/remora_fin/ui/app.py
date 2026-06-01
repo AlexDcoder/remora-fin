@@ -22,11 +22,12 @@ from textual.widgets import (
     Select,
 )
 
-logger = logging.getLogger(__name__)
-
 from remora_fin.services import (
     AnomalyService,
+    CloudFrontService,
     CostService,
+    DashboardService,
+    DynamoDBService,
     EC2Service,
     ElastiCacheService,
     EMRService,
@@ -45,6 +46,8 @@ from remora_fin.ui.widgets.anomaly_panel import AnomalyPanel
 from remora_fin.ui.widgets.cost_chart import CostChartWidget
 from remora_fin.ui.widgets.dashboard import DashboardWidget
 from remora_fin.ui.widgets.forecast_panel import ForecastPanel
+
+logger = logging.getLogger(__name__)
 
 
 class CostScreen(Screen[None]):
@@ -168,6 +171,7 @@ class RemoraApp(App[None]):
 
     BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         ("q", "quit", "Quit"),
+        ("ctrl+c", "quit", "Quit"),
         ("r", "refresh", "Refresh Data"),
     ]
 
@@ -240,6 +244,7 @@ class DashboardScreen(Screen[None]):
         self._selected_service = "All Services"
         self._cost_service = CostService(session) if session else None
         self._anomaly_service = AnomalyService(session) if session else None
+        self._dashboard_service = DashboardService(session) if session else None
 
     def compose(self) -> ComposeResult:
         yield Label("[bold #00f2ff]» REMORA_CORE_DASHBOARD[/]", id="title")
@@ -253,9 +258,9 @@ class DashboardScreen(Screen[None]):
         self._load_services()
         self._refresh_data()
 
-    @work(exclusive=True, thread=True)
-    def _load_services(self) -> None:
-        """Fetch available services in background."""
+    @work(exclusive=True)
+    async def _load_services(self) -> None:
+        """Fetch available services async and merge with integrated ones."""
         if not self._cost_service:
             return
 
@@ -263,141 +268,179 @@ class DashboardScreen(Screen[None]):
         start = end - timedelta(days=self._days)
 
         try:
-            breakdown = self._cost_service.get_cost_by_service(start, end)
-            services = ["All Services", *sorted([g.key for g in breakdown.groups if g.key])]
+            # Detect services from cost breakdown
+            breakdown = await self._cost_service.get_cost_by_service_async(start, end)
+            cost_services = {g.key for g in breakdown.groups if g.key} if breakdown else set()
+
+            # Ensure our integrated services are always available
+            integrated_services = {
+                "CloudFront", "DynamoDB", "EC2", "ElastiCache", "EMR",
+                "Lambda", "RDS", "Redshift", "S3", "SageMaker", "SNS", "SQS"
+            }
+
+            # Combine, sort and update selector
+            all_services = sorted(list(cost_services | integrated_services))
+            services = ["All Services", *all_services]
 
             selector = self.query_one("#service-selector", Select)
             selector.set_options([(s, s) for s in services])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to load services: {e}")
 
     @work(exclusive=True)
     async def _refresh_data(self) -> None:
-        """Load and update all dashboard components in parallel."""
+        """Load and update all dashboard components in parallel with resilience."""
         import asyncio
 
-        if not self._cost_service:
+        if not self._dashboard_service:
             return
 
-        end = date.today()
-        start = end - timedelta(days=self._days)
-
         try:
-            # Fetch core cost and anomaly data
-            tasks = [
-                self._cost_service.get_cost_by_service_async(start, end),
-                self._cost_service.get_daily_trend_async(start, end),
-            ]
-
-            if self._anomaly_service:
-                tasks.append(self._anomaly_service.get_anomaly_summary_async(start, end))
-
-            # Fetch specific service inventory if a service is selected
-            inventory_task = None
-            if self._selected_service != "All Services":
-                if "EC2" in self._selected_service:
-                    inventory_task = EC2Service(self._session).list_instances_async()
-                elif "RDS" in self._selected_service:
-                    inventory_task = asyncio.to_thread(RDSService(self._session).get_rds_stats)
-                elif "S3" in self._selected_service:
-                    inventory_task = asyncio.to_thread(S3Service(self._session).list_buckets)
-                elif "Lambda" in self._selected_service:
-                    inventory_task = asyncio.to_thread(LambdaService(self._session).list_functions)
-                elif "ElastiCache" in self._selected_service:
-                    inventory_task = asyncio.to_thread(ElastiCacheService(self._session).get_elasticache_stats)
-                elif "Redshift" in self._selected_service:
-                    inventory_task = asyncio.to_thread(RedshiftService(self._session).get_redshift_stats)
-                elif "EMR" in self._selected_service:
-                    inventory_task = asyncio.to_thread(EMRService(self._session).list_clusters)
-                elif "SageMaker" in self._selected_service:
-                    inventory_task = asyncio.to_thread(SageMakerService(self._session).list_notebook_instances)
-                elif "SNS" in self._selected_service:
-                    inventory_task = asyncio.to_thread(SNSService(self._session).list_topics)
-                elif "SQS" in self._selected_service:
-                    inventory_task = asyncio.to_thread(SQSService(self._session).list_queues)
-
-            if inventory_task:
-                tasks.append(inventory_task)
-
-            # Execute in parallel
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Unpack results with error handling
-            breakdown = results[0] if not isinstance(results[0], Exception) else None
-            trend = results[1] if not isinstance(results[1], Exception) else None
-            anomaly_report = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else None
-
-            # Inventory result is the last one if requested
-            inventory_data = results[-1] if inventory_task and not isinstance(results[-1], Exception) else None
-
-            if not breakdown or not trend:
-                self.notify("Some data failed to load, check logs", severity="warning")
-
             dashboard = self.query_one("#dashboard", DashboardWidget)
-            summary = breakdown.summary if breakdown else None
-            anomalies = anomaly_report.total_anomalies if anomaly_report else 0
 
-            # Calculate metrics based on selection
             if self._selected_service == "All Services":
-                display_total = summary.total_cost if summary else Decimal("0")
-                display_avg = summary.daily_average if summary else Decimal("0")
-                inventory_str = "—"
-            else:
-                # Find the specific service in groups
-                service_group = (
-                    next((g for g in breakdown.groups if g.key == self._selected_service), None) if breakdown else None
+                # Use the new high-performance DashboardService
+                data = await self._dashboard_service.get_summary_parallel(days=self._days)
+
+                summary = data.get("cost_summary")
+                trend = data.get("cost_trend")
+                anomalies = data.get("anomalies")
+                infra_counts = data.get("infrastructure", {}).get("counts", {})
+
+                # Resilient KPI formatting
+                total_cost_str = f"${summary.total_cost:,.2f}" if summary else "$0.00"
+                daily_avg_str = f"${summary.daily_average:,.2f}" if summary else "$0.00"
+                anomaly_count = anomalies.total_anomalies if anomalies else 0
+                total_resources = sum(infra_counts.values()) if infra_counts else 0
+
+                dashboard.update_kpis(
+                    total_cost=total_cost_str,
+                    daily_avg=daily_avg_str,
+                    anomaly_count=anomaly_count,
+                    inventory=f"{total_resources} Res",
                 )
+
+                dashboard.update_status_header("Global Environment", "Comprehensive Monitoring")
+
+                # Update Chart
+                chart = self.query_one("#dashboard-chart", CostChartWidget)
+                chart.show_daily_trend([(str(p.date), float(p.cost)) for p in trend.points] if trend else [])
+
+                # Update Report Table
+                end = date.today()
+                start = end - timedelta(days=self._days)
+                breakdown = await self._cost_service.get_cost_by_service_async(start, end)
+                table_data = [("•", g.key, f"${g.cost:,.2f}") for g in breakdown.groups[:50]] if breakdown else []
+                dashboard.update_report_table(table_data)
+
+            else:
+                # Handle single service view
+                end = date.today()
+                start = end - timedelta(days=self._days)
+
+                tasks = [
+                    self._cost_service.get_cost_by_service_async(start, end),
+                    self._cost_service.get_daily_trend_async(start, end),
+                ]
+
+                # Map UI names to internal inventory tasks
+                inventory_task = None
+                svc = self._selected_service
+                if "EC2" in svc:
+                    inventory_task = EC2Service(self._session).list_instances_async()
+                elif "RDS" in svc:
+                    inventory_task = RDSService(self._session).list_db_instances_async()
+                elif "S3" in svc:
+                    inventory_task = S3Service(self._session).list_buckets_async()
+                elif "Lambda" in svc:
+                    inventory_task = LambdaService(self._session).list_functions_async()
+                elif "SNS" in svc:
+                    inventory_task = SNSService(self._session).list_topics_async()
+                elif "SQS" in svc:
+                    inventory_task = SQSService(self._session).list_queues_async()
+                elif "DynamoDB" in svc:
+                    inventory_task = DynamoDBService(self._session).list_tables_async()
+                elif "CloudFront" in svc:
+                    inventory_task = CloudFrontService(self._session).list_distributions_async()
+                elif "ElastiCache" in svc:
+                    inventory_task = ElastiCacheService(self._session).list_clusters_async()
+                elif "Redshift" in svc:
+                    inventory_task = RedshiftService(self._session).list_clusters_async()
+                elif "EMR" in svc:
+                    inventory_task = EMRService(self._session).list_clusters_async()
+                elif "SageMaker" in svc:
+                    inventory_task = SageMakerService(self._session).list_notebook_instances_async()
+
+                if inventory_task:
+                    tasks.append(inventory_task)
+
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                breakdown = results[0] if not isinstance(results[0], Exception) else None
+                trend = results[1] if not isinstance(results[1], Exception) else None
+                inventory_data = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else None
+
+                # Find specific service cost with partial matching
+                service_group = None
+                if breakdown:
+                    service_group = next((g for g in breakdown.groups if self._selected_service in g.key), None)
+
                 display_total = service_group.cost if service_group else Decimal("0")
                 display_avg = display_total / self._days
 
-                # Format inventory string
-                if isinstance(inventory_data, list):
-                    inventory_str = f"{len(inventory_data)} Res"
-                elif isinstance(inventory_data, dict):
-                    inventory_str = f"{inventory_data.get('total_count', len(inventory_data))} Res"
-                else:
-                    inventory_str = "—"
+                inventory_str = f"{len(inventory_data)} Res" if isinstance(inventory_data, list) else "—"
 
-            dashboard.update_kpis(
-                total_cost=f"${display_total:,.2f}",
-                daily_avg=f"${display_avg:,.2f}",
-                anomaly_count=anomalies,
-                inventory=inventory_str,
-            )
-
-            # Update Chart
-            chart = self.query_one("#dashboard-chart", CostChartWidget)
-            if self._selected_service == "All Services":
-                chart_data = [(str(p.date), float(p.cost)) for p in trend.points] if trend else []
-            else:
-                # Filter entries for the specific service
-                service_entries = (
-                    [e for e in breakdown.entries if e.service == self._selected_service] if breakdown else []
+                dashboard.update_kpis(
+                    total_cost=f"${display_total:,.2f}",
+                    daily_avg=f"${display_avg:,.2f}",
+                    inventory=inventory_str,
                 )
-                daily_data: dict[str, float] = {}
-                for e in service_entries:
-                    daily_data[str(e.date)] = daily_data.get(str(e.date), 0.0) + float(e.unblended_cost)
-                chart_data = sorted(daily_data.items())
 
-            chart.show_daily_trend(chart_data)
+                # Update Status Header with context
+                svc_contexts = {
+                    "EC2": "Server Fleet & Instances",
+                    "RDS": "Relational Database Clusters",
+                    "S3": "Object Storage Buckets",
+                    "Lambda": "Serverless Function Matrix",
+                    "DynamoDB": "NoSQL Table Performance",
+                    "SageMaker": "ML Models & Notebooks",
+                    "CloudFront": "Edge Content Delivery",
+                    "ElastiCache": "In-Memory Cache Clusters",
+                    "Redshift": "Data Warehouse Clusters",
+                    "EMR": "Big Data Analysis",
+                    "SNS": "Pub/Sub Messaging Topics",
+                    "SQS": "Message Queue Latency"
+                }
+                context = "AWS Service Analysis"
+                for key, ctx in svc_contexts.items():
+                    if key in self._selected_service:
+                        context = ctx
+                        break
 
-            # Update Report Table
-            table_data = []
-            if self._selected_service == "All Services":
+                dashboard.update_status_header(self._selected_service, context)
+
+                # Filter entries for specific service for chart
+                chart_points = []
                 if breakdown:
-                    for g in breakdown.groups[:50]:
-                        table_data.append(("•", g.key, f"${g.cost:,.2f}"))
-            else:
+                    service_entries = [e for e in breakdown.entries if self._selected_service in e.service]
+                    daily_map: dict[str, float] = {}
+                    for e in service_entries:
+                        daily_map[str(e.date)] = daily_map.get(str(e.date), 0.0) + float(e.unblended_cost)
+                    chart_points = sorted(daily_map.items())
+
+                chart = self.query_one("#dashboard-chart", CostChartWidget)
+                chart.show_daily_trend(chart_points)
+
+                # Update table with service-specific entries
+                table_data = []
                 if breakdown:
                     service_entries = sorted(
-                        [e for e in breakdown.entries if e.service == self._selected_service],
-                        key=lambda x: x.date,
-                        reverse=True,
+                        [e for e in breakdown.entries if self._selected_service in e.service],
+                        key=lambda x: x.date, reverse=True
                     )
-                    for e in service_entries:
-                        table_data.append((str(e.date), e.service, f"${e.unblended_cost:,.2f}"))
+                    table_data = [(str(e.date), e.service, f"${e.unblended_cost:,.2f}") for e in service_entries[:100]]
 
-            dashboard.update_report_table(table_data)
+                dashboard.update_report_table(table_data)
 
         except Exception as e:
             logger.exception("Dashboard refresh failed")

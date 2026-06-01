@@ -21,7 +21,7 @@ from remora_fin.services.config_service import ConfigService
 logger = logging.getLogger(__name__)
 
 
-def forecast_cmd(args: argparse.Namespace) -> None:
+async def forecast_cmd(args: argparse.Namespace) -> None:
     """Predict future AWS costs."""
     # Parse forecast period (forecast usually starts tomorrow)
     default_start = date.today() + timedelta(days=1)
@@ -56,14 +56,24 @@ def forecast_cmd(args: argparse.Namespace) -> None:
     # Fetch data
     with Status("[bold #39ff14]Calculating forecast...", console=console) as status:
         logger.info("Period: [#39ff14]%s[/] to [#39ff14]%s[/]", start, end)
-        result = forecast_service.get_forecast(
-            start=start,
-            end=end,
-            metric=ForecastMetric(args.metric),
-            granularity=args.granularity,
-            group_by_type=args.group_by_type,
-            group_by_key=args.group_by_key,
-        )
+        # Use async version if it's native ARIMA, fallback to sync otherwise
+        try:
+            result = await forecast_service.get_aws_native_forecast_async(
+                start=start,
+                end=end,
+                metric=ForecastMetric(args.metric),
+                granularity=args.granularity,
+            )
+        except Exception as e:
+            logger.warning("AWS native async forecast failed, using sync fallback: %s", e)
+            result = forecast_service.get_forecast(
+                start=start,
+                end=end,
+                metric=ForecastMetric(args.metric),
+                granularity=args.granularity,
+                group_by_type=args.group_by_type,
+                group_by_key=args.group_by_key,
+            )
 
         status.update("[bold #4b86b4]Formatting results...")
 
