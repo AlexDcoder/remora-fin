@@ -51,7 +51,7 @@ async def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
-    # Handle "table" as "excel" for backward compatibility or mapping
+    # Mapping table to excel if passed for legacy or removed entirely from choices
     fmt_str = "excel" if args.format == "table" else args.format
     fmt = ReportFormat(fmt_str)
     
@@ -147,8 +147,12 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     """Add report subparser."""
     parser = subparsers.add_parser(
         "report",
-        help="Generate cost reports (pdf/excel/json/csv/parquet/markdown)",
-        description="[bold #4b86b4]Generate AWS cost reports in various formats.[/]\n\nSupports deep analysis by service, account, or daily trends.",
+        help="Generate FinOps reports (PDF, Excel, JSON, etc.)",
+        description=(
+            "[bold #4b86b4]Generate comprehensive AWS cost and governance reports.[/]\n\n"
+            "Includes Cost Breakdown, Daily Trends, Anomaly Detection, Forecasts, "
+            "Infrastructure Inventory, and Tag Compliance (Governance)."
+        ),
         formatter_class=rich_argparse.RichHelpFormatter,
     )
     parser.add_argument(
@@ -156,14 +160,14 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         "-t",
         choices=["breakdown", "trend", "account", "full"],
         default="full",
-        help="Report type (default: full)",
+        help="Report depth level (default: full)",
     )
     parser.add_argument(
         "--format",
         "-f",
-        choices=["pdf", "excel", "table", "json", "csv", "parquet", "markdown"],
+        choices=["pdf", "excel", "json", "csv", "parquet", "markdown"],
         default="pdf",
-        help="Output format (default: pdf). 'table' is an alias for 'excel'.",
+        help="Output file format (default: pdf).",
     )
     parser.add_argument(
         "--days",
