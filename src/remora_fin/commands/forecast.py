@@ -86,17 +86,26 @@ async def forecast_cmd(args: argparse.Namespace) -> None:
         )
 
     # Output
-    if args.json:
-        config = ReportConfig(format=ReportFormat.JSON)
-        console.print(report_service.generate_report(result, config, metadata))
-    else:
-        config = ReportConfig(format=ReportFormat.TABLE)
-        console.print(report_service.generate_report(result, config, metadata))
+    from rich.table import Table
 
-    # Scenario analysis if requested (kept as extra CLI output)
-    if args.scenarios and not args.json:
-        from rich.table import Table
+    result_table = Table(
+        title=f"[bold #39ff14]Forecasted Spend ({start} to {end})[/]",
+        header_style="bold #00f3ff",
+        border_style="#4b86b4",
+    )
+    result_table.add_column("Date", style="dim")
+    result_table.add_column("Predicted Cost (USD)", justify="right", style="bold #39ff14")
 
+    for p in result.predictions[:15]:  # Show first 15 days
+        result_table.add_row(str(p.date), f"${p.predicted_cost:,.2f}")
+
+    if len(result.predictions) > 15:
+        result_table.add_row("...", "...")
+
+    console.print(result_table)
+
+    # Scenario analysis if requested
+    if args.scenarios:
         console.print()
         variations = {
             "optimistic": -0.10,
@@ -204,11 +213,6 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction[argparse.Argument
         "--scenarios",
         action="store_true",
         help="Show what-if scenario analysis",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON",
     )
     parser.add_argument(
         "--profile",

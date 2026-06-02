@@ -10,7 +10,7 @@ updates:
       timezone: "America/New_York" # Keeps things predictable
     open-pull-requests-limit: 3 # Lowered slightly to avoid overwhelming your CI
     reviewers:
-      - "Alex"
+      - "AlexDcoder"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -37,7 +37,7 @@ updates:
     schedule:
       interval: "monthly"
     reviewers:
-      - "Alex"
+      - "AlexDcoder"
     commit-message:
       prefix: "ci"
     labels:

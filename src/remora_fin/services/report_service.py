@@ -582,49 +582,8 @@ class ExcelFormatter(ReportFormatter):
         return buf.getvalue()
 
 
-class JsonFormatter(ReportFormatter):
-    """JSON formatter for machine-readable output."""
-
-    def __init__(self, indent: int = 2):
-        self._indent = indent
-
-    def _serialize(self, obj: Any) -> str:
-        def default_handler(o: Any) -> Any:
-            if isinstance(o, datetime):
-                return o.isoformat()
-            if isinstance(o, Decimal):
-                return str(o)
-            if hasattr(o, "model_dump"):
-                return o.model_dump(mode="json")
-            raise TypeError(f"Object of type {type(o)} is not JSON serializable")
-
-        return json.dumps(obj, indent=self._indent, default=default_handler)
-
-    def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
-        return self._serialize(data.model_dump(mode="json"))
-
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        return self._serialize(data.model_dump(mode="json"))
-
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        return self._serialize(data.model_dump(mode="json"))
-
-    def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
-        return self._serialize(data)
-
-    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
-        return self._serialize(data)
-
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
-        return self._serialize(data.model_dump(mode="json"))
-
-
 class FastTableFormatter(ReportFormatter):
-    """Fast exporter leveraging Polars for CSV and Parquet formats."""
+    """Fast exporter leveraging Polars for CSV format."""
 
     def __init__(self, format: str = "csv"):
         self._format = format
@@ -660,43 +619,38 @@ class FastTableFormatter(ReportFormatter):
             return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
         return pl.DataFrame()
 
-    def _serialize(self, df: pl.DataFrame) -> bytes | str:
+    def _serialize(self, df: pl.DataFrame) -> str:
         buf = io.BytesIO()
-        if self._format == "csv":
-            df.write_csv(buf)
-            return buf.getvalue().decode("utf-8")
-        elif self._format == "parquet":
-            df.write_parquet(buf)
-            return buf.getvalue()
-        return ""
+        df.write_csv(buf)
+        return buf.getvalue().decode("utf-8")
 
     def format_cost(
         self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> bytes | str:
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_anomalies(
         self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> bytes | str:
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_forecast(
         self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> bytes | str:
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_infrastructure(
         self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> bytes | str:
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_governance(
         self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> bytes | str:
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
-        return "Comprehensive report not supported in CSV/Parquet yet."
+        return "Comprehensive report not supported in CSV yet."
 
 
 class MarkdownFormatter(ReportFormatter):
@@ -795,9 +749,7 @@ class ReportService:
     _formatters: ClassVar[dict[str, ReportFormatter]] = {
         "pdf": PDFFormatter(),
         "excel": ExcelFormatter(),
-        "json": JsonFormatter(),
         "csv": FastTableFormatter(format="csv"),
-        "parquet": FastTableFormatter(format="parquet"),
         "markdown": MarkdownFormatter(),
     }
 

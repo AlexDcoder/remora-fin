@@ -51,9 +51,7 @@ async def report(args: argparse.Namespace) -> None:
 
     # Fetch data
     metric = args.metric
-    # Mapping table to excel if passed for legacy or removed entirely from choices
-    fmt_str = "excel" if args.format == "table" else args.format
-    fmt = ReportFormat(fmt_str)
+    fmt = ReportFormat(args.format)
 
     data: CostBreakdown | CostTrend | FullReport
 
@@ -165,7 +163,7 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--format",
         "-f",
-        choices=["pdf", "excel", "json", "csv", "parquet", "markdown"],
+        choices=["pdf", "excel", "csv", "markdown"],
         default="pdf",
         help="Output file format (default: pdf).",
     )

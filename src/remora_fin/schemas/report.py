@@ -20,9 +20,7 @@ class ReportFormat(StrEnum):
 
     PDF = "pdf"
     EXCEL = "excel"
-    JSON = "json"
     CSV = "csv"
-    PARQUET = "parquet"
     MARKDOWN = "markdown"
 
 

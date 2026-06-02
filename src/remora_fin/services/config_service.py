@@ -83,7 +83,7 @@ class ConfigService:
         return self.settings.aws.region
 
     def get_output_format(self) -> str:
-        return "table"  # default
+        return "pdf"  # default
 
     def save_config(self, settings: AppSettings) -> None:
         """Persist settings to config file."""

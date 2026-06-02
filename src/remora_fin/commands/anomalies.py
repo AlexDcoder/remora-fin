@@ -60,23 +60,41 @@ async def anomalies(args: argparse.Namespace) -> None:
         )
 
     # Output
-    if args.json:
-        config = ReportConfig(format=ReportFormat.JSON)
-        console.print(report_service.generate_report(report_data, config, metadata))
+    if report_data.total_anomalies == 0:
+        console.print("\n[bold #39ff14]No cost anomalies detected in the selected period.[/] ✨\n")
     else:
-        config = ReportConfig(format=ReportFormat.TABLE)
-        console.print(report_service.generate_report(report_data, config, metadata))
+        from rich.table import Table
 
-        if report_data.total_anomalies == 0:
-            console.print("\n[bold #39ff14]No cost anomalies detected in the selected period.[/] ✨\n")
-
-        summary_panel = Panel(
-            f"Total Anomalies: [bold #ff4500]{report_data.total_anomalies}[/]\nPeriod:         [#00f3ff]{start} to {end}[/]",
-            title="[bold #00f3ff]REMORA-FIN | Anomaly Insight[/]",
-            border_style="#ffff00",
-            expand=False,
+        anomaly_table = Table(
+            title=f"[bold #ff4500]Detected Cost Anomalies ({start} to {end})[/]",
+            header_style="bold #00f3ff",
+            border_style="#4b86b4",
         )
-        console.print(summary_panel)
+        anomaly_table.add_column("Date", style="dim")
+        anomaly_table.add_column("Service/Root Cause", style="#e6f4f8")
+        anomaly_table.add_column("Severity", justify="center")
+        anomaly_table.add_column("Impact (USD)", justify="right", style="bold #ff4500")
+
+        for a in report_data.anomalies:
+            severity_color = (
+                "#ff4500" if a.severity == "high" or a.severity == "critical" else "#ffff00" if a.severity == "medium" else "#39ff14"
+            )
+            anomaly_table.add_row(
+                str(a.start_date),
+                a.top_root_cause or "Unknown",
+                f"[{severity_color}]{a.severity.upper()}[/]",
+                f"${a.impact.total_actual_spend:,.2f}",
+            )
+        console.print(anomaly_table)
+
+    summary_panel = Panel(
+        f"Total Anomalies: [bold #ff4500]{report_data.total_anomalies}[/]\nPeriod:         [#00f3ff]{start} to {end}[/]",
+        title="[bold #00f3ff]REMORA-FIN | Anomaly Insight[/]",
+        border_style="#4b86b4",
+        expand=False,
+    )
+    console.print(summary_panel)
+
 
 
 def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -121,11 +139,6 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--detail",
         action="store_true",
         help="Show detailed anomaly list (always on in table/json output)",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON",
     )
     parser.add_argument(
         "--profile",
