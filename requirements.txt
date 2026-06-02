@@ -92,7 +92,7 @@ propcache==0.5.2
     #   yarl
 pydantic==2.13.4
     # via remora-fin (pyproject.toml)
-pydantic-core==2.46.4
+pydantic-core==2.47.0
     # via pydantic
 pygments==2.20.0
     # via
