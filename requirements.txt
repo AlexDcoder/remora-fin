@@ -2,7 +2,7 @@
 #    uv pip compile pyproject.toml -o requirements.txt
 aioboto3==15.5.0
     # via remora-fin (pyproject.toml)
-aiobotocore==2.25.1
+aiobotocore==2.26.0
     # via aioboto3
 aiofiles==25.1.0
     # via aioboto3
