@@ -339,7 +339,7 @@ class DashboardScreen(Screen[None]):
                 # Update Report Table
                 end = date.today()
                 start = end - timedelta(days=self._days)
-                
+
                 table_data = []
                 if self._cost_service:
                     breakdown = await self._cost_service.get_cost_by_service_async(start, end)
@@ -395,7 +395,7 @@ class DashboardScreen(Screen[None]):
                 from remora_fin.schemas.cost import CostBreakdown, CostTrend
 
                 svc_breakdown = results[0] if isinstance(results[0], CostBreakdown) else None
-                svc_trend = results[1] if isinstance(results[1], CostTrend) else None
+                results[1] if isinstance(results[1], CostTrend) else None
                 inventory_data = results[2] if len(results) > 2 and not isinstance(results[2], BaseException) else None
 
                 # Find specific service cost with partial matching

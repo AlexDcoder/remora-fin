@@ -1,13 +1,14 @@
-import pytest
-from unittest.mock import MagicMock
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
+from unittest.mock import MagicMock
 
-from remora_fin.services.report_service import ReportService
-from remora_fin.schemas.report import ReportConfig, ReportFormat, ReportMetadata
-from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostSummary
+import pytest
+
 from remora_fin.schemas.common import DateRange
+from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostSummary
+from remora_fin.schemas.report import ReportConfig, ReportFormat, ReportMetadata
+from remora_fin.services.report_service import ReportService
+
 
 @pytest.fixture
 def report_service() -> ReportService:
@@ -45,7 +46,7 @@ def report_metadata() -> ReportMetadata:
 def test_generate_markdown_report(report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata) -> None:
     config = ReportConfig(format=ReportFormat.MARKDOWN)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
-    
+
     assert isinstance(report, str)
     assert "# Cost Report" in report
     assert "AmazonEC2" in report
@@ -54,7 +55,7 @@ def test_generate_markdown_report(report_service: ReportService, mock_cost_break
 def test_generate_csv_report(report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata) -> None:
     config = ReportConfig(format=ReportFormat.CSV)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
-    
+
     assert isinstance(report, str)
     assert "service,cost,percentage" in report
     assert "AmazonEC2,100.0,50.0" in report
@@ -63,7 +64,7 @@ def test_generate_pdf_report(report_service: ReportService, mock_cost_breakdown:
     # PDF generation returns bytes
     config = ReportConfig(format=ReportFormat.PDF)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
-    
+
     assert isinstance(report, bytes)
     assert report.startswith(b"%PDF")
 
@@ -72,6 +73,6 @@ def test_report_service_invalid_format(report_service: ReportService, mock_cost_
     config = MagicMock()
     config.format.value = "invalid"
     config.output_path = None
-    
+
     with pytest.raises(ValueError, match="Unknown format: invalid"):
         report_service.generate_report(mock_cost_breakdown, config=config)

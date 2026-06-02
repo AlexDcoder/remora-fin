@@ -254,7 +254,7 @@ def test_sns_service_list_topics(mock_session: MagicMock) -> None:
 def test_sqs_service_list_queues(mock_session: MagicMock) -> None:
     mock_sqs = mock_session.sqs.return_value
     mock_sqs.get_paginator.return_value.paginate.return_value = [{"QueueUrls": ["https://sqs.us-east-1.amazonaws.com/123/queue-1"]}]
-    
+
     # Mock for get_queue_attributes which is called for each queue
     mock_sqs.get_queue_attributes.return_value = {
         "Attributes": {
