@@ -24,7 +24,7 @@ boto3==1.40.61
     # via
     #   remora-fin (pyproject.toml)
     #   aiobotocore
-boto3-stubs==1.43.18
+boto3-stubs==1.43.19
     # via remora-fin (pyproject.toml)
 botocore==1.40.61
     # via
