@@ -8,11 +8,9 @@ includes an S3 exporter for remote storage.
 from __future__ import annotations
 
 import io
-import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from decimal import Decimal
 from typing import Any, ClassVar
 
 import polars as pl
@@ -629,14 +627,10 @@ class FastTableFormatter(ReportFormatter):
     ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_anomalies(
-        self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
+    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_forecast(
-        self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
+    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         return self._serialize(self._to_df(data))
 
     def format_infrastructure(
@@ -644,9 +638,7 @@ class FastTableFormatter(ReportFormatter):
     ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_governance(
-        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None
-    ) -> str:
+    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         return self._serialize(self._to_df(data))
 
     def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:

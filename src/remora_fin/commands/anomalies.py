@@ -11,9 +11,7 @@ from rich.panel import Panel
 from rich.status import Status
 
 from remora_fin.commands.utils import parse_dates, validate_aws_session
-from remora_fin.schemas.common import DateRange
-from remora_fin.schemas.report import ReportConfig, ReportFormat, ReportMetadata
-from remora_fin.services import AnomalyService, AWSSession, ReportService
+from remora_fin.services import AnomalyService, AWSSession
 from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
@@ -40,7 +38,6 @@ async def anomalies(args: argparse.Namespace) -> None:
         return
 
     anomaly_service = AnomalyService(session)
-    report_service = ReportService()
 
     monitor_arn = args.monitor_arn or None
 
@@ -50,14 +47,6 @@ async def anomalies(args: argparse.Namespace) -> None:
         report_data = await anomaly_service.get_anomaly_summary_async(start, end, monitor_arn)
 
         status.update("[bold #4b86b4]Formatting results...")
-
-        # Prepare metadata
-        identity = session.get_caller_identity()
-        metadata = ReportMetadata(
-            period=DateRange(start=start, end=end),
-            generated_by=identity.get("arn"),
-            account_id=identity.get("account"),
-        )
 
     # Output
     if report_data.total_anomalies == 0:
@@ -77,7 +66,11 @@ async def anomalies(args: argparse.Namespace) -> None:
 
         for a in report_data.anomalies:
             severity_color = (
-                "#ff4500" if a.severity == "high" or a.severity == "critical" else "#ffff00" if a.severity == "medium" else "#39ff14"
+                "#ff4500"
+                if a.severity == "high" or a.severity == "critical"
+                else "#ffff00"
+                if a.severity == "medium"
+                else "#39ff14"
             )
             anomaly_table.add_row(
                 str(a.start_date),
@@ -94,7 +87,6 @@ async def anomalies(args: argparse.Namespace) -> None:
         expand=False,
     )
     console.print(summary_panel)
-
 
 
 def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

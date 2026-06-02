@@ -12,10 +12,8 @@ from rich.panel import Panel
 from rich.status import Status
 
 from remora_fin.commands.utils import validate_aws_session
-from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.forecast import ForecastMetric
-from remora_fin.schemas.report import ReportConfig, ReportFormat, ReportMetadata
-from remora_fin.services import AWSSession, ForecastService, ReportService
+from remora_fin.services import AWSSession, ForecastService
 from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
@@ -50,7 +48,6 @@ async def forecast_cmd(args: argparse.Namespace) -> None:
         return
 
     forecast_service = ForecastService(session)
-    report_service = ReportService()
     console = Console()
 
     # Fetch data
@@ -76,14 +73,6 @@ async def forecast_cmd(args: argparse.Namespace) -> None:
             )
 
         status.update("[bold #4b86b4]Formatting results...")
-
-        # Prepare metadata
-        identity = session.get_caller_identity()
-        metadata = ReportMetadata(
-            period=DateRange(start=start, end=end),
-            generated_by=identity.get("arn"),
-            account_id=identity.get("account"),
-        )
 
     # Output
     from rich.table import Table
