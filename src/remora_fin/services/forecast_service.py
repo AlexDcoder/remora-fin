@@ -274,6 +274,7 @@ class ForecastService(BaseService):
     ):
         super().__init__("forecast", session, cache)
         from remora_fin.services.cost_service import CostService
+
         self._cost_service = cost_service or CostService(self._session, self._cache)
 
     @async_retry_with_backoff(max_retries=3)

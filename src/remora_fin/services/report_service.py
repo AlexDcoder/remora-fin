@@ -19,8 +19,6 @@ import polars as pl
 import xlsxwriter
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
-from rich.console import Console
-from rich.table import Table as RichTable
 
 from remora_fin.schemas.anomaly import AnomalyReport
 from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostTrend, CostTrendPoint
@@ -548,7 +546,9 @@ class ExcelFormatter(ReportFormatter):
         df.write_excel(buf)
         return buf.getvalue()
 
-    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
@@ -574,7 +574,7 @@ class ExcelFormatter(ReportFormatter):
             sheets["Infrastructure"] = self._to_df(data.infrastructure_summary)
         if data.governance:
             sheets["Governance"] = self._to_df(data.governance)
-        
+
         buf = io.BytesIO()
         with xlsxwriter.Workbook(buf) as workbook:
             for name, df in sheets.items():
@@ -611,7 +611,9 @@ class JsonFormatter(ReportFormatter):
     def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
         return self._serialize(data.model_dump(mode="json"))
 
-    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> str:
         return self._serialize(data)
 
     def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
@@ -757,7 +759,9 @@ class MarkdownFormatter(ReportFormatter):
             lines.append(f"| {p.date} | ${p.predicted_cost:,.2f} |")
         return "\n".join(lines)
 
-    def format_infrastructure(self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_infrastructure(
+        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+    ) -> str:
         lines = ["# Infrastructure Inventory", "", "| Service | Resource Count |", "|---------|----------------|"]
         for svc, count in sorted(data.items()):
             lines.append(f"| {svc.upper()} | {count} |")
