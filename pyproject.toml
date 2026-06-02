@@ -59,7 +59,7 @@ Changelog = "https://github.com/AlexDcoder/remora-fin/releases"
 remora-fin = "remora_fin.cli:execute_cli"
 
 [build-system]
-requires = ["uv_build>=0.8.15,<0.9.0"]
+requires = ["uv_build>=0.8.15,<0.12.0"]
 build-backend = "uv_build"
 
 # -- Native UV Build Tool Settings --
