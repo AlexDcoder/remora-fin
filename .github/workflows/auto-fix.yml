@@ -1,0 +1,39 @@
+name: Auto-Fix Lint & Format
+
+on:
+  pull_request:
+  workflow_dispatch: # Allows you to trigger this manually from GitHub Actions UI
+
+permissions:
+  contents: write # Required to allow pushing changes back to the repository
+
+jobs:
+  auto-fix:
+    name: Auto-Fix Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }} # Check out the actual PR branch, not the merge commit
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version-file: ".python-version"
+
+      - run: uv sync --all-extras --frozen
+
+      # Run Ruff with fix and format flags
+      - name: Fix Lint Issues
+        run: uv run ruff check --fix .
+        continue-on-error: true # Continues even if some errors require manual fixing
+
+      - name: Format Code
+        run: uv run ruff format .
+
+      # Commit the changes back if any modifications were made
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: automated ruff fixes and formatting"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
