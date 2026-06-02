@@ -274,8 +274,18 @@ class DashboardScreen(Screen[None]):
 
             # Ensure our integrated services are always available
             integrated_services = {
-                "CloudFront", "DynamoDB", "EC2", "ElastiCache", "EMR",
-                "Lambda", "RDS", "Redshift", "S3", "SageMaker", "SNS", "SQS"
+                "CloudFront",
+                "DynamoDB",
+                "EC2",
+                "ElastiCache",
+                "EMR",
+                "Lambda",
+                "RDS",
+                "Redshift",
+                "S3",
+                "SageMaker",
+                "SNS",
+                "SQS",
             }
 
             # Combine, sort and update selector
@@ -409,7 +419,7 @@ class DashboardScreen(Screen[None]):
                     "Redshift": "Data Warehouse Clusters",
                     "EMR": "Big Data Analysis",
                     "SNS": "Pub/Sub Messaging Topics",
-                    "SQS": "Message Queue Latency"
+                    "SQS": "Message Queue Latency",
                 }
                 context = "AWS Service Analysis"
                 for key, ctx in svc_contexts.items():
@@ -436,7 +446,8 @@ class DashboardScreen(Screen[None]):
                 if breakdown:
                     service_entries = sorted(
                         [e for e in breakdown.entries if self._selected_service in e.service],
-                        key=lambda x: x.date, reverse=True
+                        key=lambda x: x.date,
+                        reverse=True,
                     )
                     table_data = [(str(e.date), e.service, f"${e.unblended_cost:,.2f}") for e in service_entries[:100]]
 

@@ -14,6 +14,7 @@ from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostTrend
 from remora_fin.schemas.forecast import ForecastResult
 
+
 class ReportFormat(StrEnum):
     """Output format for reports."""
 
