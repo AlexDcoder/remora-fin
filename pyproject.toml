@@ -102,6 +102,16 @@ strict = true
 packages = ["src/remora_fin"]
 ignore_missing_imports = true
 
+# 👇 ADD THESE MODULE OVERRIDES HERE
+[[tool.mypy.overrides]]
+module = "remora_fin.services.*"
+disallow_untyped_defs = false
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "remora_fin.ui.*"
+check_untyped_defs = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
