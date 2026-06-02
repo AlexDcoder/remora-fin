@@ -54,7 +54,7 @@ async def report(args: argparse.Namespace) -> None:
     # Mapping table to excel if passed for legacy or removed entirely from choices
     fmt_str = "excel" if args.format == "table" else args.format
     fmt = ReportFormat(fmt_str)
-    
+
     data: CostBreakdown | CostTrend | FullReport
 
     with Status(f"[bold #00f3ff]Fetching {metric} data...\n", console=console) as status:
