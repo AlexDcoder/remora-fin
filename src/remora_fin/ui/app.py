@@ -339,12 +339,18 @@ class DashboardScreen(Screen[None]):
                 # Update Report Table
                 end = date.today()
                 start = end - timedelta(days=self._days)
-                breakdown = await self._cost_service.get_cost_by_service_async(start, end)
-                table_data = [("•", g.key, f"${g.cost:,.2f}") for g in breakdown.groups[:50]] if breakdown else []
+                
+                table_data = []
+                if self._cost_service:
+                    breakdown = await self._cost_service.get_cost_by_service_async(start, end)
+                    table_data = [("•", g.key, f"${g.cost:,.2f}") for g in breakdown.groups[:50]] if breakdown else []
                 dashboard.update_report_table(table_data)
 
             else:
                 # Handle single service view
+                if not self._cost_service or not self._session:
+                    return
+
                 end = date.today()
                 start = end - timedelta(days=self._days)
 
@@ -386,14 +392,16 @@ class DashboardScreen(Screen[None]):
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                breakdown = results[0] if not isinstance(results[0], Exception) else None
-                trend = results[1] if not isinstance(results[1], Exception) else None
-                inventory_data = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else None
+                from remora_fin.schemas.cost import CostBreakdown, CostTrend
+
+                svc_breakdown = results[0] if isinstance(results[0], CostBreakdown) else None
+                svc_trend = results[1] if isinstance(results[1], CostTrend) else None
+                inventory_data = results[2] if len(results) > 2 and not isinstance(results[2], BaseException) else None
 
                 # Find specific service cost with partial matching
                 service_group = None
-                if breakdown:
-                    service_group = next((g for g in breakdown.groups if self._selected_service in g.key), None)
+                if svc_breakdown:
+                    service_group = next((g for g in svc_breakdown.groups if self._selected_service in g.key), None)
 
                 display_total = service_group.cost if service_group else Decimal("0")
                 display_avg = display_total / self._days
@@ -431,8 +439,8 @@ class DashboardScreen(Screen[None]):
 
                 # Filter entries for specific service for chart
                 chart_points = []
-                if breakdown:
-                    service_entries = [e for e in breakdown.entries if self._selected_service in e.service]
+                if svc_breakdown:
+                    service_entries = [e for e in svc_breakdown.entries if self._selected_service in e.service]
                     daily_map: dict[str, float] = {}
                     for e in service_entries:
                         daily_map[str(e.date)] = daily_map.get(str(e.date), 0.0) + float(e.unblended_cost)
@@ -443,9 +451,9 @@ class DashboardScreen(Screen[None]):
 
                 # Update table with service-specific entries
                 table_data = []
-                if breakdown:
+                if svc_breakdown:
                     service_entries = sorted(
-                        [e for e in breakdown.entries if self._selected_service in e.service],
+                        [e for e in svc_breakdown.entries if self._selected_service in e.service],
                         key=lambda x: x.date,
                         reverse=True,
                     )

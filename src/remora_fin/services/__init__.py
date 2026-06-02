@@ -35,7 +35,6 @@ from remora_fin.services.rds_service import RDSService
 from remora_fin.services.redshift_service import RedshiftService
 from remora_fin.services.report_service import (
     ExcelFormatter,
-    JsonFormatter,
     MarkdownFormatter,
     PDFFormatter,
     ReportFormatter,
@@ -64,7 +63,6 @@ __all__ = [
     "ExcelFormatter",
     "ForecastService",
     "ForecastStrategy",
-    "JsonFormatter",
     "LambdaService",
     "LinearRegressionForecast",
     "MarkdownFormatter",
