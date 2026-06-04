@@ -24,9 +24,11 @@ class ServiceType(Enum):
 
 def aws_service_type(type_: ServiceType) -> Callable[[type[T]], type[T]]:
     """Decorator to mark a service as regional or global."""
+
     def decorator(cls: type[T]) -> type[T]:
         cast(Any, cls)._service_type = type_
         return cls
+
     return decorator
 
 
