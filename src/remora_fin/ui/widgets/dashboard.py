@@ -89,9 +89,26 @@ class DashboardWidget(Container):
 
     def compose(self) -> ComposeResult:
         # Controls
+        integrated_services = [
+            "All Services",
+            "CloudFront",
+            "DynamoDB",
+            "EC2",
+            "ElastiCache",
+            "EMR",
+            "KMS",
+            "Lambda",
+            "RDS",
+            "Redshift",
+            "S3",
+            "SageMaker",
+            "SecretsManager",
+            "SNS",
+            "SQS",
+        ]
         yield Horizontal(
             Select(
-                [(s, s) for s in ["All Services"]],
+                [(s, s) for s in integrated_services],
                 value="All Services",
                 id="service-selector",
                 prompt="Select AWS Service",

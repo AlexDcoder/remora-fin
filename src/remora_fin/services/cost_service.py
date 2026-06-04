@@ -248,15 +248,21 @@ class CostService(BaseService):
 
         return df
 
-    def get_total_cost(self, start: date, end: date) -> CostSummary:
+    def get_total_cost(self, start: date, end: date, region: str | None = None) -> CostSummary:
         """Get summary of total costs for a given period."""
-        query = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE").build()
+        builder = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE")
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = self._get_data(query)
         return self._summarize_df(df)
 
-    async def get_total_cost_async(self, start: date, end: date) -> CostSummary:
+    async def get_total_cost_async(self, start: date, end: date, region: str | None = None) -> CostSummary:
         """Async version of get_total_cost."""
-        query = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE").build()
+        builder = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE")
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = await self._get_data_async(query)
         return self._summarize_df(df)
 
@@ -294,9 +300,12 @@ class CostService(BaseService):
             num_accounts=df["account"].n_unique(),
         )
 
-    def get_daily_trend(self, start: date, end: date, metric: str = "UnblendedCost") -> CostTrend:
+    def get_daily_trend(self, start: date, end: date, metric: str = "UnblendedCost", region: str | None = None) -> CostTrend:
         """Get daily cost trend for a given period."""
-        query = CostQueryBuilder().with_time_period(start, end).with_metric(metric).with_granularity("DAILY").build()
+        builder = CostQueryBuilder().with_time_period(start, end).with_metric(metric).with_granularity("DAILY")
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = self._get_data(query)
 
         # metric name to column name mapping
@@ -318,9 +327,12 @@ class CostService(BaseService):
 
         return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=points)
 
-    async def get_daily_trend_async(self, start: date, end: date, metric: str = "UnblendedCost") -> CostTrend:
+    async def get_daily_trend_async(self, start: date, end: date, metric: str = "UnblendedCost", region: str | None = None) -> CostTrend:
         """Async version of get_daily_trend."""
-        query = CostQueryBuilder().with_time_period(start, end).with_metric(metric).with_granularity("DAILY").build()
+        builder = CostQueryBuilder().with_time_period(start, end).with_metric(metric).with_granularity("DAILY")
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = await self._get_data_async(query)
 
         col_map = {
@@ -343,15 +355,17 @@ class CostService(BaseService):
 
         return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=points)
 
-    async def get_cost_by_service_async(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
+    async def get_cost_by_service_async(self, start: date, end: date, metric: str = "UnblendedCost", region: str | None = None) -> CostBreakdown:
         """Async version of get_cost_by_service."""
-        query = (
+        builder = (
             CostQueryBuilder()
             .with_time_period(start, end)
             .with_metric(metric)
             .with_group_by("DIMENSION", "SERVICE")
-            .build()
         )
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = await self._get_data_async(query)
 
         if df.is_empty():
@@ -361,7 +375,7 @@ class CostService(BaseService):
                 metric=metric,
                 entries=[],
                 groups=[],
-                summary=await self.get_total_cost_async(start, end),
+                summary=await self.get_total_cost_async(start, end, region=region),
             )
 
         col_map = {
@@ -410,18 +424,20 @@ class CostService(BaseService):
             metric=metric,
             entries=entries,
             groups=groups,
-            summary=await self.get_total_cost_async(start, end),
+            summary=await self.get_total_cost_async(start, end, region=region),
         )
 
-    def get_cost_by_service(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:
+    def get_cost_by_service(self, start: date, end: date, metric: str = "UnblendedCost", region: str | None = None) -> CostBreakdown:
         """Get cost breakdown grouped by AWS service."""
-        query = (
+        builder = (
             CostQueryBuilder()
             .with_time_period(start, end)
             .with_metric(metric)
             .with_group_by("DIMENSION", "SERVICE")
-            .build()
         )
+        if region:
+            builder.with_filter("REGION", region)
+        query = builder.build()
         df = self._get_data(query)
 
         col_map = {
@@ -471,7 +487,7 @@ class CostService(BaseService):
             metric=metric,
             entries=entries,
             groups=groups,
-            summary=self.get_total_cost(start, end),
+            summary=self.get_total_cost(start, end, region=region),
         )
 
     def get_cost_by_account(self, start: date, end: date, metric: str = "UnblendedCost") -> CostBreakdown:

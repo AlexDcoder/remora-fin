@@ -29,6 +29,41 @@ pip install remora-fin
 
 ---
 
+## 🔐 IAM Permissions
+
+Remora-Fin requires **read-only** access to AWS Cost Explorer, Organizations, and various resource metadata for the dashboard inventory.
+
+### Option 1: Managed Policy (Recommended)
+Attach the AWS managed policy **`ReadOnlyAccess`** to your IAM user or role. This is the simplest way to ensure all features work correctly.
+
+### Option 2: Granular Permissions
+If you prefer a least-privilege approach, ensure your IAM identity has the following permissions:
+
+| Service | Action | Purpose |
+| --- | --- | --- |
+| **Cost Explorer** | `ce:GetCostAndUsage` | Cost reports and trends. |
+| | `ce:GetAnomalies` | Cost spike detection and monitor access. |
+| | `ce:GetCostForecast` | Native spend projections. |
+| **Security Token** | `sts:GetCallerIdentity` | Current account and user identification. |
+| **Organizations** | `organizations:ListAccounts` | Multi-account environment support. |
+| **Tagging** | `tag:GetResources` | Governance and tag compliance scoring. |
+| **Inventory** | `ec2:DescribeInstances` | EC2 Instance tracking. |
+| | `s3:ListAllMyBuckets` | S3 Bucket inventory. |
+| | `rds:DescribeDBInstances` | RDS Database tracking. |
+| | `lambda:ListFunctions` | Serverless function monitoring. |
+| | `cloudfront:ListDistributions` | Edge delivery tracking. |
+| | `dynamodb:ListTables` | NoSQL table inventory. |
+| | `elasticache:DescribeCacheClusters` | In-memory cache tracking. |
+| | `elasticmapreduce:ListClusters` | Big data cluster inventory. |
+| | `redshift:DescribeClusters` | Data warehouse tracking. |
+| | `sagemaker:ListNotebookInstances` | ML notebook monitoring. |
+| | `sns:ListTopics` | Pub/Sub topic inventory. |
+| | `sqs:ListQueues` | Message queue tracking. |
+| | `kms:ListKeys` | KMS Key tracking. |
+| | `secretsmanager:ListSecrets` | Secrets Manager tracking. |
+
+---
+
 ## 🛠️ Commands & Usage
 
 ### 📊 `report`
@@ -144,27 +179,6 @@ remora-fin profile
 ```
 
 ---
-
-## 🔐 IAM Permissions
-
-Remora-Fin requires **read-only** access to AWS Cost Explorer and Organizations. Ensure your IAM identity has the following permissions:
-
-| Action | Purpose |
-| --- | --- |
-| `ce:GetCostAndUsage` | Cost reports and trends. |
-| `ce:GetAnomalies` | Cost spike detection and monitor access. |
-| `ce:GetCostForecast` | Native spend projections. |
-| `sts:GetCallerIdentity` | Current account and user identification. |
-| `organizations:ListAccounts` | Multi-account environment support. |
-
----
-
-## 🌍 Multi-Cloud Support (Coming Soon)
-
-We are planning to expand Remora-Fin to support Azure and GCP. See our [Multi-Cloud Roadmap](MULTI_CLOUD.md) for more details.
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome!

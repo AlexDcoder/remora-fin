@@ -21,11 +21,13 @@ from remora_fin.services.ec2_service import EC2Service
 from remora_fin.services.elasticache_service import ElastiCacheService
 from remora_fin.services.emr_service import EMRService
 from remora_fin.services.governance_service import GovernanceService
+from remora_fin.services.kms_service import KMSService
 from remora_fin.services.lambda_service import LambdaService
 from remora_fin.services.rds_service import RDSService
 from remora_fin.services.redshift_service import RedshiftService
 from remora_fin.services.s3_service import S3Service
 from remora_fin.services.sagemaker_service import SageMakerService
+from remora_fin.services.secrets_manager_service import SecretsManagerService
 from remora_fin.services.sns_service import SNSService
 from remora_fin.services.sqs_service import SQSService
 
@@ -53,6 +55,8 @@ class DashboardService(BaseService):
         sagemaker_service: SageMakerService | None = None,
         sns_service: SNSService | None = None,
         sqs_service: SQSService | None = None,
+        kms_service: KMSService | None = None,
+        secrets_manager_service: SecretsManagerService | None = None,
     ) -> None:
         super().__init__("dashboard", session)
         self._cost = cost_service or CostService(self._session)
@@ -70,24 +74,31 @@ class DashboardService(BaseService):
         self._sagemaker = sagemaker_service or SageMakerService(self._session)
         self._sns = sns_service or SNSService(self._session)
         self._sqs = sqs_service or SQSService(self._session)
+        self._kms = kms_service or KMSService(self._session)
+        self._secrets_manager = secrets_manager_service or SecretsManagerService(self._session)
 
     async def get_summary_parallel(
         self,
         days: int = 30,
         use_cache: bool = True,
         required_tags: list[str] | None = None,
+        region: str | None = None,
     ) -> dict[str, Any]:
         """Fetch all dashboard components concurrently."""
         end = date.today()
         start = end - timedelta(days=days)
         tags = required_tags or ["Environment", "Project", "Owner"]
 
-        logger.info("Fetching comprehensive dashboard summary in parallel (period: [cyan]%d days[/])", days)
+        logger.info(
+            "Fetching comprehensive dashboard summary in parallel (period: [cyan]%d days[/], region: [cyan]%s[/])",
+            days,
+            region or "Global",
+        )
 
         # Run all requests in parallel
         tasks = [
-            self._cost.get_total_cost_async(start, end),
-            self._cost.get_daily_trend_async(start, end),
+            self._cost.get_total_cost_async(start, end, region=region),
+            self._cost.get_daily_trend_async(start, end, region=region),
             self._anomaly.get_anomaly_summary_async(start, end, use_cache=use_cache),
             self._ec2.list_instances_async(use_cache=use_cache),
             self._rds.list_db_instances_async(use_cache=use_cache),
@@ -102,6 +113,8 @@ class DashboardService(BaseService):
             self._sagemaker.list_notebook_instances_async(use_cache=use_cache),
             self._sns.list_topics_async(use_cache=use_cache),
             self._sqs.list_queues_async(use_cache=use_cache),
+            self._kms.list_keys_async(use_cache=use_cache),
+            self._secrets_manager.list_secrets_async(use_cache=use_cache),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -135,6 +148,8 @@ class DashboardService(BaseService):
             "sagemaker": _get_result(13, []),
             "sns": _get_result(14, []),
             "sqs": _get_result(15, []),
+            "kms": _get_result(16, []),
+            "secrets_manager": _get_result(17, []),
         }
 
         summary = {

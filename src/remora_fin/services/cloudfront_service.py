@@ -10,11 +10,12 @@ import logging
 from typing import Any, cast
 
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
-from remora_fin.services.base_service import BaseService
+from remora_fin.services.base_service import BaseService, ServiceType, aws_service_type
 
 logger = logging.getLogger(__name__)
 
 
+@aws_service_type(ServiceType.GLOBAL)
 class CloudFrontService(BaseService):
     """Service layer for AWS CloudFront management."""
 

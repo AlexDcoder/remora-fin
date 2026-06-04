@@ -32,11 +32,13 @@ from remora_fin.services import (
     ElastiCacheService,
     EMRService,
     ForecastService,
+    KMSService,
     LambdaService,
     RDSService,
     RedshiftService,
     S3Service,
     SageMakerService,
+    SecretsManagerService,
     SNSService,
     SQSService,
 )
@@ -266,10 +268,11 @@ class DashboardScreen(Screen[None]):
 
         end = date.today()
         start = end - timedelta(days=self._days)
+        region = self._session.region if self._session else None
 
         try:
-            # Detect services from cost breakdown
-            breakdown = await self._cost_service.get_cost_by_service_async(start, end)
+            # Detect services from cost breakdown (filtered by region)
+            breakdown = await self._cost_service.get_cost_by_service_async(start, end, region=region)
             cost_services = {g.key for g in breakdown.groups if g.key} if breakdown else set()
 
             # Ensure our integrated services are always available
@@ -279,11 +282,13 @@ class DashboardScreen(Screen[None]):
                 "EC2",
                 "ElastiCache",
                 "EMR",
+                "KMS",
                 "Lambda",
                 "RDS",
                 "Redshift",
                 "S3",
                 "SageMaker",
+                "SecretsManager",
                 "SNS",
                 "SQS",
             }
@@ -292,8 +297,10 @@ class DashboardScreen(Screen[None]):
             all_services = sorted(list(cost_services | integrated_services))
             services = ["All Services", *all_services]
 
+            # Fix: Use direct property update for options as per Textual 0.x Select API
             selector = self.query_one("#service-selector", Select)
-            selector.set_options([(s, s) for s in services])
+            selector.options = [(s, s) for s in services]
+            selector.refresh()
         except Exception as e:
             logger.error(f"Failed to load services: {e}")
 
@@ -305,12 +312,14 @@ class DashboardScreen(Screen[None]):
         if not self._dashboard_service:
             return
 
+        region = self._session.region if self._session else None
+
         try:
             dashboard = self.query_one("#dashboard", DashboardWidget)
 
             if self._selected_service == "All Services":
                 # Use the new high-performance DashboardService
-                data = await self._dashboard_service.get_summary_parallel(days=self._days)
+                data = await self._dashboard_service.get_summary_parallel(days=self._days, region=region)
 
                 summary = data.get("cost_summary")
                 trend = data.get("cost_trend")
@@ -330,7 +339,7 @@ class DashboardScreen(Screen[None]):
                     inventory=f"{total_resources} Res",
                 )
 
-                dashboard.update_status_header("Global Environment", "Comprehensive Monitoring")
+                dashboard.update_status_header(f"Region: {region or 'Global'}", "Comprehensive Monitoring")
 
                 # Update Chart
                 chart = self.query_one("#dashboard-chart", CostChartWidget)
@@ -342,7 +351,7 @@ class DashboardScreen(Screen[None]):
 
                 table_data = []
                 if self._cost_service:
-                    breakdown = await self._cost_service.get_cost_by_service_async(start, end)
+                    breakdown = await self._cost_service.get_cost_by_service_async(start, end, region=region)
                     table_data = [("•", g.key, f"${g.cost:,.2f}") for g in breakdown.groups[:50]] if breakdown else []
                 dashboard.update_report_table(table_data)
 
@@ -355,8 +364,8 @@ class DashboardScreen(Screen[None]):
                 start = end - timedelta(days=self._days)
 
                 tasks = [
-                    self._cost_service.get_cost_by_service_async(start, end),
-                    self._cost_service.get_daily_trend_async(start, end),
+                    self._cost_service.get_cost_by_service_async(start, end, region=region),
+                    self._cost_service.get_daily_trend_async(start, end, region=region),
                 ]
 
                 # Map UI names to internal inventory tasks
@@ -386,6 +395,10 @@ class DashboardScreen(Screen[None]):
                     inventory_task = EMRService(self._session).list_clusters_async()
                 elif "SageMaker" in svc:
                     inventory_task = SageMakerService(self._session).list_notebook_instances_async()
+                elif "KMS" in svc:
+                    inventory_task = KMSService(self._session).list_keys_async()
+                elif "SecretsManager" in svc:
+                    inventory_task = SecretsManagerService(self._session).list_secrets_async()
 
                 if inventory_task:
                     tasks.append(inventory_task)

@@ -6,6 +6,7 @@ Provides shared session management, caching logic, and async-first patterns.
 from __future__ import annotations
 
 import logging
+from enum import Enum, auto
 from typing import Any, TypeVar
 
 from remora_fin.services.aws_service import AWSSession
@@ -16,8 +17,20 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+class ServiceType(Enum):
+    REGIONAL = auto()
+    GLOBAL = auto()
+
+def aws_service_type(type_: ServiceType):
+    """Decorator to mark a service as regional or global."""
+    def decorator(cls):
+        cls._service_type = type_
+        return cls
+    return decorator
+
 class BaseService:
     """Base class for services to reduce boilerplate and unify async patterns."""
+    _service_type: ServiceType = ServiceType.REGIONAL
 
     def __init__(
         self,

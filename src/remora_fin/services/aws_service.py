@@ -95,16 +95,16 @@ class AWSSession:
         return client_func(service, config=cfg, **kwargs)
 
     def cost_explorer(self) -> SyncCEClient:
-        return cast("SyncCEClient", self._sync_client("ce"))
+        return cast("SyncCEClient", self._sync_client("ce", region_name="us-east-1"))
 
     def budgets(self) -> BudgetsClient:
-        return cast("BudgetsClient", self._sync_client("budgets"))
+        return cast("BudgetsClient", self._sync_client("budgets", region_name="us-east-1"))
 
     def organizations(self) -> OrganizationsClient:
-        return cast("OrganizationsClient", self._sync_client("organizations"))
+        return cast("OrganizationsClient", self._sync_client("organizations", region_name="us-east-1"))
 
     def pricing(self) -> PricingClient:
-        return cast("PricingClient", self._sync_client("pricing"))
+        return cast("PricingClient", self._sync_client("pricing", region_name="us-east-1"))
 
     def s3(self) -> S3Client:
         return cast("S3Client", self._sync_client("s3"))

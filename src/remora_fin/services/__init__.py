@@ -30,6 +30,7 @@ from remora_fin.services.forecast_service import (
     LinearRegressionForecast,
     MovingAverageForecast,
 )
+from remora_fin.services.kms_service import KMSService
 from remora_fin.services.lambda_service import LambdaService
 from remora_fin.services.rds_service import RDSService
 from remora_fin.services.redshift_service import RedshiftService
@@ -42,6 +43,7 @@ from remora_fin.services.report_service import (
 )
 from remora_fin.services.s3_service import S3Service
 from remora_fin.services.sagemaker_service import SageMakerService
+from remora_fin.services.secrets_manager_service import SecretsManagerService
 from remora_fin.services.sns_service import SNSService
 from remora_fin.services.sqs_service import SQSService
 
@@ -63,6 +65,7 @@ __all__ = [
     "ExcelFormatter",
     "ForecastService",
     "ForecastStrategy",
+    "KMSService",
     "LambdaService",
     "LinearRegressionForecast",
     "MarkdownFormatter",
@@ -76,6 +79,7 @@ __all__ = [
     "SNSService",
     "SQSService",
     "SageMakerService",
+    "SecretsManagerService",
     "async_retry_with_backoff",
     "paginate_all",
     "retry_with_backoff",
