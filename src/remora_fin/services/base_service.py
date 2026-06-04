@@ -6,8 +6,9 @@ Provides shared session management, caching logic, and async-first patterns.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.services.cache_service import CacheService
