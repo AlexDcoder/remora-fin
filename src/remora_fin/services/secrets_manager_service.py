@@ -43,7 +43,9 @@ class SecretsManagerService(BaseService):
                     {
                         "name": secret["Name"],
                         "arn": secret["ARN"],
-                        "last_accessed": secret.get("LastAccessedDate", "").isoformat() if secret.get("LastAccessedDate") else None,
+                        "last_accessed": secret.get("LastAccessedDate", "").isoformat()
+                        if secret.get("LastAccessedDate")
+                        else None,
                     }
                 )
 
@@ -69,7 +71,9 @@ class SecretsManagerService(BaseService):
                             {
                                 "name": secret["Name"],
                                 "arn": secret["ARN"],
-                                "last_accessed": secret.get("LastAccessedDate", "").isoformat() if secret.get("LastAccessedDate") else None,
+                                "last_accessed": secret.get("LastAccessedDate", "").isoformat()
+                                if secret.get("LastAccessedDate")
+                                else None,
                             }
                         )
             logger.info("Found [bold cyan]%d[/] Secrets (async)", len(secrets))

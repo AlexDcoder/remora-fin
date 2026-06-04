@@ -297,9 +297,9 @@ class DashboardScreen(Screen[None]):
             all_services = sorted(list(cost_services | integrated_services))
             services = ["All Services", *all_services]
 
-            # Fix: Use direct property update for options as per Textual 0.x Select API
+            # Fix: Use set_options for updating Select widget options
             selector = self.query_one("#service-selector", Select)
-            selector.options = [(s, s) for s in services]
+            selector.set_options([(s, s) for s in services])
             selector.refresh()
         except Exception as e:
             logger.error(f"Failed to load services: {e}")

@@ -148,6 +148,12 @@ class AWSSession:
     def cloudwatch(self) -> Any:
         return self._sync_client("monitoring")
 
+    def kms(self) -> Any:
+        return self._sync_client("kms")
+
+    def secretsmanager(self) -> Any:
+        return self._sync_client("secretsmanager")
+
     def tagging(self) -> Any:
         return self._sync_client("resourcegroupstaggingapi")
 

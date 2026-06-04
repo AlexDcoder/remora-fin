@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, auto
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.services.cache_service import CacheService
@@ -21,15 +21,18 @@ class ServiceType(Enum):
     REGIONAL = auto()
     GLOBAL = auto()
 
-def aws_service_type(type_: ServiceType):
+
+def aws_service_type(type_: ServiceType) -> Callable[[type[T]], type[T]]:
     """Decorator to mark a service as regional or global."""
-    def decorator(cls):
-        cls._service_type = type_
+    def decorator(cls: type[T]) -> type[T]:
+        cast(Any, cls)._service_type = type_
         return cls
     return decorator
 
+
 class BaseService:
     """Base class for services to reduce boilerplate and unify async patterns."""
+
     _service_type: ServiceType = ServiceType.REGIONAL
 
     def __init__(

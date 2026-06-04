@@ -14,6 +14,7 @@ from remora_fin.services.report_service import ReportService
 def report_service() -> ReportService:
     return ReportService()
 
+
 @pytest.fixture
 def mock_cost_breakdown() -> CostBreakdown:
     return CostBreakdown(
@@ -30,20 +31,24 @@ def mock_cost_breakdown() -> CostBreakdown:
             max_daily_cost=Decimal("10.00"),
             min_daily_cost=Decimal("2.00"),
             num_services=2,
-            num_accounts=1
+            num_accounts=1,
         ),
-        entries=[]
+        entries=[],
     )
+
 
 @pytest.fixture
 def report_metadata() -> ReportMetadata:
     return ReportMetadata(
         period=DateRange(start=date(2023, 1, 1), end=date(2023, 1, 31)),
         account_id="123456789012",
-        generated_by="test-user"
+        generated_by="test-user",
     )
 
-def test_generate_markdown_report(report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata) -> None:
+
+def test_generate_markdown_report(
+    report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata
+) -> None:
     config = ReportConfig(format=ReportFormat.MARKDOWN)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
 
@@ -52,7 +57,10 @@ def test_generate_markdown_report(report_service: ReportService, mock_cost_break
     assert "AmazonEC2" in report
     assert "$100.00" in report
 
-def test_generate_csv_report(report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata) -> None:
+
+def test_generate_csv_report(
+    report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata
+) -> None:
     config = ReportConfig(format=ReportFormat.CSV)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
 
@@ -60,13 +68,17 @@ def test_generate_csv_report(report_service: ReportService, mock_cost_breakdown:
     assert "service,cost,percentage" in report
     assert "AmazonEC2,100.0,50.0" in report
 
-def test_generate_pdf_report(report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata) -> None:
+
+def test_generate_pdf_report(
+    report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata
+) -> None:
     # PDF generation returns bytes
     config = ReportConfig(format=ReportFormat.PDF)
     report = report_service.generate_report(mock_cost_breakdown, config=config, metadata=report_metadata)
 
     assert isinstance(report, bytes)
     assert report.startswith(b"%PDF")
+
 
 def test_report_service_invalid_format(report_service: ReportService, mock_cost_breakdown: CostBreakdown) -> None:
     # We force an invalid format to test error handling

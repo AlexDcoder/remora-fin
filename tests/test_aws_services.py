@@ -126,6 +126,7 @@ def test_cloudfront_service_list_distributions(mock_session: MagicMock) -> None:
 
 def test_ec2_service_list_instances(mock_session: MagicMock) -> None:
     from datetime import datetime
+
     mock_ec2 = mock_session.ec2.return_value
     mock_ec2.get_paginator.return_value.paginate.return_value = [
         {
@@ -242,7 +243,9 @@ def test_sagemaker_service_list_instances(mock_session: MagicMock) -> None:
 
 def test_sns_service_list_topics(mock_session: MagicMock) -> None:
     mock_sns = mock_session.sns.return_value
-    mock_sns.get_paginator.return_value.paginate.return_value = [{"Topics": [{"TopicArn": "arn:aws:sns:us-east-1:123:topic-1"}]}]
+    mock_sns.get_paginator.return_value.paginate.return_value = [
+        {"Topics": [{"TopicArn": "arn:aws:sns:us-east-1:123:topic-1"}]}
+    ]
 
     service = SNSService(session=mock_session)
     topics = service.list_topics()
@@ -253,7 +256,9 @@ def test_sns_service_list_topics(mock_session: MagicMock) -> None:
 
 def test_sqs_service_list_queues(mock_session: MagicMock) -> None:
     mock_sqs = mock_session.sqs.return_value
-    mock_sqs.get_paginator.return_value.paginate.return_value = [{"QueueUrls": ["https://sqs.us-east-1.amazonaws.com/123/queue-1"]}]
+    mock_sqs.get_paginator.return_value.paginate.return_value = [
+        {"QueueUrls": ["https://sqs.us-east-1.amazonaws.com/123/queue-1"]}
+    ]
 
     # Mock for get_queue_attributes which is called for each queue
     mock_sqs.get_queue_attributes.return_value = {
@@ -261,7 +266,7 @@ def test_sqs_service_list_queues(mock_session: MagicMock) -> None:
             "QueueArn": "arn:aws:sqs:us-east-1:123:queue-1",
             "CreatedTimestamp": "1672531200",
             "ApproximateNumberOfMessages": "1",
-            "ApproximateNumberOfMessagesNotVisible": "0"
+            "ApproximateNumberOfMessagesNotVisible": "0",
         }
     }
 
