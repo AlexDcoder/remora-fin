@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import rich_argparse
@@ -46,12 +47,40 @@ async def report(args: argparse.Namespace) -> None:
 
     # Build filters
     filters = ReportFilters(
-        services=[args.service] if args.service else None,
+        services=args.service if args.service else None,
     )
 
     # Fetch data
     metric = args.metric
     fmt = ReportFormat(args.format)
+    service_filters = [s.lower() for s in args.service] if args.service else []
+
+    # Mapping common aliases to AWS display names for better filtering
+    service_aliases = {
+        "s3": "simple storage service",
+        "ec2": "elastic compute cloud",
+        "rds": "relational database service",
+        "lambda": "lambda",
+        "dynamodb": "dynamodb",
+        "cloudfront": "cloudfront",
+        "redshift": "redshift",
+        "elasticache": "elasticache",
+        "sagemaker": "sagemaker",
+    }
+
+    def _matches_service(aws_service_name: str) -> bool:
+        if not service_filters:
+            return True
+        aws_name_lower = aws_service_name.lower()
+        for s in service_filters:
+            # Check direct match
+            if s in aws_name_lower:
+                return True
+            # Check alias match
+            alias = service_aliases.get(s)
+            if alias and alias in aws_name_lower:
+                return True
+        return False
 
     data: CostBreakdown | CostTrend | FullReport
 
@@ -62,11 +91,25 @@ async def report(args: argparse.Namespace) -> None:
             dashboard_service = DashboardService(session)
             forecast_service = ForecastService(session)
 
-            # Fetch summary
+            # Fetch summary (or dedicated service summary)
             summary_data = await dashboard_service.get_summary_parallel(days=args.days)
 
-            # Fetch detailed breakdown for full report
+            # Fetch detailed breakdown
             breakdown = await cost_service.get_cost_by_service_async(start, end, metric=metric)
+            if service_filters:
+                # Filter breakdown entries and groups for the specific services
+                filtered_entries = [e for e in breakdown.entries if _matches_service(e.service)]
+                filtered_groups = [g for g in breakdown.groups if _matches_service(g.key)]
+
+                new_summary = None
+                if breakdown.summary:
+                    # Recalculate summary for the specific services
+                    svc_cost = sum((g.cost for g in filtered_groups), Decimal("0"))
+                    new_summary = breakdown.summary.model_copy(update={"total_cost": svc_cost})
+
+                breakdown = breakdown.model_copy(
+                    update={"entries": filtered_entries, "groups": filtered_groups, "summary": new_summary}
+                )
 
             # Fetch forecast
             try:
@@ -76,16 +119,26 @@ async def report(args: argparse.Namespace) -> None:
             except Exception:
                 forecast = None
 
-            # Handle the case where dashboard_service might return AnomalyReport or dict
+            # Filter anomalies for the specific services
             anomalies = summary_data.get("anomalies")
-            if isinstance(anomalies, str):
-                # This should not happen with current service logic, but adding safety
-                logger.warning("Anomaly data received as string, attempting to skip")
-                anomalies = None
+            if service_filters and anomalies:
+                filtered_anomalies = [
+                    a for a in anomalies.anomalies if a.top_root_cause and _matches_service(a.top_root_cause)
+                ]
+                anomalies = anomalies.model_copy(
+                    update={"anomalies": filtered_anomalies, "total_anomalies": len(filtered_anomalies)}
+                )
 
             # Map infrastructure counts safely
             infra_data = summary_data.get("infrastructure", {})
-            infra_counts = infra_data.get("counts") if isinstance(infra_data, dict) else None
+            infra_counts = infra_data.get("counts") if isinstance(infra_data, dict) else {}
+
+            if service_filters:
+                # Keep only the requested services in the summary
+                counts_items = infra_counts.items() if isinstance(infra_counts, dict) else {}
+                infra_counts = {
+                    k: v for k, v in counts_items if any(s in k.lower() for s in service_filters) or _matches_service(k)
+                }
 
             data = FullReport(
                 cost_breakdown=breakdown,
@@ -98,10 +151,13 @@ async def report(args: argparse.Namespace) -> None:
         elif args.type == "trend":
             data = await cost_service.get_daily_trend_async(start, end, metric=metric)
         elif args.type == "account":
-            # Using sync as async not available yet for account breakdown
             data = cost_service.get_cost_by_account(start, end, metric=metric)
         else:  # breakdown/service
             data = await cost_service.get_cost_by_service_async(start, end, metric=metric)
+            if service_filters:
+                filtered_entries = [e for e in data.entries if _matches_service(e.service)]
+                filtered_groups = [g for g in data.groups if _matches_service(g.key)]
+                data = data.model_copy(update={"entries": filtered_entries, "groups": filtered_groups})
 
         status.update("\n[bold #4b86b4]Generating report...\n")
 
@@ -117,7 +173,10 @@ async def report(args: argparse.Namespace) -> None:
         # Output path
         output_ext = "xlsx" if fmt == ReportFormat.EXCEL else fmt.value
         if not args.output:
-            filename = f"remora_report_{args.type}_{metadata.account_id or 'unknown'}_{session.region}.{output_ext}"
+            svc_tag = f"_{'_'.join([s.lower() for s in args.service])}" if args.service else ""
+            filename = (
+                f"remora_report_{args.type}{svc_tag}_{metadata.account_id or 'unknown'}_{session.region}.{output_ext}"
+            )
             output_path = Path.cwd() / "docs" / filename
         else:
             output_path = Path(args.output)
@@ -207,8 +266,9 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--service",
         "-s",
+        nargs="+",
         default=None,
-        help="Filter by AWS service",
+        help="Filter by one or more AWS services (e.g., --service ec2 s3)",
     )
     parser.add_argument(
         "--output",

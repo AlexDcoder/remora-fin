@@ -14,22 +14,9 @@ from typing import Any
 from remora_fin.services.anomaly_service import AnomalyService
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.services.base_service import BaseService
-from remora_fin.services.cloudfront_service import CloudFrontService
 from remora_fin.services.cost_service import CostService
-from remora_fin.services.dynamodb_service import DynamoDBService
-from remora_fin.services.ec2_service import EC2Service
-from remora_fin.services.elasticache_service import ElastiCacheService
-from remora_fin.services.emr_service import EMRService
 from remora_fin.services.governance_service import GovernanceService
-from remora_fin.services.kms_service import KMSService
-from remora_fin.services.lambda_service import LambdaService
-from remora_fin.services.rds_service import RDSService
-from remora_fin.services.redshift_service import RedshiftService
-from remora_fin.services.s3_service import S3Service
-from remora_fin.services.sagemaker_service import SageMakerService
-from remora_fin.services.secrets_manager_service import SecretsManagerService
-from remora_fin.services.sns_service import SNSService
-from remora_fin.services.sqs_service import SQSService
+from remora_fin.services.inventory_service import InventoryService
 
 logger = logging.getLogger(__name__)
 
@@ -42,40 +29,14 @@ class DashboardService(BaseService):
         session: AWSSession | None = None,
         cost_service: CostService | None = None,
         anomaly_service: AnomalyService | None = None,
-        ec2_service: EC2Service | None = None,
-        rds_service: RDSService | None = None,
-        lambda_service: LambdaService | None = None,
+        inventory_service: InventoryService | None = None,
         governance_service: GovernanceService | None = None,
-        s3_service: S3Service | None = None,
-        cloudfront_service: CloudFrontService | None = None,
-        dynamodb_service: DynamoDBService | None = None,
-        elasticache_service: ElastiCacheService | None = None,
-        emr_service: EMRService | None = None,
-        redshift_service: RedshiftService | None = None,
-        sagemaker_service: SageMakerService | None = None,
-        sns_service: SNSService | None = None,
-        sqs_service: SQSService | None = None,
-        kms_service: KMSService | None = None,
-        secrets_manager_service: SecretsManagerService | None = None,
     ) -> None:
         super().__init__("dashboard", session)
         self._cost = cost_service or CostService(self._session)
         self._anomaly = anomaly_service or AnomalyService(self._session)
-        self._ec2 = ec2_service or EC2Service(self._session)
-        self._rds = rds_service or RDSService(self._session)
-        self._lambda = lambda_service or LambdaService(self._session)
+        self._inventory = inventory_service or InventoryService(self._session)
         self._governance = governance_service or GovernanceService(self._session)
-        self._s3 = s3_service or S3Service(self._session)
-        self._cloudfront = cloudfront_service or CloudFrontService(self._session)
-        self._dynamodb = dynamodb_service or DynamoDBService(self._session)
-        self._elasticache = elasticache_service or ElastiCacheService(self._session)
-        self._emr = emr_service or EMRService(self._session)
-        self._redshift = redshift_service or RedshiftService(self._session)
-        self._sagemaker = sagemaker_service or SageMakerService(self._session)
-        self._sns = sns_service or SNSService(self._session)
-        self._sqs = sqs_service or SQSService(self._session)
-        self._kms = kms_service or KMSService(self._session)
-        self._secrets_manager = secrets_manager_service or SecretsManagerService(self._session)
 
     async def get_summary_parallel(
         self,
@@ -95,27 +56,34 @@ class DashboardService(BaseService):
             region or "Global",
         )
 
-        # Run all requests in parallel
+        # Core cost and anomaly tasks
         tasks = [
             self._cost.get_total_cost_async(start, end, region=region),
             self._cost.get_daily_trend_async(start, end, region=region),
             self._anomaly.get_anomaly_summary_async(start, end, use_cache=use_cache),
-            self._ec2.list_instances_async(use_cache=use_cache),
-            self._rds.list_db_instances_async(use_cache=use_cache),
-            self._lambda.list_functions_async(use_cache=use_cache),
             self._governance.get_tag_compliance_async(tags, use_cache=use_cache),
-            self._s3.list_buckets_async(use_cache=use_cache),
-            self._cloudfront.list_distributions_async(use_cache=use_cache),
-            self._dynamodb.list_tables_async(use_cache=use_cache),
-            self._elasticache.list_clusters_async(use_cache=use_cache),
-            self._emr.list_clusters_async(use_cache=use_cache),
-            self._redshift.list_clusters_async(use_cache=use_cache),
-            self._sagemaker.list_notebook_instances_async(use_cache=use_cache),
-            self._sns.list_topics_async(use_cache=use_cache),
-            self._sqs.list_queues_async(use_cache=use_cache),
-            self._kms.list_keys_async(use_cache=use_cache),
-            self._secrets_manager.list_secrets_async(use_cache=use_cache),
         ]
+
+        # Inventory tasks - consolidated via InventoryService
+        resource_types = [
+            "ec2",
+            "rds",
+            "lambda",
+            "s3",
+            "cloudfront",
+            "dynamodb",
+            "elasticache",
+            "emr",
+            "redshift",
+            "sagemaker",
+            "sns",
+            "sqs",
+            "kms",
+            "secretsmanager",
+        ]
+
+        for r_type in resource_types:
+            tasks.append(self._inventory.list_resources_async(r_type, use_cache=use_cache))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -130,37 +98,24 @@ class DashboardService(BaseService):
             except (IndexError, AttributeError):
                 return default
 
+        # Map back results
         anomaly_data = _get_result(2)
-        # Ensure it's not just a string if it failed earlier but didn't raise
         if isinstance(anomaly_data, str):
             anomaly_data = None
 
-        infra = {
-            "ec2": _get_result(3, []),
-            "rds": _get_result(4, []),
-            "lambda": _get_result(5, []),
-            "s3": _get_result(7, []),
-            "cloudfront": _get_result(8, []),
-            "dynamodb": _get_result(9, []),
-            "elasticache": _get_result(10, []),
-            "emr": _get_result(11, []),
-            "redshift": _get_result(12, []),
-            "sagemaker": _get_result(13, []),
-            "sns": _get_result(14, []),
-            "sqs": _get_result(15, []),
-            "kms": _get_result(16, []),
-            "secrets_manager": _get_result(17, []),
-        }
+        infra_details = {}
+        for i, r_type in enumerate(resource_types):
+            infra_details[r_type] = _get_result(4 + i, [])
 
         summary = {
             "cost_summary": _get_result(0),
             "cost_trend": _get_result(1),
             "anomalies": anomaly_data,
             "infrastructure": {
-                "counts": {k: len(v) if isinstance(v, (list, dict, str)) else 0 for k, v in infra.items()},
-                "details": infra,
+                "counts": {k: len(v) if isinstance(v, (list, dict, str)) else 0 for k, v in infra_details.items()},
+                "details": infra_details,
             },
-            "governance": _get_result(6),
+            "governance": _get_result(3),
             "last_updated": date.today().isoformat(),
         }
 

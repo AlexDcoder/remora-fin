@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from remora_fin.ui.app import RemoraApp
+from remora_fin.ui.facade import UIFacade
 from remora_fin.ui.styles.theme import DARK_THEME, LIGHT_THEME, THEMES, get_theme_css
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     "LIGHT_THEME",
     "THEMES",
     "RemoraApp",
+    "UIFacade",
     "get_theme_css",
 ]
