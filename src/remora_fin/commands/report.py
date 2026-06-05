@@ -224,7 +224,7 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--format",
         "-f",
-        choices=["pdf", "excel", "csv", "markdown"],
+        choices=["pdf", "excel", "csv", "markdown", "json"],
         default="pdf",
         help="Output file format (default: pdf).",
     )

@@ -71,10 +71,16 @@ def execute_cli() -> None:
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
 
+    try:
+        from importlib.metadata import version as get_version
+        pkg_version = get_version("remora-fin")
+    except Exception:
+        pkg_version = "1.0.4"
+
     parser.add_argument(
         "-v", "--version",
         action="version",
-        version="[bold #00f3ff]remora-fin[/] [bold #39ff14]v1.0.0[/] [dim #4b86b4][DEEP-BLUE-RELEASE][/]",
+        version=f"[bold #00f3ff]remora-fin[/] [bold #39ff14]v{pkg_version}[/] [dim #4b86b4][DEEP-BLUE-RELEASE][/]",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

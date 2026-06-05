@@ -19,7 +19,7 @@ keywords = [
     "forecasting",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
@@ -34,7 +34,6 @@ classifiers = [
 dependencies = [
     "aioboto3>=15.0.0",
     "boto3>=1.40.0",
-    "boto3-stubs[budgets,ce,organizations,pricing,s3,sts]>=1.40.0",
     "polars>=1.39.3",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.2",
@@ -102,7 +101,6 @@ strict = true
 packages = ["src/remora_fin"]
 ignore_missing_imports = true
 
-# 👇 ADD THESE MODULE OVERRIDES HERE
 [[tool.mypy.overrides]]
 module = "remora_fin.services.*"
 disallow_untyped_defs = false
@@ -131,4 +129,5 @@ dev = [
     "pytest-cov>=6.0.0",
     "moto[all]>=5.0.0",
     "pytest-asyncio>=0.25.0",
+    "boto3-stubs[budgets,ce,organizations,pricing,s3,sts]>=1.40.0",
 ]

@@ -74,7 +74,7 @@ Generate comprehensive cost and usage reports.
 | Argument | Shortcut | Type / Choices | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--type` | `-t` | `breakdown`, `trend`, `account`, `full` | `full` | Report type. |
-| `--format` | `-f` | `pdf`, `excel`, `csv`, `markdown` | `pdf` | Output format. |
+| `--format` | `-f` | `pdf`, `excel`, `csv`, `markdown`, `json` | `pdf` | Output format. |
 | `--days` | `-d` | `int` | `30` | Lookback period in days. |
 | `--start` | | `YYYY-MM-DD` | | Start date. |
 | `--end` | | `YYYY-MM-DD` | | End date. |
@@ -93,6 +93,9 @@ remora-fin report --type breakdown --format pdf --output monthly_report.pdf
 
 # Generate a dedicated report for EC2 and S3 with axis labels
 remora-fin report --service ec2 s3 --type full --format pdf --chart-labels
+
+# Export cost data in JSON format for external analysis
+remora-fin report --type trend --format json --days 60
 ```
 
 ### 🔍 `anomalies`
@@ -201,9 +204,6 @@ Remora-Fin uses [uv](https://github.com/astral-sh/uv) for high-performance depen
 You can easily run the test suite against different Python versions without manual installation:
 
 ```bash
-# Test with Python 3.11
-uv run --python 3.11 pytest tests/
-
 # Test with Python 3.12 (Default)
 uv run --python 3.12 pytest tests/
 
