@@ -10,7 +10,8 @@
 * **📂 High-Speed Analysis:** Powered by **Polars** for near-instant processing of large billing datasets.
 * **🔍 Anomaly Intelligence:** Identify unexpected cost spikes using AWS Cost Explorer algorithms.
 * **🔮 Predictive Analysis:** Integrated spending forecasts to avoid end-of-month surprises.
-* **🖥️ Terminal UI:** Interactive dashboard (TUI) for real-time cost monitoring.
+* **🖥️ Terminal UI:** Interactive dashboard (TUI) with a high-performance **UI Facade** and internal caching for ultra-responsive navigation.
+* **🏗️ Registry Architecture:** Dynamically managed AWS inventory via a centralized resource registry, making it easy to extend monitoring to new services.
 * **🔒 Privacy First:** All data processing happens locally on your machine. Remora-Fin never sends your billing data to external servers.
 
 ---
@@ -72,14 +73,16 @@ Generate comprehensive cost and usage reports.
 
 | Argument | Shortcut | Type / Choices | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--type` | `-t` | `breakdown`, `trend`, `account` | `breakdown` | Report type. |
-| `--format` | `-f` | `pdf`, `table`, `json`, `csv`, `parquet`, `markdown` | `pdf` | Output format. |
+| `--type` | `-t` | `breakdown`, `trend`, `account`, `full` | `full` | Report type. |
+| `--format` | `-f` | `pdf`, `excel`, `csv`, `markdown` | `pdf` | Output format. |
 | `--days` | `-d` | `int` | `30` | Lookback period in days. |
 | `--start` | | `YYYY-MM-DD` | | Start date. |
 | `--end` | | `YYYY-MM-DD` | | End date. |
 | `--metric` | | `UnblendedCost`, `BlendedCost`, `NetUnblendedCost`, `AmortizedCost`, `UsageQuantity` | `UnblendedCost` | Cost metric. |
 | `--group-by` | | `SERVICE`, `LINKED_ACCOUNT`, `REGION`, `USAGE_TYPE` | | Group results by dimension. |
-| `--service` | `-s` | `string` | | Filter by AWS service. |
+| `--service` | `-s` | `string` | | Filter by one or more AWS services (e.g., `ec2 s3`). Supports smart aliases. |
+| `--include-charts` | | flag | `True` | Include visual charts in the report. |
+| `--chart-labels` | | flag | `True` | Show minimalistic X and Y axis values on charts. |
 | `--output` | `-o` | `path` | | Output file path. |
 | `--profile` | `-p` | `string` | | AWS profile name. |
 | `--region` | `-r` | `string` | | AWS region. |
@@ -88,8 +91,8 @@ Generate comprehensive cost and usage reports.
 # Generate a monthly breakdown in PDF for the last 30 days
 remora-fin report --type breakdown --format pdf --output monthly_report.pdf
 
-# Get a CSV report filtered by EC2 service
-remora-fin report --type account --service EC2 --format csv
+# Generate a dedicated report for EC2 and S3 with axis labels
+remora-fin report --service ec2 s3 --type full --format pdf --chart-labels
 ```
 
 ### 🔍 `anomalies`
@@ -188,6 +191,27 @@ Contributions are welcome!
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## 🛠️ Development
+
+Remora-Fin uses [uv](https://github.com/astral-sh/uv) for high-performance dependency management and multi-version Python testing.
+
+### Testing across Python versions
+
+You can easily run the test suite against different Python versions without manual installation:
+
+```bash
+# Test with Python 3.11
+uv run --python 3.11 pytest tests/
+
+# Test with Python 3.12 (Default)
+uv run --python 3.12 pytest tests/
+
+# Test with Python 3.13
+uv run --python 3.13 pytest tests/
+```
+
+If a specific Python version is not found on your system, `uv` will automatically download and manage it for you.
 
 ---
 
