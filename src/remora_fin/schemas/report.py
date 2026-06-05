@@ -43,7 +43,8 @@ class ReportConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     format: ReportFormat = ReportFormat.PDF
-    include_charts: bool = False
+    include_charts: bool = True
+    chart_labels: bool = True
     output_path: Path | None = None
     filters: ReportFilters = Field(default_factory=ReportFilters)
     currency: str = "USD"

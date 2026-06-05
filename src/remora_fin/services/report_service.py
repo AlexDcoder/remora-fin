@@ -57,41 +57,63 @@ class ReportFormatter(ABC):
 
     @abstractmethod
     def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: CostBreakdown | CostTrend,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
         """Format cost breakdown or trend data."""
         ...
 
     @abstractmethod
     def format_anomalies(
-        self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: AnomalyReport,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
         """Format anomaly detection results."""
         ...
 
     @abstractmethod
     def format_forecast(
-        self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: ForecastResult,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
         """Format cost forecast results."""
         ...
 
     @abstractmethod
     def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: dict[str, int],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
         """Format infrastructure inventory summary."""
         ...
 
     @abstractmethod
     def format_governance(
-        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
         """Format governance and compliance data."""
         ...
 
     @abstractmethod
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes | str:
+    def format_full(
+        self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
+    ) -> bytes | str:
         """Format a comprehensive report."""
         ...
 
@@ -184,8 +206,8 @@ class PDFFormatter(ReportFormatter):
             pdf.ln(2)
         pdf.ln(8)
 
-    def _draw_line_chart(self, pdf: FPDF, points: list[CostTrendPoint], title: str) -> None:
-        """Draw a progression line chart for cost trends."""
+    def _draw_line_chart(self, pdf: FPDF, points: list[CostTrendPoint], title: str, show_labels: bool = True) -> None:
+        """Draw a progression line chart for cost trends with optional minimalistic labels."""
         pdf.set_font("Arial", "B", 10)
         pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -195,8 +217,8 @@ class PDFFormatter(ReportFormatter):
             return
 
         h = 40  # Chart height
-        w = 180  # Chart width
-        x_start = pdf.get_x()
+        w = 170  # Chart width
+        x_start = pdf.get_x() + 15  # Offset for Y labels
         y_start = pdf.get_y()
 
         # Draw background/axes
@@ -206,6 +228,21 @@ class PDFFormatter(ReportFormatter):
         max_cost = float(max(p.cost for p in points)) if points else 1.0
         min_cost = float(min(p.cost for p in points)) if points else 0.0
         cost_range = max_cost - min_cost if max_cost != min_cost else 1.0
+
+        # Minimalistic Labels
+        if show_labels:
+            pdf.set_font("Arial", "", 7)
+            pdf.set_text_color(120, 120, 120)
+
+            # Y-Axis (Max/Min)
+            pdf.text(x_start - 14, y_start + 2, f"${max_cost:,.0f}")
+            pdf.text(x_start - 14, y_start + h, f"${min_cost:,.0f}")
+
+            # X-Axis (Start/End Dates)
+            start_date = str(points[0].date)
+            end_date = str(points[-1].date)
+            pdf.text(x_start, y_start + h + 4, start_date)
+            pdf.text(x_start + w - 18, y_start + h + 4, end_date)
 
         pdf.set_draw_color(41, 128, 185)  # Blue line
         pdf.set_line_width(0.5)
@@ -222,17 +259,19 @@ class PDFFormatter(ReportFormatter):
                 pdf.line(prev_x, prev_y, curr_x, curr_y)
             prev_x, prev_y = curr_x, curr_y
 
-        pdf.set_y(y_start + h + 5)
-        pdf.set_font("Arial", "I", 7)
-        pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, f"Min: ${min_cost:,.2f} | Max: ${max_cost:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
-        pdf.ln(8)
+        pdf.set_y(y_start + h + 6)
+        pdf.ln(4)
 
     def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: CostBreakdown | CostTrend,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | FPDF:
         title = "Cost Analysis Report"
         is_partial = pdf is not None
+        config = config or ReportConfig()
 
         if not pdf:
             pdf = self._create_base_pdf(title, metadata)
@@ -253,7 +292,8 @@ class PDFFormatter(ReportFormatter):
                 pdf.ln(8)
 
             # Chart Section
-            self._draw_bar_chart(pdf, data.groups, "Visual Breakdown (Top Services)")
+            if config.include_charts:
+                self._draw_bar_chart(pdf, data.groups, "Visual Breakdown (Top Services)")
 
             # Table Header
             pdf.set_font("Arial", "B", 10)
@@ -274,7 +314,8 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(35, 8, f"{g.percentage:.1f}%", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         else:
             # Trend Chart
-            self._draw_line_chart(pdf, data.points, "Cost Progression Over Time")
+            if config.include_charts:
+                self._draw_line_chart(pdf, data.points, "Cost Progression Over Time", show_labels=config.chart_labels)
 
             # Table Header
             pdf.set_font("Arial", "B", 10)
@@ -294,7 +335,11 @@ class PDFFormatter(ReportFormatter):
         return pdf if is_partial else bytes(pdf.output())
 
     def format_anomalies(
-        self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: AnomalyReport,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | FPDF:
         title = "Anomaly Detection Report"
         is_partial = pdf is not None
@@ -330,10 +375,15 @@ class PDFFormatter(ReportFormatter):
         return pdf if is_partial else bytes(pdf.output())
 
     def format_forecast(
-        self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: ForecastResult,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | FPDF:
         title = "Spend Forecast Projection"
         is_partial = pdf is not None
+        config = config or ReportConfig()
 
         if not pdf:
             pdf = self._create_base_pdf(title, metadata)
@@ -355,8 +405,9 @@ class PDFFormatter(ReportFormatter):
             pdf.ln(6)
 
         # Draw progression line for forecast
-        trend_points = [CostTrendPoint(date=p.date, cost=p.predicted_cost) for p in data.predictions]
-        self._draw_line_chart(pdf, trend_points, "Projected Spend Progression")
+        if config.include_charts:
+            trend_points = [CostTrendPoint(date=p.date, cost=p.predicted_cost) for p in data.predictions]
+            self._draw_line_chart(pdf, trend_points, "Projected Spend Progression", show_labels=config.chart_labels)
 
         # Service Breakdown for Forecast (if available)
         if data.grouped_predictions:
@@ -395,7 +446,11 @@ class PDFFormatter(ReportFormatter):
         return pdf if is_partial else bytes(pdf.output())
 
     def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: dict[str, int],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | FPDF:
         title = "Infrastructure Inventory Summary"
         is_partial = pdf is not None
@@ -425,7 +480,11 @@ class PDFFormatter(ReportFormatter):
         return pdf if is_partial else bytes(pdf.output())
 
     def format_governance(
-        self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: FPDF | None = None
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
     ) -> bytes | FPDF:
         title = "Governance & Compliance Report"
         is_partial = pdf is not None
@@ -473,20 +532,23 @@ class PDFFormatter(ReportFormatter):
 
         return pdf if is_partial else bytes(pdf.output())
 
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
+    def format_full(
+        self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
+    ) -> bytes:
         pdf = FPDF()
+        config = config or ReportConfig()
         if data.cost_breakdown:
-            self.format_cost(data.cost_breakdown, metadata, pdf=pdf)
+            self.format_cost(data.cost_breakdown, metadata, config=config, pdf=pdf)
         if data.cost_trend:
-            self.format_cost(data.cost_trend, metadata, pdf=pdf)
+            self.format_cost(data.cost_trend, metadata, config=config, pdf=pdf)
         if data.anomalies:
-            self.format_anomalies(data.anomalies, metadata, pdf=pdf)
+            self.format_anomalies(data.anomalies, metadata, config=config, pdf=pdf)
         if data.forecast:
-            self.format_forecast(data.forecast, metadata, pdf=pdf)
+            self.format_forecast(data.forecast, metadata, config=config, pdf=pdf)
         if data.infrastructure_summary:
-            self.format_infrastructure(data.infrastructure_summary, metadata, pdf=pdf)
+            self.format_infrastructure(data.infrastructure_summary, metadata, config=config, pdf=pdf)
         if data.governance:
-            self.format_governance(data.governance, metadata, pdf=pdf)
+            self.format_governance(data.governance, metadata, config=config, pdf=pdf)
         return bytes(pdf.output())
 
 
@@ -525,40 +587,68 @@ class ExcelFormatter(ReportFormatter):
         return pl.DataFrame()
 
     def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: CostBreakdown | CostTrend,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
         return buf.getvalue()
 
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+    def format_anomalies(
+        self,
+        data: AnomalyReport,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
         return buf.getvalue()
 
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+    def format_forecast(
+        self,
+        data: ForecastResult,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
         return buf.getvalue()
 
     def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: dict[str, int],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
         return buf.getvalue()
 
-    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> bytes:
+    def format_governance(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
         df = self._to_df(data)
         buf = io.BytesIO()
         df.write_excel(buf)
         return buf.getvalue()
 
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> bytes:
+    def format_full(
+        self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
+    ) -> bytes:
         sheets = {}
         if data.cost_breakdown:
             sheets["Cost Breakdown"] = self._to_df(data.cost_breakdown)
@@ -623,25 +713,53 @@ class FastTableFormatter(ReportFormatter):
         return buf.getvalue().decode("utf-8")
 
     def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: CostBreakdown | CostTrend,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_anomalies(
+        self,
+        data: AnomalyReport,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_forecast(
+        self,
+        data: ForecastResult,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         return self._serialize(self._to_df(data))
 
     def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: dict[str, int],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_governance(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         return self._serialize(self._to_df(data))
 
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
+    def format_full(
+        self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
+    ) -> str:
         return "Comprehensive report not supported in CSV yet."
 
 
@@ -649,7 +767,11 @@ class MarkdownFormatter(ReportFormatter):
     """Markdown formatter for documentation-ready reports."""
 
     def format_cost(
-        self, data: CostBreakdown | CostTrend, metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: CostBreakdown | CostTrend,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> str:
         lines = ["# Cost Report", "", f"**Period:** {data.period.start} → {data.period.end}", ""]
         if isinstance(data, CostBreakdown) and data.summary:
@@ -674,7 +796,13 @@ class MarkdownFormatter(ReportFormatter):
                 lines.append(f"| {p.date} | ${p.cost:,.2f} |")
         return "\n".join(lines)
 
-    def format_anomalies(self, data: AnomalyReport, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_anomalies(
+        self,
+        data: AnomalyReport,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         lines = ["# Anomaly Report", "", f"**Total Anomalies:** {data.total_anomalies}", ""]
         lines.extend(
             [
@@ -692,7 +820,13 @@ class MarkdownFormatter(ReportFormatter):
             )
         return "\n".join(lines)
 
-    def format_forecast(self, data: ForecastResult, metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_forecast(
+        self,
+        data: ForecastResult,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         lines = [
             "# Cost Forecast",
             "",
@@ -706,32 +840,44 @@ class MarkdownFormatter(ReportFormatter):
         return "\n".join(lines)
 
     def format_infrastructure(
-        self, data: dict[str, int], metadata: ReportMetadata | None = None, pdf: Any = None
+        self,
+        data: dict[str, int],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
     ) -> str:
         lines = ["# Infrastructure Inventory", "", "| Service | Resource Count |", "|---------|----------------|"]
         for svc, count in sorted(data.items()):
             lines.append(f"| {svc.upper()} | {count} |")
         return "\n".join(lines)
 
-    def format_governance(self, data: dict[str, Any], metadata: ReportMetadata | None = None, pdf: Any = None) -> str:
+    def format_governance(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
         lines = ["# Governance & Compliance", "", f"**Compliance Score:** {data.get('score', 0):.1f}%", ""]
         lines.extend(["| Metric | Value |", "|--------|-------|"])
         lines.append(f"| Compliant Resources | {data.get('compliant_resources', 0)} |")
         lines.append(f"| Non-Compliant Resources | {data.get('non_compliant_resources', 0)} |")
         return "\n".join(lines)
 
-    def format_full(self, data: FullReport, metadata: ReportMetadata | None = None) -> str:
+    def format_full(
+        self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
+    ) -> str:
         parts = []
         if data.cost_breakdown:
-            parts.append(self.format_cost(data.cost_breakdown, metadata))
+            parts.append(self.format_cost(data.cost_breakdown, metadata, config=config))
         if data.anomalies:
-            parts.append(self.format_anomalies(data.anomalies, metadata))
+            parts.append(self.format_anomalies(data.anomalies, metadata, config=config))
         if data.forecast:
-            parts.append(self.format_forecast(data.forecast, metadata))
+            parts.append(self.format_forecast(data.forecast, metadata, config=config))
         if data.infrastructure_summary:
-            parts.append(self.format_infrastructure(data.infrastructure_summary, metadata))
+            parts.append(self.format_infrastructure(data.infrastructure_summary, metadata, config=config))
         if data.governance:
-            parts.append(self.format_governance(data.governance, metadata))
+            parts.append(self.format_governance(data.governance, metadata, config=config))
         return "\n\n\n".join(parts)
 
 
@@ -758,15 +904,15 @@ class ReportService:
             raise ValueError(f"Unknown format: {config.format.value}")
 
         if isinstance(data, (CostBreakdown, CostTrend)):
-            content = formatter.format_cost(data, metadata)
+            content = formatter.format_cost(data, metadata, config=config)
         elif isinstance(data, AnomalyReport):
-            content = formatter.format_anomalies(data, metadata)
+            content = formatter.format_anomalies(data, metadata, config=config)
         elif isinstance(data, ForecastResult):
-            content = formatter.format_forecast(data, metadata)
+            content = formatter.format_forecast(data, metadata, config=config)
         elif isinstance(data, FullReport):
-            content = formatter.format_full(data, metadata)
+            content = formatter.format_full(data, metadata, config=config)
         elif isinstance(data, dict):
-            content = formatter.format_infrastructure(data, metadata)
+            content = formatter.format_infrastructure(data, metadata, config=config)
         else:
             raise TypeError(f"Unsupported data type: {type(data)}")
 

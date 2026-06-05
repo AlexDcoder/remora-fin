@@ -184,6 +184,8 @@ async def report(args: argparse.Namespace) -> None:
         config = ReportConfig(
             format=fmt,
             output_path=output_path,
+            include_charts=args.include_charts,
+            chart_labels=args.chart_labels,
         )
 
         # Generate
@@ -288,5 +290,17 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         "-r",
         default=None,
         help="AWS region",
+    )
+    parser.add_argument(
+        "--include-charts",
+        action="store_true",
+        default=True,
+        help="Include visual charts in the report (default: True)",
+    )
+    parser.add_argument(
+        "--chart-labels",
+        action="store_true",
+        default=True,
+        help="Show X and Y axis values on charts (default: True)",
     )
     parser.set_defaults(func=report)
