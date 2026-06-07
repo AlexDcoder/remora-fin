@@ -143,6 +143,17 @@ class CacheService:
             f.unlink()
         logger.info("Cache directory cleared")
 
+    def get_stats(self) -> dict[str, Any]:
+        """Return statistics about the cache directory."""
+        files = list(self.cache_dir.iterdir())
+        total_size = sum(f.stat().st_size for f in files if f.is_file())
+        count = len([f for f in files if f.is_file()])
+        return {
+            "path": str(self.cache_dir),
+            "size_bytes": total_size,
+            "count": count,
+        }
+
     def cleanup(self, max_age_days: int = 7) -> None:
         """Remove cache files older than max_age_days.
 

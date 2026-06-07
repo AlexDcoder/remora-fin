@@ -19,6 +19,7 @@ from textwrap import dedent
 import rich_argparse
 
 from remora_fin.commands.anomalies import add_anomalies_parser
+from remora_fin.commands.cache import add_cache_parser
 from remora_fin.commands.dashboard import add_dashboard_parser
 from remora_fin.commands.forecast import add_forecast_parser
 from remora_fin.commands.login import add_login_parser
@@ -88,6 +89,7 @@ def execute_cli() -> None:
 
     # Register all command parsers
     add_report_parser(subparsers)
+    add_cache_parser(subparsers)
     add_anomalies_parser(subparsers)
     add_forecast_parser(subparsers)
     add_dashboard_parser(subparsers)
@@ -107,6 +109,18 @@ def execute_cli() -> None:
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    # Enforce mandatory setup/login for all commands except 'login' and 'help'
+    from remora_fin.services.config_service import ConfigService
+    from rich import print as rprint
+
+    config_service = ConfigService()
+    if args.command != "login" and not config_service.is_configured():
+        rprint("\n[bold #ff4500]INITIAL SETUP REQUIRED[/]")
+        rprint("[#e6f4f8]To ensure consistent session management and caching, you must initialize Remora-Fin first.[/]")
+        rprint("\n[bold #00f3ff]Please run:[/]")
+        rprint("  [bold #39ff14]remora-fin login --configure[/]\n")
+        sys.exit(1)
 
     # Execute the command
     if hasattr(args, "func"):

@@ -13,7 +13,7 @@ from remora_fin.schemas.config import AppSettings, AWSConfig, CacheConfig, UICon
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_CONFIG_PATH = Path.home() / ".config" / "remora" / "config.json"
+_DEFAULT_CONFIG_PATH = Path.home() / ".remora" / "config.json"
 
 
 class ConfigService:
@@ -94,6 +94,10 @@ class ConfigService:
             encoding="utf-8",
         )
         logger.info("Config saved to %s", self._config_path)
+
+    def is_configured(self) -> bool:
+        """Return True if a configuration file exists on disk."""
+        return self._config_path.exists()
 
 
 class ConfigBuilder:

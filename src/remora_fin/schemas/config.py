@@ -25,7 +25,7 @@ class CacheConfig(BaseModel):
 
     enabled: bool = True
     ttl_seconds: int = Field(default=3600, ge=60)
-    directory: Path = Field(default=Path.home() / ".cache" / "remora")
+    directory: Path = Field(default=Path.home() / ".remora" / "cache")
 
 
 class UIConfig(BaseModel):
