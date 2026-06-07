@@ -277,6 +277,28 @@ class ForecastService(BaseService):
 
         self._cost_service = cost_service or CostService(self._session, self._cache)
 
+    def _parse_forecast_response(self, resp: dict[str, Any]) -> list[ForecastPoint]:
+        """Convert AWS forecast response into a list of ForecastPoint models."""
+        forecast_points = []
+        for res in resp.get("ForecastResultsByTime", []):
+            time_period = res.get("TimePeriod", {})
+            start_str = time_period.get("Start", "")
+            if not start_str:
+                continue
+
+            forecast_date = date.fromisoformat(start_str)
+            point = ForecastPoint(
+                date=forecast_date,
+                predicted_cost=Decimal(res.get("MeanValue", "0")),
+                lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
+                upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
+                is_predicted=True,
+            )
+            forecast_points.append(point)
+        
+        forecast_points.sort(key=lambda p: p.date)
+        return forecast_points
+
     @async_retry_with_backoff(max_retries=3)
     async def get_aws_native_forecast_async(
         self,
@@ -299,32 +321,15 @@ class ForecastService(BaseService):
             async with self._session.async_client("ce") as ce:
                 resp = await ce.get_cost_forecast(
                     TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
-                    Metric=metric.name,  # AWS Forecast API expects uppercase (e.g. UNBLENDED_COST)
+                    Metric=metric.name,
                     Granularity=granularity,
                 )
-
-            forecast_points = []
-            for res in resp.get("ForecastResultsByTime", []):
-                time_period = res.get("TimePeriod", {})
-                start_str = time_period.get("Start", "")
-                if not start_str:
-                    continue
-
-                forecast_date = date.fromisoformat(start_str)
-                point = ForecastPoint(
-                    date=forecast_date,
-                    predicted_cost=Decimal(res.get("MeanValue", "0")),
-                    lower_bound=Decimal(res.get("PredictionIntervalLowerBound", "0")),
-                    upper_bound=Decimal(res.get("PredictionIntervalUpperBound", "0")),
-                    is_predicted=True,
-                )
-                forecast_points.append(point)
-
+            
             return ForecastResult(
                 forecast_period=DateRange(start=start, end=end),
                 metric=metric,
                 granularity=granularity,
-                predictions=forecast_points,
+                predictions=self._parse_forecast_response(resp),
                 model_used=ForecastModel.AWS_NATIVE_ARIMA,
             )
 

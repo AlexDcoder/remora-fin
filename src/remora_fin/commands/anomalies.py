@@ -10,32 +10,18 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
 
-from remora_fin.commands.utils import parse_dates, validate_aws_session
+from remora_fin.commands.utils import aws_command, get_common_parser, parse_dates
 from remora_fin.services import AnomalyService, AWSSession
-from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 
 console = Console()
 
 
-async def anomalies(args: argparse.Namespace) -> None:
+@aws_command
+async def anomalies(args: argparse.Namespace, session: AWSSession) -> None:
     """Detect and display AWS cost anomalies."""
     start, end = parse_dates(args)
-
-    config_service = ConfigService()
-    settings = config_service.settings
-
-    # Initialize services
-    session = AWSSession.get_instance(
-        region=args.region or settings.aws.region,
-        profile=args.profile or settings.aws.profile,
-    )
-
-    # Pre-flight check
-    if not validate_aws_session(session):
-        logger.error("[#ff4500]AWS session validation failed[/]")
-        return
 
     anomaly_service = AnomalyService(session)
 
@@ -96,6 +82,7 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         help="Detect cost anomalies in your AWS account",
         description="[bold #ffff00]Detect and display AWS cost anomalies using ML-based detection.[/]",
         formatter_class=rich_argparse.RichHelpFormatter,
+        parents=[get_common_parser()],
     )
     parser.add_argument(
         "--days",
@@ -131,17 +118,5 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--detail",
         action="store_true",
         help="Show detailed anomaly list (always on in table/json output)",
-    )
-    parser.add_argument(
-        "--profile",
-        "-p",
-        default=None,
-        help="AWS profile name",
-    )
-    parser.add_argument(
-        "--region",
-        "-r",
-        default=None,
-        help="AWS region",
     )
     parser.set_defaults(func=anomalies)

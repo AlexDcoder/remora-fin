@@ -84,6 +84,11 @@ class AWSSession:
         """Return the current AWS region."""
         return self._region
 
+    @property
+    def profile(self) -> str:
+        """Return the current AWS profile."""
+        return self._profile
+
     # -- Sync client factory (with lru_cache-like reuse) --
 
     def _sync_client(self, service: str, **kwargs: Any) -> Any:
@@ -173,6 +178,24 @@ class AWSSession:
             return True
         except ClientError as e:
             logger.error("AWS credential validation failed: %s", e)
+            return False
+
+    def check_billing_access(self) -> bool:
+        """Check if the session has access to Cost Explorer."""
+        try:
+            ce = self.cost_explorer()
+            # Try a dummy query
+            ce.get_cost_and_usage(
+                TimePeriod={"Start": "2024-01-01", "End": "2024-01-02"},
+                Granularity="DAILY",
+                Metrics=["UnblendedCost"],
+            )
+            return True
+        except Exception as e:
+            # If it's a date error, we have access but there's no data or range is invalid
+            if "InvalidParameterException" in str(e) or "ValidationException" in str(e):
+                return True
+            logger.debug("Billing access check failed: %s", e)
             return False
 
     def get_caller_identity(self) -> dict[str, str]:

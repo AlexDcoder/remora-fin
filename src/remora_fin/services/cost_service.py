@@ -214,15 +214,19 @@ class CostService(BaseService):
 
         return pl.DataFrame(rows)
 
+    def _process_pages(self, pages: list[dict[str, Any]]) -> pl.DataFrame:
+        """Standardized processing of Cost Explorer response pages."""
+        return self._parse_results(pages)
+
     def _get_data(self, query: dict[str, Any], use_cache: bool = True) -> pl.DataFrame:
-        """Internal method to retrieve cost data, checking cache first."""
+        """Retrieve cost data, checking cache first."""
         if use_cache:
             cached_df = self._cache.get(query)
             if cached_df is not None:
                 return cached_df
 
         pages = self._fetch_all_pages(query)
-        df = self._parse_results(pages)
+        df = self._process_pages(pages)
 
         if use_cache:
             self._cache.set(query, df)
@@ -238,23 +242,33 @@ class CostService(BaseService):
 
         try:
             pages = await self._fetch_all_pages_async(query)
-            df = self._parse_results(pages)
+            df = self._process_pages(pages)
         except Exception as e:
             logger.error(f"Error fetching cost data async: {e}")
-            return pl.DataFrame()  # Return empty DF on failure for safety
+            return pl.DataFrame()
 
         if use_cache:
             self._cache.set(query, df)
 
         return df
 
+    def _get_metric_column(self, metric: str) -> str:
+        """Map AWS metric name to internal DataFrame column name."""
+        col_map = {
+            "UnblendedCost": "unblended_cost",
+            "BlendedCost": "blended_cost",
+            "AmortizedCost": "amortized_cost",
+            "NetUnblendedCost": "net_unblended_cost",
+            "UsageQuantity": "usage_quantity",
+        }
+        return col_map.get(metric, "unblended_cost")
+
     def get_total_cost(self, start: date, end: date, region: str | None = None) -> CostSummary:
         """Get summary of total costs for a given period."""
         builder = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE")
         if region:
             builder.with_filter("REGION", region)
-        query = builder.build()
-        df = self._get_data(query)
+        df = self._get_data(builder.build())
         return self._summarize_df(df)
 
     async def get_total_cost_async(self, start: date, end: date, region: str | None = None) -> CostSummary:
@@ -262,8 +276,7 @@ class CostService(BaseService):
         builder = CostQueryBuilder().with_time_period(start, end).with_group_by("DIMENSION", "SERVICE")
         if region:
             builder.with_filter("REGION", region)
-        query = builder.build()
-        df = await self._get_data_async(query)
+        df = await self._get_data_async(builder.build())
         return self._summarize_df(df)
 
     def _summarize_df(self, df: pl.DataFrame) -> CostSummary:

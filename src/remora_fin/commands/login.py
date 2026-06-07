@@ -111,28 +111,8 @@ def login(args: argparse.Namespace) -> None:
     with console.status("[bold #4b86b4]Connecting to AWS Global Infrastructure...", spinner="dots"):
         session = AWSSession.get_instance(region=region, profile=selected_profile)
         is_valid = session.validate_credentials()
+        billing_access = session.check_billing_access() if is_valid else False
 
-        # Check Billing (Cost Explorer) access
-        billing_access = False
-        if is_valid:
-            try:
-                # Try a very small query to verify CE access
-                ce = session.cost_explorer()
-                ce.get_cost_and_usage(
-                    TimePeriod={
-                        "Start": "2024-01-01",  # Dummy date, doesn't matter much if it fails with data error
-                        "End": "2024-01-02",
-                    },
-                    Granularity="DAILY",
-                    Metrics=["UnblendedCost"],
-                )
-                billing_access = True
-            except Exception as e:
-                # If it's just a Date error, we still have access
-                if "InvalidParameterException" in str(e) or "ValidationException" in str(e):
-                    billing_access = True
-                else:
-                    logger.debug("Billing access check failed: %s", e)
 
     if is_valid:
         identity = session.get_caller_identity()

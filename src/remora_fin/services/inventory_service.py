@@ -136,6 +136,49 @@ RESOURCE_REGISTRY: dict[str, ResourceConfig] = {
         result_path=["QueueUrls"],
         mapper=lambda x: {"url": x, "name": x.split("/")[-1]},
     ),
+    "ecs": ResourceConfig(
+        client_name="ecs",
+        paginator_name="list_clusters",
+        result_path=["clusterArns"],
+        mapper=lambda x: {"arn": x, "name": x.split("/")[-1]},
+    ),
+    "eks": ResourceConfig(
+        client_name="eks",
+        paginator_name="list_clusters",
+        result_path=["clusters"],
+        mapper=lambda x: {"name": x},
+    ),
+    "opensearch": ResourceConfig(
+        client_name="opensearch",
+        paginator_name=None,
+        list_method="list_domain_names",
+        result_path=["DomainNames"],
+        mapper=lambda x: {"name": x["DomainName"]},
+    ),
+    "apprunner": ResourceConfig(
+        client_name="apprunner",
+        paginator_name="list_services",
+        result_path=["ServiceSummaryList"],
+        mapper=lambda x: {"id": x["ServiceId"], "name": x["ServiceName"], "status": x["Status"]},
+    ),
+    "stepfunctions": ResourceConfig(
+        client_name="stepfunctions",
+        paginator_name="list_state_machines",
+        result_path=["stateMachines"],
+        mapper=lambda x: {"arn": x["stateMachineArn"], "name": x["name"]},
+    ),
+    "glue": ResourceConfig(
+        client_name="glue",
+        paginator_name="get_databases",
+        result_path=["DatabaseList"],
+        mapper=lambda x: {"name": x["Name"], "description": x.get("Description", "")},
+    ),
+    "transfer": ResourceConfig(
+        client_name="transfer",
+        paginator_name="list_servers",
+        result_path=["Servers"],
+        mapper=lambda x: {"id": x["ServerId"], "endpoint": x.get("Endpoint"), "state": x["State"]},
+    ),
 }
 
 

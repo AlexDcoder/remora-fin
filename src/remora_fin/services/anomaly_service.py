@@ -171,6 +171,18 @@ class AnomalyService(BaseService):
 
         return AnomalyType.UNKNOWN
 
+    def _process_anomaly_pages(self, pages: list[dict[str, Any]]) -> list[Anomaly]:
+        """Convert raw AWS response pages into a list of Anomaly models."""
+        anomalies = []
+        for page in pages:
+            for raw in page.get("Anomalies", []):
+                try:
+                    anomaly = self._parse_anomaly(raw)
+                    anomalies.append(anomaly)
+                except (KeyError, ValueError) as e:
+                    logger.warning("Failed to parse anomaly: %s", e)
+        return anomalies
+
     # -- Public API --
 
     def fetch_anomalies(
@@ -181,15 +193,7 @@ class AnomalyService(BaseService):
     ) -> list[Anomaly]:
         """Fetch all anomalies for a period using AWS native API."""
         pages = self._fetch_all_pages(start, end, monitor_arn)
-        anomalies = []
-        for page in pages:
-            for raw in page.get("Anomalies", []):
-                try:
-                    anomaly = self._parse_anomaly(raw)
-                    anomalies.append(anomaly)
-                except (KeyError, ValueError) as e:
-                    logger.warning("Failed to parse anomaly: %s", e)
-
+        anomalies = self._process_anomaly_pages(pages)
         logger.info("Parsed %d anomalies", len(anomalies))
         return anomalies
 
@@ -238,14 +242,7 @@ class AnomalyService(BaseService):
 
         async def _fetch():
             pages = await self._fetch_all_pages_async(start, end, monitor_arn)
-            anomalies = []
-            for page in pages:
-                for raw in page.get("Anomalies", []):
-                    try:
-                        anomaly = self._parse_anomaly(raw)
-                        anomalies.append(anomaly)
-                    except (KeyError, ValueError) as e:
-                        logger.warning("Failed to parse anomaly: %s", e)
+            anomalies = self._process_anomaly_pages(pages)
             return self._build_report(anomalies)
 
         data = await self.get_cached_or_fetch_async(query, _fetch, use_cache=use_cache)

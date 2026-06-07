@@ -24,6 +24,7 @@ from remora_fin.commands.forecast import add_forecast_parser
 from remora_fin.commands.login import add_login_parser
 from remora_fin.commands.profile import add_profile_parser
 from remora_fin.commands.report import add_report_parser
+from remora_fin.commands.utilization import add_utilization_parser
 from remora_fin.ui.app import RemoraApp
 
 
@@ -92,6 +93,7 @@ def execute_cli() -> None:
     add_dashboard_parser(subparsers)
     add_login_parser(subparsers)
     add_profile_parser(subparsers)
+    add_utilization_parser(subparsers)
 
     # Enable argcomplete support
     try:

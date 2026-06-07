@@ -13,34 +13,20 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
 
-from remora_fin.commands.utils import parse_dates, validate_aws_session
+from remora_fin.commands.utils import aws_command, get_common_parser, parse_dates
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostTrend
 from remora_fin.schemas.report import FullReport, ReportConfig, ReportFilters, ReportFormat, ReportMetadata
 from remora_fin.services import AWSSession, CostService, DashboardService, ForecastService, ReportService
-from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
 
 
-async def report(args: argparse.Namespace) -> None:
+@aws_command
+async def report(args: argparse.Namespace, session: AWSSession) -> None:
     """Generate a cost report."""
     start, end = parse_dates(args)
-
-    config_service = ConfigService()
-    settings = config_service.settings
-
-    # Initialize services
-    session = AWSSession.get_instance(
-        region=args.region or settings.aws.region,
-        profile=args.profile or settings.aws.profile,
-    )
-
-    # Pre-flight check
-    if not validate_aws_session(session):
-        logger.error("AWS session validation failed")
-        return
 
     cost_service = CostService(session)
     report_service = ReportService()
@@ -213,6 +199,7 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
             "Infrastructure Inventory, and Tag Compliance (Governance)."
         ),
         formatter_class=rich_argparse.RichHelpFormatter,
+        parents=[get_common_parser()],
     )
     parser.add_argument(
         "--type",
@@ -278,18 +265,6 @@ def add_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         type=str,
         default=None,
         help="Output file path",
-    )
-    parser.add_argument(
-        "--profile",
-        "-p",
-        default=None,
-        help="AWS profile name",
-    )
-    parser.add_argument(
-        "--region",
-        "-r",
-        default=None,
-        help="AWS region",
     )
     parser.add_argument(
         "--include-charts",

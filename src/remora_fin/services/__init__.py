@@ -3,11 +3,14 @@
 Service modules:
     aws_service      → AWS session management (Singleton + Factory)
     cost_service     → Cost Explorer queries (Repository + Builder)
-    anomaly_service  → Anomaly detection (Repository + Chain of Responsibility)
+    anomaly_service  → Anomaly detection (Repository + Facade)
     forecast_service → Cost forecasting (Strategy pattern)
     report_service   → Multi-format export (Strategy + Template Method)
     config_service   → App configuration (Singleton + Builder)
-    ec2_service      → EC2 metadata and management
+    inventory_service → Resource management and metadata
+    metrics_service   → CloudWatch utilization metrics
+    pricing_service   → AWS Pricing API integration
+    unit_economics_service → Multi-service correlation
 """
 
 from __future__ import annotations

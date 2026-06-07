@@ -7,7 +7,7 @@ import argparse
 import rich_argparse
 from rich.console import Console
 
-from remora_fin.commands.utils import validate_aws_session
+from remora_fin.commands.utils import aws_command, get_common_parser
 from remora_fin.services import AWSSession
 from remora_fin.services.config_service import ConfigService
 from remora_fin.ui.app import RemoraApp
@@ -15,19 +15,12 @@ from remora_fin.ui.app import RemoraApp
 console = Console()
 
 
-def dashboard(args: argparse.Namespace) -> None:
+@aws_command
+async def dashboard(args: argparse.Namespace, session: AWSSession) -> None:
     """Launch the interactive FinOps dashboard (TUI)."""
 
     config = ConfigService()
     settings = config.settings
-
-    region = args.region or settings.aws.region
-    profile = args.profile or settings.aws.profile
-
-    # Pre-flight check
-    session = AWSSession.get_instance(region=region, profile=profile)
-    if not validate_aws_session(session):
-        return
 
     from rich.panel import Panel
     from rich.text import Text
@@ -35,9 +28,9 @@ def dashboard(args: argparse.Namespace) -> None:
     welcome_text = Text.assemble(
         ("Launching Remora-Fin FinOps Dashboard\n", "bold #00f3ff"),
         ("\nProfile: ", "dim #4b86b4"),
-        (f"{profile}", "#00f3ff"),
+        (f"{session.profile}", "#00f3ff"),
         ("\nRegion:  ", "dim #4b86b4"),
-        (f"{region}", "#00f3ff"),
+        (f"{session.region}", "#00f3ff"),
         ("\nTheme:   ", "dim #4b86b4"),
         (f"{settings.ui.theme}", "#00f3ff"),
         ("\n\nStarting Textual TUI...", "italic dim #4b86b4"),
@@ -46,12 +39,12 @@ def dashboard(args: argparse.Namespace) -> None:
 
     # Launch the Textual app
     app = RemoraApp(
-        region=region,
-        profile=profile,
+        region=session.region,
+        profile=session.profile,
         default_days=settings.ui.default_period_days,
         theme=settings.ui.theme,
     )
-    app.run()
+    await app.run_async()
 
 
 def add_dashboard_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -61,18 +54,7 @@ def add_dashboard_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         help="Open interactive FinOps dashboard (TUI)",
         description="Launch the interactive terminal UI for AWS FinOps.",
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
-    )
-    parser.add_argument(
-        "--profile",
-        "-p",
-        default=None,
-        help="AWS profile name",
-    )
-    parser.add_argument(
-        "--region",
-        "-r",
-        default=None,
-        help="AWS region",
+        parents=[get_common_parser()],
     )
     parser.add_argument(
         "--theme",

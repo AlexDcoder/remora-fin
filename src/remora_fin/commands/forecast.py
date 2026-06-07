@@ -11,15 +11,15 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
 
-from remora_fin.commands.utils import validate_aws_session
+from remora_fin.commands.utils import aws_command, get_common_parser
 from remora_fin.schemas.forecast import ForecastMetric
 from remora_fin.services import AWSSession, ForecastService
-from remora_fin.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 
 
-async def forecast_cmd(args: argparse.Namespace) -> None:
+@aws_command
+async def forecast_cmd(args: argparse.Namespace, session: AWSSession) -> None:
     """Predict future AWS costs."""
     # Parse forecast period (forecast usually starts tomorrow)
     default_start = date.today() + timedelta(days=1)
@@ -32,20 +32,6 @@ async def forecast_cmd(args: argparse.Namespace) -> None:
         end = date.fromisoformat(args.end)
     else:
         end = start + timedelta(days=30)
-
-    config_service = ConfigService()
-    settings = config_service.settings
-
-    # Initialize services
-    session = AWSSession.get_instance(
-        region=args.region or settings.aws.region,
-        profile=args.profile or settings.aws.profile,
-    )
-
-    # Pre-flight check
-    if not validate_aws_session(session):
-        logger.error("AWS session validation failed")
-        return
 
     forecast_service = ForecastService(session)
     console = Console()
@@ -141,6 +127,7 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction[argparse.Argument
         help="Forecast future AWS costs",
         description="[bold #39ff14]Predict future AWS costs using ML-based forecasting.[/]",
         formatter_class=rich_argparse.RichHelpFormatter,
+        parents=[get_common_parser()],
     )
     parser.add_argument(
         "--days",
@@ -202,17 +189,5 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction[argparse.Argument
         "--scenarios",
         action="store_true",
         help="Show what-if scenario analysis",
-    )
-    parser.add_argument(
-        "--profile",
-        "-p",
-        default=None,
-        help="AWS profile name",
-    )
-    parser.add_argument(
-        "--region",
-        "-r",
-        default=None,
-        help="AWS region",
     )
     parser.set_defaults(func=forecast_cmd)

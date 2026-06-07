@@ -10,6 +10,7 @@
 * **📂 High-Speed Analysis:** Powered by **Polars** for near-instant processing of large billing datasets.
 * **🔍 Anomaly Intelligence:** Identify unexpected cost spikes using AWS Cost Explorer algorithms.
 * **🔮 Predictive Analysis:** Integrated spending forecasts to avoid end-of-month surprises.
+* **📉 Efficiency & Unit Economics:** Correlate cost with real-world utilization metrics (CPU, Memory, I/O) to identify waste and right-sizing opportunities.
 * **🖥️ Terminal UI:** Interactive dashboard (TUI) with a high-performance **UI Facade** and internal caching for ultra-responsive navigation.
 * **🏗️ Registry Architecture:** Dynamically managed AWS inventory via a centralized resource registry, making it easy to extend monitoring to new services.
 * **🔒 Privacy First:** All data processing happens locally on your machine. Remora-Fin never sends your billing data to external servers.
@@ -48,6 +49,8 @@ If you prefer a least-privilege approach, ensure your IAM identity has the follo
 | **Security Token** | `sts:GetCallerIdentity` | Current account and user identification. |
 | **Organizations** | `organizations:ListAccounts` | Multi-account environment support. |
 | **Tagging** | `tag:GetResources` | Governance and tag compliance scoring. |
+| **Pricing** | `pricing:GetProducts` | Real-time unit price lookups for right-sizing. |
+| **Metrics** | `cloudwatch:GetMetricStatistics` | Resource utilization analysis. |
 | **Inventory** | `ec2:DescribeInstances` | EC2 Instance tracking. |
 | | `s3:ListAllMyBuckets` | S3 Bucket inventory. |
 | | `rds:DescribeDBInstances` | RDS Database tracking. |
@@ -58,6 +61,12 @@ If you prefer a least-privilege approach, ensure your IAM identity has the follo
 | | `elasticmapreduce:ListClusters` | Big data cluster inventory. |
 | | `redshift:DescribeClusters` | Data warehouse tracking. |
 | | `sagemaker:ListNotebookInstances` | ML notebook monitoring. |
+| | `ecs:ListClusters` | Container cluster inventory. |
+| | `eks:ListClusters` | Kubernetes cluster inventory. |
+| | `apprunner:ListServices` | App Runner service tracking. |
+| | `states:ListStateMachines` | Step Functions monitoring. |
+| | `glue:GetDatabases` | Data catalog inventory. |
+| | `transfer:ListServers` | Transfer Family tracking. |
 | | `sns:ListTopics` | Pub/Sub topic inventory. |
 | | `sqs:ListQueues` | Message queue tracking. |
 | | `kms:ListKeys` | KMS Key tracking. |
@@ -155,6 +164,21 @@ Launch the interactive Terminal User Interface.
 
 ```bash
 remora-fin dashboard --days 60 --theme dark
+```
+
+### 📉 `utilization`
+
+Analyze resource efficiency by correlating cost with CloudWatch metrics and Pricing API.
+
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--days` | `-d` | `int` | `7` | Lookback period for metrics. |
+| `--profile` | `-p` | `string` | | AWS profile name. |
+| `--region` | `-r` | `string` | | AWS region. |
+
+```bash
+# Analyze EC2 efficiency for the last 7 days
+remora-fin utilization --days 7
 ```
 
 ### 🔐 `login`
