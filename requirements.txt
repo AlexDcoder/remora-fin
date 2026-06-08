@@ -2,13 +2,13 @@
 #    uv pip compile pyproject.toml -o requirements.txt
 aioboto3==15.5.0
     # via remora-fin (pyproject.toml)
-aiobotocore==2.25.1
+aiobotocore==2.26.0
     # via aioboto3
 aiofiles==25.1.0
     # via aioboto3
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.1
     # via aiobotocore
 aioitertools==0.13.0
     # via aiobotocore
@@ -20,13 +20,13 @@ argcomplete==3.6.3
     # via remora-fin (pyproject.toml)
 attrs==26.1.0
     # via aiohttp
-boto3==1.40.61
+boto3==1.43.24
     # via
     #   remora-fin (pyproject.toml)
     #   aiobotocore
-boto3-stubs==1.43.18
+boto3-stubs==1.43.24
     # via remora-fin (pyproject.toml)
-botocore==1.40.61
+botocore==1.43.24
     # via
     #   aiobotocore
     #   boto3
@@ -43,7 +43,7 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-idna==3.17
+idna==3.18
     # via yarl
 jmespath==1.1.0
     # via
@@ -68,7 +68,7 @@ multidict==6.7.1
     #   yarl
 mypy-boto3-budgets==1.43.15
     # via boto3-stubs
-mypy-boto3-ce==1.43.0
+mypy-boto3-ce==1.43.22
     # via boto3-stubs
 mypy-boto3-organizations==1.43.16
     # via boto3-stubs
@@ -92,13 +92,13 @@ propcache==0.5.2
     #   yarl
 pydantic==2.13.4
     # via remora-fin (pyproject.toml)
-pydantic-core==2.46.4
+pydantic-core==2.47.0
     # via pydantic
 pygments==2.20.0
     # via
     #   rich
     #   textual
-pypdf==6.12.2
+pypdf==6.13.1
     # via remora-fin (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
@@ -113,13 +113,13 @@ rich==15.0.0
     #   textual
 rich-argparse==1.8.0
     # via remora-fin (pyproject.toml)
-s3transfer==0.14.0
+s3transfer==0.18.0
     # via boto3
 six==1.17.0
     # via python-dateutil
 textual==8.2.7
     # via remora-fin (pyproject.toml)
-types-awscrt==0.33.0
+types-awscrt==0.34.1
     # via botocore-stubs
 types-s3transfer==0.16.0
     # via boto3-stubs
