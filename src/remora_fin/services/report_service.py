@@ -131,7 +131,7 @@ class PDFFormatter(ReportFormatter):
     def _add_header(self, pdf: FPDF, title: str, metadata: ReportMetadata | None = None) -> None:
         """Add header to a new page."""
         # Header
-        pdf.set_font("Arial", "B", 20)
+        pdf.set_font("Helvetica", "B", 20)
         pdf.set_text_color(44, 62, 80)  # Dark Blue
         pdf.cell(0, 15, "REMORA | FinOps Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
@@ -140,12 +140,12 @@ class PDFFormatter(ReportFormatter):
         pdf.ln(5)
 
         # Title and Dates
-        pdf.set_font("Arial", "B", 14)
+        pdf.set_font("Helvetica", "B", 14)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # Metadata / User Info
-        pdf.set_font("Arial", "", 9)
+        pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(100, 100, 100)
 
         gen_time = (
@@ -175,7 +175,7 @@ class PDFFormatter(ReportFormatter):
 
     def _draw_bar_chart(self, pdf: FPDF, groups: list[CostGroup], title: str) -> None:
         """Draw a horizontal bar chart for the top services based on Usage Quantity."""
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
@@ -191,7 +191,7 @@ class PDFFormatter(ReportFormatter):
 
         for g in top_groups:
             # Label
-            pdf.set_font("Arial", "", 8)
+            pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(40, 6, f"{g.key[:18]}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
@@ -208,7 +208,7 @@ class PDFFormatter(ReportFormatter):
 
     def _draw_line_chart(self, pdf: FPDF, points: list[CostTrendPoint], title: str, show_labels: bool = True) -> None:
         """Draw a progression line chart for cost trends with optional minimalistic labels."""
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
@@ -231,7 +231,7 @@ class PDFFormatter(ReportFormatter):
 
         # Minimalistic Labels
         if show_labels:
-            pdf.set_font("Arial", "", 7)
+            pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(120, 120, 120)
 
             # Y-Axis (Max/Min)
@@ -283,9 +283,9 @@ class PDFFormatter(ReportFormatter):
             # Summary Box
             if data.summary:
                 pdf.set_fill_color(240, 240, 240)
-                pdf.set_font("Arial", "B", 11)
+                pdf.set_font("Helvetica", "B", 11)
                 pdf.cell(0, 12, "  Executive Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
-                pdf.set_font("Arial", "", 10)
+                pdf.set_font("Helvetica", "", 10)
                 pdf.cell(60, 10, f"  Total Cost: ${data.summary.total_cost:,.2f}", new_x=XPos.RIGHT, new_y=YPos.TOP)
                 pdf.cell(60, 10, f"  Daily Avg: ${data.summary.daily_average:,.2f}", new_x=XPos.RIGHT, new_y=YPos.TOP)
                 pdf.cell(0, 10, f"  Top Service: {data.summary.top_service}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -296,7 +296,7 @@ class PDFFormatter(ReportFormatter):
                 self._draw_bar_chart(pdf, data.groups, "Visual Breakdown (Top Services)")
 
             # Table Header
-            pdf.set_font("Arial", "B", 10)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(70, 10, " Service / Dimension", border=1, fill=True)
@@ -305,7 +305,7 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(35, 10, " % of Total", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
             # Table Rows
-            pdf.set_font("Arial", "", 9)
+            pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
             for g in data.groups[:40]:
                 pdf.cell(70, 8, f" {g.key[:40]}", border=1)
@@ -318,14 +318,14 @@ class PDFFormatter(ReportFormatter):
                 self._draw_line_chart(pdf, data.points, "Cost Progression Over Time", show_labels=config.chart_labels)
 
             # Table Header
-            pdf.set_font("Arial", "B", 10)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(50, 10, " Date", border=1, fill=True)
             pdf.cell(70, 10, " Usage Quantity", border=1, fill=True, align="C")
             pdf.cell(70, 10, " Cost (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-            pdf.set_font("Arial", "", 9)
+            pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
             for p in data.points[-60:]:
                 pdf.cell(50, 8, f" {p.date}", border=1)
@@ -350,11 +350,11 @@ class PDFFormatter(ReportFormatter):
             pdf.add_page()
             self._add_header(pdf, title, metadata)
 
-        pdf.set_font("Arial", "B", 11)
+        pdf.set_font("Helvetica", "B", 11)
         pdf.cell(0, 10, f"Total Spikes Detected: {data.total_anomalies}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(8)
 
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_fill_color(192, 57, 43)  # Soft Red
         pdf.set_text_color(255, 255, 255)
         pdf.cell(50, 10, " Service", border=1, fill=True)
@@ -363,7 +363,7 @@ class PDFFormatter(ReportFormatter):
         pdf.cell(35, 10, " Expected", border=1, fill=True, align="C")
         pdf.cell(40, 10, " Variance %", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-        pdf.set_font("Arial", "", 8)
+        pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(0, 0, 0)
         for a in data.anomalies[:40]:
             pdf.cell(50, 8, f" {a.top_root_cause or 'Unknown'}", border=1)
@@ -393,7 +393,7 @@ class PDFFormatter(ReportFormatter):
 
         if data.total_predicted_cost:
             pdf.set_fill_color(230, 240, 230)
-            pdf.set_font("Arial", "B", 11)
+            pdf.set_font("Helvetica", "B", 11)
             pdf.cell(
                 0,
                 12,
@@ -411,19 +411,19 @@ class PDFFormatter(ReportFormatter):
 
         # Service Breakdown for Forecast (if available)
         if data.grouped_predictions:
-            pdf.set_font("Arial", "B", 10)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(44, 62, 80)
             pdf.cell(0, 10, "Projected Service Breakdown", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(4)
 
-            pdf.set_font("Arial", "B", 9)
+            pdf.set_font("Helvetica", "B", 9)
             pdf.set_fill_color(240, 240, 240)
             pdf.cell(100, 8, " Service", border=1, fill=True)
             pdf.cell(
                 80, 8, " Predicted Period Spend", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C"
             )
 
-            pdf.set_font("Arial", "", 9)
+            pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
             for svc, points in data.grouped_predictions.items():
                 svc_total = sum(p.predicted_cost for p in points)
@@ -431,13 +431,13 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(80, 7, f"${svc_total:,.2f} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
             pdf.ln(8)
 
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_fill_color(39, 174, 96)  # Soft Green
         pdf.set_text_color(255, 255, 255)
         pdf.cell(95, 10, " Date", border=1, fill=True)
         pdf.cell(95, 10, " Predicted Cost (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-        pdf.set_font("Arial", "", 10)
+        pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(0, 0, 0)
         for p in data.predictions[:60]:
             pdf.cell(95, 8, f" {p.date}", border=1)
@@ -461,17 +461,17 @@ class PDFFormatter(ReportFormatter):
             pdf.add_page()
             self._add_header(pdf, title, metadata)
 
-        pdf.set_font("Arial", "B", 11)
+        pdf.set_font("Helvetica", "B", 11)
         pdf.cell(0, 10, "Resource Counts", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
 
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_fill_color(52, 152, 219)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(100, 10, " Service", border=1, fill=True)
         pdf.cell(80, 10, " Count", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-        pdf.set_font("Arial", "", 10)
+        pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(0, 0, 0)
         for svc, count in sorted(data.items()):
             pdf.cell(100, 8, f" {svc.upper()}", border=1)
@@ -502,13 +502,13 @@ class PDFFormatter(ReportFormatter):
 
         # Compliance Score Box
         pdf.set_fill_color(245, 245, 245)
-        pdf.set_font("Arial", "B", 12)
+        pdf.set_font("Helvetica", "B", 12)
         color = (39, 174, 96) if score >= 80 else (230, 126, 34) if score >= 50 else (192, 57, 43)
         pdf.set_text_color(*color)
         pdf.cell(0, 15, f"  Tag Compliance Score: {score:.1f}%", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
         pdf.ln(5)
 
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(60, 10, f"Compliant: {compliant}", new_x=XPos.RIGHT, new_y=YPos.TOP)
         pdf.cell(60, 10, f"Non-Compliant: {non_compliant}", new_x=XPos.RIGHT, new_y=YPos.TOP)
@@ -517,13 +517,13 @@ class PDFFormatter(ReportFormatter):
 
         # Details Table
         if data.get("details"):
-            pdf.set_font("Arial", "B", 10)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(140, 10, " Resource ARN", border=1, fill=True)
             pdf.cell(50, 10, " Status", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-            pdf.set_font("Arial", "", 8)
+            pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(0, 0, 0)
             for item in data["details"][:50]:
                 status = "COMPLIANT" if item.get("is_compliant") else "NON-COMPLIANT"
