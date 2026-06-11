@@ -30,6 +30,8 @@ from remora_fin.services.forecast_service import (
 )
 from remora_fin.services.governance_service import GovernanceService
 from remora_fin.services.inventory_service import InventoryService
+from remora_fin.services.metrics_service import MetricsService
+from remora_fin.services.pricing_service import PricingService
 from remora_fin.services.report_service import (
     ExcelFormatter,
     MarkdownFormatter,
@@ -37,6 +39,7 @@ from remora_fin.services.report_service import (
     ReportFormatter,
     ReportService,
 )
+from remora_fin.services.unit_economics_service import UnitEconomicsService
 
 __all__ = [
     "AWSCostExplorerNativeForecast",
@@ -55,10 +58,13 @@ __all__ = [
     "InventoryService",
     "LinearRegressionForecast",
     "MarkdownFormatter",
+    "MetricsService",
     "MovingAverageForecast",
     "PDFFormatter",
+    "PricingService",
     "ReportFormatter",
     "ReportService",
+    "UnitEconomicsService",
     "async_retry_with_backoff",
     "paginate_all",
     "retry_with_backoff",
