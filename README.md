@@ -1,5 +1,9 @@
 # 🦈 Remora-Fin: High-Performance AWS FinOps CLI
 
+[![CI Status](https://github.com/AlexDcoder/remora-fin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AlexDcoder/remora-fin/actions/workflows/ci.yml)
+[![Auto-Fix Status](https://github.com/AlexDcoder/remora-fin/actions/workflows/auto-fix.yml/badge.svg?branch=main)](https://github.com/AlexDcoder/remora-fin/actions)
+[![PyPI Version](https://img.shields.io/pypi/v/remora-fin)](https://pypi.org/project/remora-fin/)
+
 **Remora-Fin** is a lightweight, high-performance FinOps toolkit for AWS. Built with Polars and Textual, it attaches to your AWS environment to analyze spending, detect anomalies, and export professional-grade reports.
 
 ---
