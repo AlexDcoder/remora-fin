@@ -17,7 +17,14 @@ from remora_fin.commands.utils import aws_command, get_common_parser, parse_date
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostTrend
 from remora_fin.schemas.report import FullReport, ReportConfig, ReportFilters, ReportFormat, ReportMetadata
-from remora_fin.services import AWSSession, CostService, DashboardService, ForecastService, ReportService
+from remora_fin.services import (
+    AWSSession,
+    CostService,
+    DashboardService,
+    ForecastService,
+    ReportService,
+    UnitEconomicsService,
+)
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -126,6 +133,16 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
                     k: v for k, v in counts_items if any(s in k.lower() for s in service_filters) or _matches_service(k)
                 }
 
+            # Fetch unit economics (EC2 efficiency, S3 rates)
+            unit_economics = {}
+            try:
+                ue_service = UnitEconomicsService(session)
+                ec2_eff = await ue_service.get_ec2_efficiency(days=args.days)
+                s3_eff = await ue_service.get_s3_efficiency()
+                unit_economics = {"ec2": ec2_eff, "s3": s3_eff}
+            except Exception as e:
+                logger.debug("Failed to fetch unit economics: %s", e)
+
             data = FullReport(
                 cost_breakdown=breakdown,
                 cost_trend=summary_data.get("cost_trend"),
@@ -133,6 +150,7 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
                 forecast=forecast,
                 infrastructure_summary=infra_counts,
                 governance=summary_data.get("governance"),
+                unit_economics=unit_economics,
             )
         elif args.type == "trend":
             data = await cost_service.get_daily_trend_async(start, end, metric=metric)

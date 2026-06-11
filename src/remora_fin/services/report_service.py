@@ -111,6 +111,17 @@ class ReportFormatter(ABC):
         ...
 
     @abstractmethod
+    def format_unit_economics(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | str | FPDF:
+        """Format unit economics and efficiency analysis."""
+        ...
+
+    @abstractmethod
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes | str:
@@ -532,6 +543,70 @@ class PDFFormatter(ReportFormatter):
 
         return pdf if is_partial else bytes(pdf.output())
 
+    def format_unit_economics(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | FPDF:
+        title = "Unit Economics & Efficiency"
+        is_partial = pdf is not None
+
+        if not pdf:
+            pdf = self._create_base_pdf(title, metadata)
+        else:
+            pdf.add_page()
+            self._add_header(pdf, title, metadata)
+
+        # EC2 Efficiency Section
+        if "ec2" in data:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.cell(0, 10, "EC2 Optimization & Savings Opportunities", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(2)
+
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_fill_color(44, 62, 80)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(55, 8, " Instance Name", border=1, fill=True)
+            pdf.cell(30, 8, " Type", border=1, fill=True, align="C")
+            pdf.cell(25, 8, " Avg CPU", border=1, fill=True, align="C")
+            pdf.cell(40, 8, " Potential Waste (7d)", border=1, fill=True, align="C")
+            pdf.cell(40, 8, " Status", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(0, 0, 0)
+            for inst in data["ec2"][:20]:
+                status = "Underutilized" if inst.get("is_underutilized") else "Efficient"
+                pdf.cell(55, 7, f" {inst['name'][:30]}", border=1)
+                pdf.cell(30, 7, f"{inst['type']}", border=1, align="C")
+                pdf.cell(25, 7, f"{inst['avg_cpu']:.1f}%", border=1, align="C")
+                pdf.cell(40, 7, f"${inst['potential_savings_7d']:,.2f} ", border=1, align="R")
+                pdf.cell(40, 7, f" {status}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            pdf.ln(8)
+
+        # S3 Section
+        if "s3" in data:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.cell(0, 10, "S3 Storage Efficiency", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(2)
+
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_fill_color(44, 62, 80)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(140, 8, " Bucket Name", border=1, fill=True)
+            pdf.cell(50, 8, " Standard Rate/GB", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(0, 0, 0)
+            for b in data["s3"][:20]:
+                pdf.cell(140, 7, f" {b['name']}", border=1)
+                pdf.cell(
+                    50, 7, f"${b['standard_rate_gb']:.4f} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R"
+                )
+
+        return pdf if is_partial else bytes(pdf.output())
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -541,6 +616,8 @@ class PDFFormatter(ReportFormatter):
             self.format_cost(data.cost_breakdown, metadata, config=config, pdf=pdf)
         if data.cost_trend:
             self.format_cost(data.cost_trend, metadata, config=config, pdf=pdf)
+        if data.unit_economics:
+            self.format_unit_economics(data.unit_economics, metadata, config=config, pdf=pdf)
         if data.anomalies:
             self.format_anomalies(data.anomalies, metadata, config=config, pdf=pdf)
         if data.forecast:
@@ -646,6 +723,21 @@ class ExcelFormatter(ReportFormatter):
         df.write_excel(buf)
         return buf.getvalue()
 
+    def format_unit_economics(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
+        # For excel, we return the first part or a combined view
+        df = pl.DataFrame()
+        if "ec2" in data:
+            df = pl.DataFrame(data["ec2"])
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -654,6 +746,11 @@ class ExcelFormatter(ReportFormatter):
             sheets["Cost Breakdown"] = self._to_df(data.cost_breakdown)
         if data.cost_trend:
             sheets["Cost Trend"] = self._to_df(data.cost_trend)
+        if data.unit_economics:
+            if "ec2" in data.unit_economics:
+                sheets["EC2 Efficiency"] = pl.DataFrame(data.unit_economics["ec2"])
+            if "s3" in data.unit_economics:
+                sheets["S3 Rates"] = pl.DataFrame(data.unit_economics["s3"])
         if data.anomalies:
             sheets["Anomalies"] = self._to_df(data.anomalies)
         if data.forecast:
@@ -756,6 +853,17 @@ class FastTableFormatter(ReportFormatter):
         pdf: Any = None,
     ) -> str:
         return self._serialize(self._to_df(data))
+
+    def format_unit_economics(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        if "ec2" in data:
+            return self._serialize(pl.DataFrame(data["ec2"]))
+        return "Unit economics section empty"
 
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
@@ -864,12 +972,47 @@ class MarkdownFormatter(ReportFormatter):
         lines.append(f"| Non-Compliant Resources | {data.get('non_compliant_resources', 0)} |")
         return "\n".join(lines)
 
+    def format_unit_economics(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        lines = ["# Unit Economics & Efficiency", ""]
+        if "ec2" in data:
+            lines.extend(
+                [
+                    "## EC2 Optimization",
+                    "",
+                    "| Instance | Type | Avg CPU | Status | Potential Savings |",
+                    "|----------|------|---------|--------|-------------------|",
+                ]
+            )
+            for inst in data["ec2"][:15]:
+                status = "Underutilized" if inst["is_underutilized"] else "Efficient"
+                lines.append(
+                    f"| {inst['name']} | {inst['type']} | {inst['avg_cpu']:.1f}% | {status} | ${inst['potential_savings_7d']:,.2f} |"
+                )
+            lines.append("")
+        if "s3" in data:
+            lines.extend(
+                ["## S3 Storage Efficiency", "", "| Bucket | Standard Rate/GB |", "|--------|------------------|"]
+            )
+            for b in data["s3"][:15]:
+                lines.append(f"| {b['name']} | ${b['standard_rate_gb']:.4f} |")
+        return "\n".join(lines)
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> str:
         parts = []
         if data.cost_breakdown:
             parts.append(self.format_cost(data.cost_breakdown, metadata, config=config))
+        if data.cost_trend:
+            parts.append(self.format_cost(data.cost_trend, metadata, config=config))
+        if data.unit_economics:
+            parts.append(self.format_unit_economics(data.unit_economics, metadata, config=config))
         if data.anomalies:
             parts.append(self.format_anomalies(data.anomalies, metadata, config=config))
         if data.forecast:
@@ -912,7 +1055,11 @@ class ReportService:
         elif isinstance(data, FullReport):
             content = formatter.format_full(data, metadata, config=config)
         elif isinstance(data, dict):
-            content = formatter.format_infrastructure(data, metadata, config=config)
+            # Check if it's unit economics or infrastructure
+            if "ec2" in data or "s3" in data:
+                content = formatter.format_unit_economics(data, metadata, config=config)
+            else:
+                content = formatter.format_infrastructure(data, metadata, config=config)
         else:
             raise TypeError(f"Unsupported data type: {type(data)}")
 
