@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
-from typing import Any
 
 import rich_argparse
 from rich.console import Console
@@ -46,14 +44,16 @@ async def utilization(args: argparse.Namespace, session: AWSSession) -> None:
         )
 
     console.print(table)
-    
+
     if any(i["is_underutilized"] for i in ec2_data):
-        console.print(Panel(
-            "[bold yellow]Insight:[/] Several instances have very low CPU utilization. "
-            "Consider [bold cyan]Right-sizing[/] to a smaller instance type or using [bold cyan]Spot Instances[/].",
-            title="Recommendations",
-            border_style="yellow"
-        ))
+        console.print(
+            Panel(
+                "[bold yellow]Insight:[/] Several instances have very low CPU utilization. "
+                "Consider [bold cyan]Right-sizing[/] to a smaller instance type or using [bold cyan]Spot Instances[/].",
+                title="Recommendations",
+                border_style="yellow",
+            )
+        )
 
 
 def add_utilization_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

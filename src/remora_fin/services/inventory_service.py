@@ -177,7 +177,36 @@ RESOURCE_REGISTRY: dict[str, ResourceConfig] = {
         client_name="transfer",
         paginator_name="list_servers",
         result_path=["Servers"],
-        mapper=lambda x: {"id": x["ServerId"], "endpoint": x.get("Endpoint"), "state": x["State"]},
+    ),
+    "ebs": ResourceConfig(
+        client_name="ec2",
+        paginator_name="describe_volumes",
+        result_path=["Volumes"],
+        mapper=lambda x: {
+            "id": x["VolumeId"],
+            "size": x["Size"],
+            "type": x["VolumeType"],
+            "state": x["State"],
+            "iops": x.get("Iops"),
+        },
+    ),
+    "efs": ResourceConfig(
+        client_name="efs",
+        paginator_name="describe_file_systems",
+        result_path=["FileSystems"],
+        mapper=lambda x: {"id": x["FileSystemId"], "name": x.get("Name", ""), "size": x["SizeInBytes"]["Value"]},
+    ),
+    "elb": ResourceConfig(
+        client_name="elbv2",
+        paginator_name="describe_load_balancers",
+        result_path=["LoadBalancers"],
+        mapper=lambda x: {"name": x["LoadBalancerName"], "type": x["Type"], "scheme": x["Scheme"]},
+    ),
+    "nat_gateway": ResourceConfig(
+        client_name="ec2",
+        paginator_name="describe_nat_gateways",
+        result_path=["NatGateways"],
+        mapper=lambda x: {"id": x["NatGatewayId"], "state": x["State"], "vpc": x["VpcId"]},
     ),
 }
 

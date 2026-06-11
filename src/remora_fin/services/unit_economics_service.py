@@ -42,7 +42,7 @@ class UnitEconomicsService(BaseService):
         for inst in instances:
             instance_id = inst["id"]
             instance_type = inst["type"]
-            
+
             # Get pricing
             price_detail = self._pricing.get_ec2_price(instance_type, self._session.region)
             on_demand = price_detail.on_demand_price if price_detail else None
@@ -57,15 +57,17 @@ class UnitEconomicsService(BaseService):
             waste_percent = max(0, 100 - (avg_cpu * 2)) / 100  # Conservative multiplier
             potential_savings = hourly_rate * Decimal(24 * days) * Decimal(str(waste_percent))
 
-            results.append({
-                "id": instance_id,
-                "name": inst["name"],
-                "type": instance_type,
-                "hourly_rate": hourly_rate,
-                "avg_cpu": avg_cpu,
-                "is_underutilized": cpu_summary.is_underutilized if cpu_summary else False,
-                "potential_savings_7d": potential_savings,
-            })
+            results.append(
+                {
+                    "id": instance_id,
+                    "name": inst["name"],
+                    "type": instance_type,
+                    "hourly_rate": hourly_rate,
+                    "avg_cpu": avg_cpu,
+                    "is_underutilized": cpu_summary.is_underutilized if cpu_summary else False,
+                    "potential_savings_7d": potential_savings,
+                }
+            )
 
         return sorted(results, key=lambda x: x["potential_savings_7d"], reverse=True)
 
@@ -76,13 +78,19 @@ class UnitEconomicsService(BaseService):
 
         # S3 pricing is more complex (storage classes), here we just show standard rate
         standard_price = self._pricing.get_s3_price("Standard", self._session.region)
-        rate = standard_price.on_demand_price.price_per_unit if standard_price and standard_price.on_demand_price else Decimal("0.023")
+        rate = (
+            standard_price.on_demand_price.price_per_unit
+            if standard_price and standard_price.on_demand_price
+            else Decimal("0.023")
+        )
 
         for b in buckets:
-            results.append({
-                "name": b["name"],
-                "creation_date": b["creation_date"],
-                "standard_rate_gb": rate,
-            })
+            results.append(
+                {
+                    "name": b["name"],
+                    "creation_date": b["creation_date"],
+                    "standard_rate_gb": rate,
+                }
+            )
 
         return results

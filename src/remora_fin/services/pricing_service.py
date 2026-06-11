@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from remora_fin.schemas.pricing import AWSPrice, PricingDetail, ProductAttributes
 from remora_fin.services.aws_service import AWSSession, retry_with_backoff
@@ -41,17 +41,14 @@ class PricingService(BaseService):
             return [PricingDetail(**p) for p in cached]
 
         client = self._session.pricing()
-        
+
         # Convert filters to AWS format
-        aws_filters = [
-            {"Type": "TERM_MATCH", "Field": f["Field"], "Value": f["Value"]}
-            for f in filters
-        ]
+        aws_filters = [{"Type": "TERM_MATCH", "Field": f["Field"], "Value": f["Value"]} for f in filters]
 
         try:
             paginator = client.get_paginator("get_products")
             details = []
-            for page in paginator.paginate(ServiceCode=service_code, Filters=aws_filters):
+            for page in paginator.paginate(ServiceCode=service_code, Filters=cast(Any, aws_filters)):
                 for price_list_str in page.get("PriceList", []):
                     # PriceList items are actually JSON strings...
                     item = json.loads(price_list_str)
@@ -88,18 +85,26 @@ class PricingService(BaseService):
                     )
                 )
 
+        # Extract base fields to avoid "multiple values for keyword argument"
+        attrs = attributes.copy()
+        region = attrs.pop("regionCode", attrs.pop("region", None))
+        location = attrs.pop("location", None)
+        service_code = attrs.pop("serviceCode", product.get("serviceCode", ""))
+
         return PricingDetail(
             sku=sku,
             attributes=ProductAttributes(
-                service_code=product.get("serviceCode", ""),
-                region=attributes.get("regionCode"),
-                location=attributes.get("location"),
-                **attributes,
+                service_code=service_code,
+                region=region,
+                location=location,
+                **attrs,
             ),
             prices=prices,
         )
 
-    def get_ec2_price(self, instance_type: str, region_code: str, operating_system: str = "Linux") -> PricingDetail | None:
+    def get_ec2_price(
+        self, instance_type: str, region_code: str, operating_system: str = "Linux"
+    ) -> PricingDetail | None:
         """Helper for EC2 instance pricing."""
         filters = [
             {"Field": "instanceType", "Value": instance_type},
@@ -120,3 +125,319 @@ class PricingService(BaseService):
         ]
         results = self.get_products("AmazonS3", filters)
         return results[0] if results else None
+
+    def get_rds_price(
+        self, instance_class: str, region_code: str, database_engine: str = "MySQL"
+    ) -> PricingDetail | None:
+        """Helper for RDS instance pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": instance_class},
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "databaseEngine", "Value": database_engine},
+            {"Field": "deploymentOption", "Value": "Single-AZ"},
+        ]
+        results = self.get_products("AmazonRDS", filters)
+        return results[0] if results else None
+
+    def get_lambda_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for Lambda pricing (Request and Duration)."""
+        # We need two different products for Lambda usually
+        filters_duration = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "productFamily", "Value": "Serverless"},
+            {"Field": "group", "Value": "AWS-Lambda-Duration"},
+        ]
+        filters_requests = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "productFamily", "Value": "Serverless"},
+            {"Field": "group", "Value": "AWS-Lambda-Requests"},
+        ]
+
+        duration = self.get_products("AWSLambda", filters_duration)
+        requests = self.get_products("AWSLambda", filters_requests)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "duration": duration[0] if duration else None,
+                "requests": requests[0] if requests else None,
+            },
+        )
+
+    def get_ebs_price(self, volume_api_name: str, region_code: str) -> PricingDetail | None:
+        """Helper for EBS volume pricing."""
+        filters = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "volumeApiName", "Value": volume_api_name},
+            {"Field": "productFamily", "Value": "Storage"},
+        ]
+        results = self.get_products("AmazonEC2", filters)
+        return results[0] if results else None
+
+    def get_dynamodb_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for DynamoDB pricing."""
+        filters_storage = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "productFamily", "Value": "Database Storage"},
+        ]
+        filters_wcu = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "DDB-WriteUnits"},
+        ]
+        filters_rcu = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "DDB-ReadUnits"},
+        ]
+
+        storage = self.get_products("AmazonDynamoDB", filters_storage)
+        wcu = self.get_products("AmazonDynamoDB", filters_wcu)
+        rcu = self.get_products("AmazonDynamoDB", filters_rcu)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "storage": storage[0] if storage else None,
+                "wcu": wcu[0] if wcu else None,
+                "rcu": rcu[0] if rcu else None,
+            },
+        )
+
+    def get_nat_gateway_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for NAT Gateway pricing."""
+        filters_hour = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "NAT Gateway - Hour"},
+        ]
+        filters_data = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "NAT Gateway - Data Processed"},
+        ]
+
+        hourly = self.get_products("AmazonEC2", filters_hour)
+        data = self.get_products("AmazonEC2", filters_data)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "hourly": hourly[0] if hourly else None,
+                "data": data[0] if data else None,
+            },
+        )
+
+    def get_elb_price(self, region_code: str, lb_type: str = "Application") -> dict[str, PricingDetail | None]:
+        """Helper for ELB pricing (ALB, NLB, or CLB)."""
+        # lb_type mapping to AWS Pricing groups
+        if lb_type == "Application":
+            hourly_group = "Application Load Balancer-Hour"
+            lcu_group = "LCU"
+        elif lb_type == "Network":
+            hourly_group = "Network Load Balancer-Hour"
+            lcu_group = "NLAU"
+        else:  # Classic
+            hourly_group = "Load Balancer-Hour"
+            lcu_group = None
+
+        hourly = self.get_products(
+            "ElasticLoadBalancing",
+            [{"Field": "regionCode", "Value": region_code}, {"Field": "group", "Value": hourly_group}],
+        )
+
+        lcu = []
+        if lcu_group:
+            lcu = self.get_products(
+                "ElasticLoadBalancing",
+                [{"Field": "regionCode", "Value": region_code}, {"Field": "group", "Value": lcu_group}],
+            )
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "hourly": hourly[0] if hourly else None,
+                "lcu": lcu[0] if lcu else None,
+            },
+        )
+
+    def get_elasticache_price(self, node_type: str, region_code: str, engine: str = "Redis") -> PricingDetail | None:
+        """Helper for ElastiCache pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": node_type},
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "cacheEngine", "Value": engine},
+        ]
+        results = self.get_products("AmazonElastiCache", filters)
+        return results[0] if results else None
+
+    def get_redshift_price(self, node_type: str, region_code: str) -> PricingDetail | None:
+        """Helper for Redshift pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": node_type},
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("AmazonRedshift", filters)
+        return results[0] if results else None
+
+    def get_opensearch_price(self, instance_type: str, region_code: str) -> PricingDetail | None:
+        """Helper for OpenSearch pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": instance_type},
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("AmazonOpenSearchService", filters)
+        return results[0] if results else None
+
+    def get_efs_price(self, region_code: str, storage_class: str = "General Purpose") -> PricingDetail | None:
+        """Helper for EFS pricing."""
+        filters = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "storageClass", "Value": storage_class},
+        ]
+        results = self.get_products("AmazonEFS", filters)
+        return results[0] if results else None
+
+    def get_fargate_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for Fargate pricing (vCPU and RAM)."""
+        cpu_filters = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "Fargate-vCPU"},
+        ]
+        ram_filters = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "Fargate-RAM"},
+        ]
+
+        cpu = self.get_products("AmazonECS", cpu_filters)
+        ram = self.get_products("AmazonECS", ram_filters)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "vcpu": cpu[0] if cpu else None,
+                "ram": ram[0] if ram else None,
+            },
+        )
+
+    def get_cloudfront_price(self, region_code: str) -> dict[str, list[PricingDetail]]:
+        """Helper for CloudFront pricing."""
+        # CloudFront has many types of requests and data transfer
+        data_transfer = self.get_products(
+            "AmazonCloudFront",
+            [{"Field": "regionCode", "Value": region_code}, {"Field": "productFamily", "Value": "Data Transfer"}],
+        )
+        requests = self.get_products(
+            "AmazonCloudFront",
+            [{"Field": "regionCode", "Value": region_code}, {"Field": "productFamily", "Value": "CloudFront Requests"}],
+        )
+
+        return {
+            "data_transfer": data_transfer,
+            "requests": requests,
+        }
+
+    def get_eks_price(self, region_code: str) -> PricingDetail | None:
+        """Helper for EKS cluster fee pricing."""
+        filters = [
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("AmazonEKS", filters)
+        return results[0] if results else None
+
+    def get_kms_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for KMS pricing (Keys and Requests)."""
+        filters_keys = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "KMS-Keys"},
+        ]
+        filters_requests = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "KMS-Requests"},
+        ]
+
+        keys = self.get_products("AWSKMS", filters_keys)
+        requests = self.get_products("AWSKMS", filters_requests)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "keys": keys[0] if keys else None,
+                "requests": requests[0] if requests else None,
+            },
+        )
+
+    def get_sns_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for SNS pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AmazonSNS", filters)
+
+    def get_sqs_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for SQS pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AmazonSQS", filters)
+
+    def get_msk_price(self, instance_type: str, region_code: str) -> PricingDetail | None:
+        """Helper for MSK pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": instance_type},
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("AmazonMSK", filters)
+        return results[0] if results else None
+
+    def get_emr_price(self, instance_type: str, region_code: str) -> PricingDetail | None:
+        """Helper for EMR pricing (EC2 + EMR fee)."""
+        filters = [
+            {"Field": "instanceType", "Value": instance_type},
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("ElasticMapReduce", filters)
+        return results[0] if results else None
+
+    def get_sagemaker_price(self, instance_type: str, region_code: str) -> PricingDetail | None:
+        """Helper for SageMaker instance pricing."""
+        filters = [
+            {"Field": "instanceType", "Value": instance_type},
+            {"Field": "regionCode", "Value": region_code},
+        ]
+        results = self.get_products("AmazonSageMaker", filters)
+        return results[0] if results else None
+
+    def get_glue_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for Glue pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AWSGlue", filters)
+
+    def get_secrets_manager_price(self, region_code: str) -> dict[str, PricingDetail | None]:
+        """Helper for Secrets Manager pricing."""
+        filters_storage = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "Secret Storage"},
+        ]
+        filters_api = [
+            {"Field": "regionCode", "Value": region_code},
+            {"Field": "group", "Value": "API Calls"},
+        ]
+
+        storage = self.get_products("AWSSecretsManager", filters_storage)
+        api = self.get_products("AWSSecretsManager", filters_api)
+
+        return cast(
+            dict[str, PricingDetail | None],
+            {
+                "storage": storage[0] if storage else None,
+                "api": api[0] if api else None,
+            },
+        )
+
+    def get_app_runner_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for App Runner pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AWSAppRunner", filters)
+
+    def get_step_functions_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for Step Functions pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AWSStepFunctions", filters)
+
+    def get_transfer_family_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for AWS Transfer Family pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AWSTransfer", filters)

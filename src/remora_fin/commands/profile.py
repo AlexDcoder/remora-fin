@@ -61,9 +61,7 @@ async def show_profile(args: argparse.Namespace, session: AWSSession) -> None:
         identity = session.get_caller_identity()
 
         # Check billing access
-        billing_access = (
-            "[bold #39ff14]Active[/]" if session.check_billing_access() else "[bold #ff4500]Denied[/]"
-        )
+        billing_access = "[bold #39ff14]Active[/]" if session.check_billing_access() else "[bold #ff4500]Denied[/]"
 
         identity_table = Table(box=None, show_header=False)
         identity_table.add_column("Property", style="bold #39ff14")

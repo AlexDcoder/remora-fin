@@ -17,6 +17,46 @@
 
 ---
 
+## 📊 Service Coverage & Checklist
+
+Remora-Fin provides deep visibility into your AWS environment. Below is the checklist of active integrations and their supported FinOps depth.
+
+| AWS Service | Status | Tracking | Pricing | Cost Calc |
+| :--- | :---: | :---: | :---: | :---: |
+| **Compute** | | | | |
+| EC2 Instances | **Active** | ✅ | ✅ | ✅ |
+| Lambda Functions | **Active** | ✅ | ✅ | ✅ |
+| ECS Clusters | **Active** | ✅ | ✅ | ✅ |
+| EKS Clusters | **Active** | ✅ | ✅ | ✅ |
+| App Runner | **Active** | ✅ | ✅ | ✅ |
+| **Storage** | | | | |
+| S3 Buckets | **Active** | ✅ | ✅ | ✅ |
+| EBS Volumes | **Active** | ✅ | ✅ | ✅ |
+| EFS File Systems | **Active** | ✅ | ✅ | ✅ |
+| **Databases** | | | | |
+| RDS Instances | **Active** | ✅ | ✅ | ✅ |
+| DynamoDB Tables | **Active** | ✅ | ✅ | ✅ |
+| ElastiCache | **Active** | ✅ | ✅ | ✅ |
+| Redshift | **Active** | ✅ | ✅ | ✅ |
+| **Networking** | | | | |
+| CloudFront | **Active** | ✅ | ✅ | ✅ |
+| ELB (v2) | **Active** | ✅ | ✅ | ✅ |
+| NAT Gateway | **Active** | ✅ | ✅ | ✅ |
+| **App Integration** | | | | |
+| SNS Topics | **Active** | ✅ | ✅ | ✅ |
+| SQS Queues | **Active** | ✅ | ✅ | ✅ |
+| Step Functions | **Active** | ✅ | ✅ | ✅ |
+| **Analytics & ML** | | | | |
+| EMR Clusters | **Active** | ✅ | ✅ | ✅ |
+| SageMaker | **Active** | ✅ | ✅ | ✅ |
+| Glue | **Active** | ✅ | ✅ | ✅ |
+| **Management** | | | | |
+| KMS Keys | **Active** | ✅ | ✅ | ✅ |
+| Secrets Manager | **Active** | ✅ | ✅ | ✅ |
+| Transfer Family | **Active** | ✅ | ✅ | ✅ |
+
+---
+
 ## 📦 Installation
 
 Install Remora-Fin using `pip` or `uv`:
@@ -71,6 +111,10 @@ If you prefer a least-privilege approach, ensure your IAM identity has the follo
 | | `sqs:ListQueues` | Message queue tracking. |
 | | `kms:ListKeys` | KMS Key tracking. |
 | | `secretsmanager:ListSecrets` | Secrets Manager tracking. |
+| | `ec2:DescribeVolumes` | EBS Volume tracking. |
+| | `efs:DescribeFileSystems` | EFS File System tracking. |
+| | `elbv2:DescribeLoadBalancers` | ELB Load Balancer tracking. |
+| | `ec2:DescribeNatGateways` | NAT Gateway tracking. |
 
 ---
 

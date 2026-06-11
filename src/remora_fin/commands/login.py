@@ -113,7 +113,6 @@ def login(args: argparse.Namespace) -> None:
         is_valid = session.validate_credentials()
         billing_access = session.check_billing_access() if is_valid else False
 
-
     if is_valid:
         identity = session.get_caller_identity()
 

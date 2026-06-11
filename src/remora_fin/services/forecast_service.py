@@ -295,7 +295,7 @@ class ForecastService(BaseService):
                 is_predicted=True,
             )
             forecast_points.append(point)
-        
+
         forecast_points.sort(key=lambda p: p.date)
         return forecast_points
 
@@ -324,7 +324,7 @@ class ForecastService(BaseService):
                     Metric=metric.name,
                     Granularity=granularity,
                 )
-            
+
             return ForecastResult(
                 forecast_period=DateRange(start=start, end=end),
                 metric=metric,

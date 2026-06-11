@@ -1618,7 +1618,6 @@ dependencies = [
     { name = "aioboto3" },
     { name = "argcomplete" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["budgets", "ce", "organizations", "pricing", "s3", "sts"] },
     { name = "fpdf2" },
     { name = "openpyxl" },
     { name = "polars" },
@@ -1633,6 +1632,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "boto3-stubs", extra = ["budgets", "ce", "organizations", "pricing", "s3", "sts"] },
     { name = "moto", extra = ["all"] },
     { name = "mypy" },
     { name = "pytest" },
@@ -1646,7 +1646,6 @@ requires-dist = [
     { name = "aioboto3", specifier = ">=15.0.0" },
     { name = "argcomplete", specifier = ">=3.2.0" },
     { name = "boto3", specifier = ">=1.40.0" },
-    { name = "boto3-stubs", extras = ["budgets", "ce", "organizations", "pricing", "s3", "sts"], specifier = ">=1.40.0" },
     { name = "fpdf2", specifier = ">=2.8.2" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "polars", specifier = ">=1.39.3" },
@@ -1661,6 +1660,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "boto3-stubs", extras = ["budgets", "ce", "organizations", "pricing", "s3", "sts"], specifier = ">=1.40.0" },
     { name = "moto", extras = ["all"], specifier = ">=5.0.0" },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pytest", specifier = ">=9.0.3" },

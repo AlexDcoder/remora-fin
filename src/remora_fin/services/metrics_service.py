@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
 
 from remora_fin.schemas.metrics import MetricSummary, ResourceMetric
 from remora_fin.services.aws_service import AWSSession, retry_with_backoff
@@ -52,7 +51,7 @@ class MetricsService(BaseService):
             return MetricSummary(**cached)
 
         cw = self._session.cloudwatch()
-        
+
         try:
             resp = cw.get_metric_statistics(
                 Namespace=namespace,
