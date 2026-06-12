@@ -61,6 +61,181 @@ Remora-Fin provides deep visibility into your AWS environment. Below is the chec
 
 ---
 
+## 🏗️ Architecture
+
+### System Data Flow
+
+```mermaid
+graph TD
+    %% CLI/UI Layer
+    subgraph CLI & UI Layer
+        A[CLI Entrypoint: cli.py] --> B[Commands: report, anomalies, forecast, utilization, etc.]
+        C[TUI App: RemoraApp] --> D[UI Facade: UIFacade]
+        B --> D
+    end
+
+    %% Service Orchestration
+    subgraph Service Orchestration
+        D --> E[DashboardService]
+        D --> F[CostService]
+        D --> G[AnomalyService]
+        D --> H[ForecastService]
+        D --> I[InventoryService]
+        D --> J[Pricing & MetricsServices]
+        D --> K[ReportService]
+    end
+
+    %% Caching & Storage Strategy
+    subgraph Data & Storage Strategy
+        E & F & G & H & I & J --> L[CacheService]
+        L -->|Reads/Writes| M[(Local Parquet Cache)]
+        E & F & G & H & I & J --> N[AWSSession]
+        N -->|Queries| O[AWS API: CostExplorer, CloudWatch, Pricing, STS...]
+        K -->|Strategy Pattern| P[ReportFormatter]
+        P -->|Exports| Q[PDF / Excel / CSV / JSON / Markdown]
+        P -->|Optional Upload| R[S3Exporter]
+    end
+
+    classDef ui fill:#00f3ff22,stroke:#00a3cc,stroke-width:2px;
+    classDef service fill:#4b86b422,stroke:#3b6c93,stroke-width:2px;
+    classDef storage fill:#39ff1422,stroke:#2bc20f,stroke-width:2px;
+    
+    class A,B,C,D ui;
+    class E,F,G,H,I,J,K service;
+    class L,M,N,O,P,Q,R storage;
+```
+
+### Class Relationships (UML Diagram)
+
+```mermaid
+classDiagram
+    class AWSSession {
+        +get_instance() AWSSession
+        +cost_explorer() Paginator
+        +pricing() Paginator
+        +cloudwatch() Client
+    }
+
+    class CacheService {
+        +get(query, max_age_hours) DataFrame
+        +set(query, df)
+        +get_json(query, max_age_hours) Any
+        +set_json(query, data)
+    }
+
+    class BaseService {
+        #_session: AWSSession
+        #_cache: CacheService
+    }
+    BaseService --> AWSSession
+    BaseService --> CacheService
+
+    class CostService {
+        +get_cost_by_service_async() CostBreakdown
+    }
+    class AnomalyService {
+        +get_anomaly_report() AnomalyReport
+    }
+    class ForecastService {
+        +get_forecast_result() ForecastResult
+    }
+    class PricingService {
+        +get_ec2_price() PricingDetail
+        +get_s3_price() PricingDetail
+    }
+    class MetricsService {
+        +get_ec2_cpu_utilization() CPUSummary
+    }
+    class InventoryService {
+        +list_resources_async() list
+    }
+
+    CostService --|> BaseService
+    AnomalyService --|> BaseService
+    ForecastService --|> BaseService
+    PricingService --|> BaseService
+    MetricsService --|> BaseService
+    InventoryService --|> BaseService
+
+    class UnitEconomicsService {
+        -_inventory: InventoryService
+        -_pricing: PricingService
+        -_metrics: MetricsService
+        +get_ec2_efficiency() list
+        +get_s3_efficiency() list
+    }
+    UnitEconomicsService --|> BaseService
+    UnitEconomicsService --> InventoryService
+    UnitEconomicsService --> PricingService
+    UnitEconomicsService --> MetricsService
+
+    class DashboardService {
+        -_cost: CostService
+        -_anomaly: AnomalyService
+        -_forecast: ForecastService
+        -_inventory: InventoryService
+    }
+    DashboardService --|> BaseService
+    DashboardService --> CostService
+    DashboardService --> AnomalyService
+    DashboardService --> ForecastService
+    DashboardService --> InventoryService
+
+    class UIFacade {
+        -_dashboard_service: DashboardService
+        -_cost_service: CostService
+        -_anomaly_service: AnomalyService
+        -_forecast_service: ForecastService
+        -_inventory_service: InventoryService
+        +get_dashboard_data() DashboardUIData
+        +get_cost_data() list
+    }
+    UIFacade --> DashboardService
+    UIFacade --> CostService
+    UIFacade --> AnomalyService
+    UIFacade --> ForecastService
+    UIFacade --> InventoryService
+
+    class RemoraApp {
+        -_facade: UIFacade
+        -_session: AWSSession
+        +on_mount()
+    }
+    RemoraApp --> UIFacade
+    RemoraApp --> AWSSession
+
+    class ReportService {
+        -_formatters: dict
+        +generate_report()
+    }
+    class ReportFormatter {
+        <<interface>>
+        +format_cost()*
+        +format_anomalies()*
+        +format_forecast()*
+    }
+    class PDFFormatter {
+        +format_cost()
+    }
+    class ExcelFormatter {
+        +format_cost()
+    }
+    class MarkdownFormatter {
+        +format_cost()
+    }
+    class FastTableFormatter {
+        +format_cost()
+    }
+
+    ReportService --> ReportFormatter
+    PDFFormatter --|> ReportFormatter
+    ExcelFormatter --|> ReportFormatter
+    MarkdownFormatter --|> ReportFormatter
+    FastTableFormatter --|> ReportFormatter
+```
+
+---
+
 ## 📦 Installation
 
 Install Remora-Fin using `pip` or `uv`:
@@ -154,6 +329,34 @@ remora-fin report --service ec2 s3 --type full --format pdf --chart-labels
 # Export cost data in JSON format for external analysis
 remora-fin report --type trend --format json --days 60
 ```
+
+#### 💡 Cost & Cache Considerations for Reporting
+
+AWS charges **$0.01 per request** made to the Cost Explorer API (`GetCostAndUsage`). To protect you from unexpected AWS billing charges during active exploration, Remora-Fin uses an automatic caching mechanism:
+*   **Parquet Cache Storage**: Query responses are parsed into Polars DataFrames and stored locally in `~/.remora/cache/` using a SHA-256 hash of the query parameters.
+*   **Cache Expiration**: Local cached DataFrames are retained for **24 hours**. Any identical command or dashboard refresh run within this window will load instantly from disk at **zero AWS cost**.
+*   **Cache Management**: You can inspect or purge your cache at any time using:
+    ```bash
+    # Show cache usage
+    remora-fin cache info
+
+    # Clear cache files
+    remora-fin cache clear
+    ```
+
+#### 📈 Selecting the Right Cost Metric
+
+When running reports, you can specify different `--metric` options to view costs under various financial models:
+
+| Metric Name | Cost Explorer API Field | Description |
+| :--- | :--- | :--- |
+| **`UnblendedCost`** *(Default)* | `UnblendedCost` | The raw cost of usage on the day it occurred, calculated using the standard unblended rate. Does not include discounts, refunds, or credits. |
+| **`BlendedCost`** | `BlendedCost` | The average cost of usage across all linked accounts in an AWS Organization (useful for consolidated billing). |
+| **`AmortizedCost`** | `AmortizedCost` | Spreads upfront reservation fees (RI/Savings Plans) evenly over the usage period, giving a more accurate view of daily baseline cost. |
+| **`NetUnblendedCost`** | `NetUnblendedCost` | Unblended cost *after* factoring in post-billing discounts, credits, refunds, and support fees. |
+| **`UsageQuantity`** | `UsageQuantity` | The raw usage volume (e.g. GB stored, hours run) instead of monetary cost. |
+
+---
 
 ### 🔍 `anomalies`
 
