@@ -22,6 +22,7 @@ from remora_fin.services import (
     CostService,
     DashboardService,
     ForecastService,
+    PricingService,
     ReportService,
     UnitEconomicsService,
 )

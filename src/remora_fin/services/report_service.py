@@ -11,6 +11,7 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, ClassVar
 
 import polars as pl
@@ -1085,7 +1086,12 @@ class MarkdownFormatter(ReportFormatter):
         config: ReportConfig | None = None,
         pdf: Any = None,
     ) -> str:
-        lines = ["# Pricing Benchmarks", "", "| Service / Component | Rate (USD) |", "|---------------------|------------|"]
+        lines = [
+            "# Pricing Benchmarks",
+            "",
+            "| Service / Component | Rate (USD) |",
+            "|---------------------|------------|",
+        ]
         for label, rate in sorted(data.items()):
             lines.append(f"| {label} | ${rate:.6f} |")
         return "\n".join(lines)

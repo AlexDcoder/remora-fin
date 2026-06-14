@@ -6,7 +6,7 @@ import pytest
 
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostSummary
-from remora_fin.schemas.report import ReportConfig, ReportFormat, ReportMetadata
+from remora_fin.schemas.report import FullReport, ReportConfig, ReportFormat, ReportMetadata
 from remora_fin.services.report_service import ReportService
 
 
@@ -88,3 +88,20 @@ def test_report_service_invalid_format(report_service: ReportService, mock_cost_
 
     with pytest.raises(ValueError, match="Unknown format: invalid"):
         report_service.generate_report(mock_cost_breakdown, config=config)
+
+
+def test_generate_full_report_with_pricing(
+    report_service: ReportService, mock_cost_breakdown: CostBreakdown, report_metadata: ReportMetadata
+) -> None:
+    data = FullReport(
+        cost_breakdown=mock_cost_breakdown,
+        pricing_summary={"S3 Standard (per GB)": Decimal("0.023"), "EC2 t3.medium": Decimal("0.0416")},
+    )
+    config = ReportConfig(format=ReportFormat.MARKDOWN)
+    report = report_service.generate_report(data, config=config, metadata=report_metadata)
+
+    assert isinstance(report, str)
+    assert "# Pricing Benchmarks" in report
+    assert "S3 Standard (per GB)" in report
+    assert "$0.023000" in report
+    assert "EC2 t3.medium" in report
