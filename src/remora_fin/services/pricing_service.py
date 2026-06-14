@@ -441,3 +441,32 @@ class PricingService(BaseService):
         """Helper for AWS Transfer Family pricing."""
         filters = [{"Field": "regionCode", "Value": region_code}]
         return self.get_products("AWSTransfer", filters)
+
+    def get_region_pricing_summary(self, region_code: str) -> dict[str, Any]:
+        """Get a summary of key pricing benchmarks for a region."""
+        summary = {}
+
+        # S3 Standard
+        s3 = self.get_s3_price("Standard", region_code)
+        if s3 and s3.on_demand_price:
+            summary["S3 Standard (per GB)"] = s3.on_demand_price.price_per_unit
+
+        # EC2 common types
+        for itype in ["t3.medium", "m5.large", "c5.xlarge"]:
+            ec2 = self.get_ec2_price(itype, region_code)
+            if ec2 and ec2.on_demand_price:
+                summary[f"EC2 {itype} (On-Demand)"] = ec2.on_demand_price.price_per_unit
+
+        # Lambda
+        lambda_p = self.get_lambda_price(region_code)
+        if lambda_p["duration"] and lambda_p["duration"].on_demand_price:
+            summary["Lambda Duration (per GB-sec)"] = lambda_p["duration"].on_demand_price.price_per_unit
+        if lambda_p["requests"] and lambda_p["requests"].on_demand_price:
+            summary["Lambda Requests (per 1M)"] = lambda_p["requests"].on_demand_price.price_per_unit
+
+        # DynamoDB
+        ddb = self.get_dynamodb_price(region_code)
+        if ddb["storage"] and ddb["storage"].on_demand_price:
+            summary["DynamoDB Storage (per GB)"] = ddb["storage"].on_demand_price.price_per_unit
+
+        return summary

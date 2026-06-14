@@ -122,6 +122,17 @@ class ReportFormatter(ABC):
         ...
 
     @abstractmethod
+    def format_pricing(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | str | FPDF:
+        """Format pricing benchmarks summary."""
+        ...
+
+    @abstractmethod
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes | str:
@@ -607,6 +618,40 @@ class PDFFormatter(ReportFormatter):
 
         return pdf if is_partial else bytes(pdf.output())
 
+    def format_pricing(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | FPDF:
+        title = "Pricing Benchmarks Summary"
+        is_partial = pdf is not None
+
+        if not pdf:
+            pdf = self._create_base_pdf(title, metadata)
+        else:
+            pdf.add_page()
+            self._add_header(pdf, title, metadata)
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 10, "Current Unit Rates (Region Context)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(4)
+
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(52, 152, 219)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(120, 10, " Service / Component", border=1, fill=True)
+        pdf.cell(70, 10, " Rate (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(0, 0, 0)
+        for label, rate in sorted(data.items()):
+            pdf.cell(120, 8, f" {label}", border=1)
+            pdf.cell(70, 8, f"${rate:.6f} ", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+
+        return pdf if is_partial else bytes(pdf.output())
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -616,6 +661,8 @@ class PDFFormatter(ReportFormatter):
             self.format_cost(data.cost_breakdown, metadata, config=config, pdf=pdf)
         if data.cost_trend:
             self.format_cost(data.cost_trend, metadata, config=config, pdf=pdf)
+        if data.pricing_summary:
+            self.format_pricing(data.pricing_summary, metadata, config=config, pdf=pdf)
         if data.unit_economics:
             self.format_unit_economics(data.unit_economics, metadata, config=config, pdf=pdf)
         if data.anomalies:
@@ -738,6 +785,18 @@ class ExcelFormatter(ReportFormatter):
         df.write_excel(buf)
         return buf.getvalue()
 
+    def format_pricing(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
+        df = pl.DataFrame([{"Component": k, "Rate": float(v)} for k, v in data.items()])
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -746,6 +805,10 @@ class ExcelFormatter(ReportFormatter):
             sheets["Cost Breakdown"] = self._to_df(data.cost_breakdown)
         if data.cost_trend:
             sheets["Cost Trend"] = self._to_df(data.cost_trend)
+        if data.pricing_summary:
+            sheets["Pricing Benchmarks"] = pl.DataFrame(
+                [{"Component": k, "Rate": float(v)} for k, v in data.pricing_summary.items()]
+            )
         if data.unit_economics:
             if "ec2" in data.unit_economics:
                 sheets["EC2 Efficiency"] = pl.DataFrame(data.unit_economics["ec2"])
@@ -801,6 +864,9 @@ class FastTableFormatter(ReportFormatter):
             if "score" in data:
                 # Governance
                 return pl.DataFrame([{"score": data["score"], "compliant": data["compliant_resources"]}])
+            # Check if it's pricing
+            if any(isinstance(v, (int, float, Decimal)) for v in data.values()):
+                return pl.DataFrame([{"component": k, "rate": float(v)} for k, v in data.items()])
             return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
         return pl.DataFrame()
 
@@ -864,6 +930,15 @@ class FastTableFormatter(ReportFormatter):
         if "ec2" in data:
             return self._serialize(pl.DataFrame(data["ec2"]))
         return "Unit economics section empty"
+
+    def format_pricing(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        return self._serialize(self._to_df(data))
 
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
@@ -1003,6 +1078,18 @@ class MarkdownFormatter(ReportFormatter):
                 lines.append(f"| {b['name']} | ${b['standard_rate_gb']:.4f} |")
         return "\n".join(lines)
 
+    def format_pricing(
+        self,
+        data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        lines = ["# Pricing Benchmarks", "", "| Service / Component | Rate (USD) |", "|---------------------|------------|"]
+        for label, rate in sorted(data.items()):
+            lines.append(f"| {label} | ${rate:.6f} |")
+        return "\n".join(lines)
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> str:
@@ -1011,6 +1098,8 @@ class MarkdownFormatter(ReportFormatter):
             parts.append(self.format_cost(data.cost_breakdown, metadata, config=config))
         if data.cost_trend:
             parts.append(self.format_cost(data.cost_trend, metadata, config=config))
+        if data.pricing_summary:
+            parts.append(self.format_pricing(data.pricing_summary, metadata, config=config))
         if data.unit_economics:
             parts.append(self.format_unit_economics(data.unit_economics, metadata, config=config))
         if data.anomalies:
@@ -1055,9 +1144,16 @@ class ReportService:
         elif isinstance(data, FullReport):
             content = formatter.format_full(data, metadata, config=config)
         elif isinstance(data, dict):
-            # Check if it's unit economics or infrastructure
+            # Check if it's unit economics, pricing or infrastructure
             if "ec2" in data or "s3" in data:
                 content = formatter.format_unit_economics(data, metadata, config=config)
+            elif any(isinstance(v, (int, float, Decimal)) for v in data.values()):
+                # Likely pricing or some count summary
+                # If all values are int, it might be infra. If they are floats/Decimals, likely pricing.
+                if all(isinstance(v, int) for v in data.values()):
+                    content = formatter.format_infrastructure(data, metadata, config=config)
+                else:
+                    content = formatter.format_pricing(data, metadata, config=config)
             else:
                 content = formatter.format_infrastructure(data, metadata, config=config)
         else:

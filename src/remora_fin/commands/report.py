@@ -135,13 +135,16 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
 
             # Fetch unit economics (EC2 efficiency, S3 rates)
             unit_economics = {}
+            pricing_summary = {}
             try:
                 ue_service = UnitEconomicsService(session)
+                pricing_service = PricingService(session)
                 ec2_eff = await ue_service.get_ec2_efficiency(days=args.days)
                 s3_eff = await ue_service.get_s3_efficiency()
                 unit_economics = {"ec2": ec2_eff, "s3": s3_eff}
+                pricing_summary = pricing_service.get_region_pricing_summary(session.region)
             except Exception as e:
-                logger.debug("Failed to fetch unit economics: %s", e)
+                logger.debug("Failed to fetch unit economics/pricing: %s", e)
 
             data = FullReport(
                 cost_breakdown=breakdown,
@@ -151,6 +154,7 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
                 infrastructure_summary=infra_counts,
                 governance=summary_data.get("governance"),
                 unit_economics=unit_economics,
+                pricing_summary=pricing_summary,
             )
         elif args.type == "trend":
             data = await cost_service.get_daily_trend_async(start, end, metric=metric)

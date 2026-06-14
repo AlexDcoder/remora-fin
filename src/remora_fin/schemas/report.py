@@ -75,6 +75,7 @@ class FullReport(BaseModel):
     infrastructure_summary: dict[str, int] | None = None
     governance: dict[str, Any] | None = None
     unit_economics: dict[str, Any] | None = None
+    pricing_summary: dict[str, Any] | None = None
 
 
 # Ensure all forward refs are resolved

@@ -96,14 +96,6 @@ def execute_cli() -> None:
     add_login_parser(subparsers)
     add_profile_parser(subparsers)
     add_utilization_parser(subparsers)
-
-    # Enable argcomplete support
-    try:
-        import argcomplete
-        argcomplete.autocomplete(parser)
-    except ImportError:
-        pass
-
     args = parser.parse_args()
 
     if not args.command:
