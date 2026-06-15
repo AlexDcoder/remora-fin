@@ -140,6 +140,36 @@ async def test_inventory_service_s3(mock_session: tuple[MagicMock, MagicMock]) -
 
 
 @pytest.mark.asyncio
+async def test_inventory_service_vpc(mock_session: tuple[MagicMock, MagicMock]) -> None:
+    session, client = mock_session
+
+    # VPC uses paginator describe_vpcs
+    paginator = MagicMock()
+    client.get_paginator.return_value = paginator
+
+    async def mock_paginate() -> Any:
+        yield {
+            "Vpcs": [
+                {
+                    "VpcId": "vpc-123",
+                    "CidrBlock": "10.0.0.0/16",
+                    "State": "available",
+                    "IsDefault": False,
+                }
+            ]
+        }
+
+    paginator.paginate.return_value.__aiter__.side_effect = mock_paginate
+
+    service = InventoryService(session=session)
+    resources = await service.list_resources_async("vpc", use_cache=False)
+
+    assert len(resources) == 1
+    assert resources[0]["id"] == "vpc-123"
+    assert resources[0]["cidr"] == "10.0.0.0/16"
+
+
+@pytest.mark.asyncio
 async def test_inventory_service_invalid_type(mock_session: tuple[MagicMock, MagicMock]) -> None:
     session, _ = mock_session
     service = InventoryService(session=session)

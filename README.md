@@ -77,6 +77,17 @@ Remora-Fin provides deep visibility into your AWS environment. Below is the chec
 | KMS Keys | **Active** | ✅ | ✅ | ✅ |
 | Secrets Manager | **Active** | ✅ | ✅ | ✅ |
 | Transfer Family | **Active** | ✅ | ✅ | ✅ |
+| **Serverless & API** | | | | |
+| API Gateway (v1/v2) | **Active** | ✅ | ✅ | ✅ |
+| EventBridge | **Active** | ✅ | - | - |
+| **Networking & Content** | | | | |
+| Route 53 | **Active** | ✅ | ✅ | ✅ |
+| VPC / Subnets | **Active** | ✅ | - | - |
+| **Security & Governance** | | | | |
+| WAF v2 | **Active** | ✅ | ✅ | ✅ |
+| IAM Roles | **Active** | ✅ | - | - |
+| **Management & Logs** | | | | |
+| CloudWatch Logs | **Active** | ✅ | - | - |
 
 ---
 

@@ -208,6 +208,78 @@ RESOURCE_REGISTRY: dict[str, ResourceConfig] = {
         result_path=["NatGateways"],
         mapper=lambda x: {"id": x["NatGatewayId"], "state": x["State"], "vpc": x["VpcId"]},
     ),
+    "apigateway": ResourceConfig(
+        client_name="apigateway",
+        paginator_name="get_rest_apis",
+        result_path=["items"],
+        mapper=lambda x: {
+            "id": x["id"],
+            "name": x["name"],
+            "created": x.get("createdDate", "").isoformat()
+            if hasattr(x.get("createdDate"), "isoformat")
+            else str(x.get("createdDate")),
+        },
+    ),
+    "apigatewayv2": ResourceConfig(
+        client_name="apigatewayv2",
+        paginator_name="get_apis",
+        result_path=["Items"],
+        mapper=lambda x: {"id": x["ApiId"], "name": x["Name"], "protocol": x["ProtocolType"]},
+    ),
+    "vpc": ResourceConfig(
+        client_name="ec2",
+        paginator_name="describe_vpcs",
+        result_path=["Vpcs"],
+        mapper=lambda x: {"id": x["VpcId"], "cidr": x["CidrBlock"], "state": x["State"], "default": x["IsDefault"]},
+    ),
+    "subnet": ResourceConfig(
+        client_name="ec2",
+        paginator_name="describe_subnets",
+        result_path=["Subnets"],
+        mapper=lambda x: {"id": x["SubnetId"], "vpc": x["VpcId"], "cidr": x["CidrBlock"], "az": x["AvailabilityZone"]},
+    ),
+    "security_group": ResourceConfig(
+        client_name="ec2",
+        paginator_name="describe_security_groups",
+        result_path=["SecurityGroups"],
+        mapper=lambda x: {"id": x["GroupId"], "name": x["GroupName"], "vpc": x.get("VpcId", "N/A")},
+    ),
+    "route53": ResourceConfig(
+        client_name="route53",
+        paginator_name="list_hosted_zones",
+        result_path=["HostedZones"],
+        mapper=lambda x: {"id": x["Id"], "name": x["Name"], "private": x["Config"]["PrivateZone"]},
+        service_type=ServiceType.GLOBAL,
+    ),
+    "eventbridge": ResourceConfig(
+        client_name="events",
+        paginator_name="list_rules",
+        result_path=["Rules"],
+        mapper=lambda x: {"name": x["Name"], "state": x["State"], "bus": x.get("EventBusName", "default")},
+    ),
+    "logs": ResourceConfig(
+        client_name="logs",
+        paginator_name="describe_log_groups",
+        result_path=["logGroups"],
+        mapper=lambda x: {
+            "name": x["logGroupName"],
+            "retention": x.get("retentionInDays", "Infinite"),
+            "size": x.get("storedBytes", 0),
+        },
+    ),
+    "iam_role": ResourceConfig(
+        client_name="iam",
+        paginator_name="list_roles",
+        result_path=["Roles"],
+        mapper=lambda x: {"name": x["RoleName"], "id": x["RoleId"], "arn": x["Arn"]},
+        service_type=ServiceType.GLOBAL,
+    ),
+    "wafv2": ResourceConfig(
+        client_name="wafv2",
+        paginator_name="list_web_acls",
+        result_path=["WebACLs"],
+        mapper=lambda x: {"name": x["Name"], "id": x["Id"], "arn": x["ARN"]},
+    ),
 }
 
 

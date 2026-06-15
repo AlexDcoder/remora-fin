@@ -131,3 +131,58 @@ class MetricsService(BaseService):
             end_time=end,
             statistics=["Sum"],
         )
+
+    def get_ecs_cpu_utilization(self, cluster_name: str, service_name: str, days: int = 7) -> MetricSummary | None:
+        """Helper for ECS Service CPU utilization."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        return self.get_metric_statistics(
+            namespace="AWS/ECS",
+            metric_name="CPUUtilization",
+            dimensions=[
+                {"Name": "ClusterName", "Value": cluster_name},
+                {"Name": "ServiceName", "Value": service_name},
+            ],
+            start_time=start,
+            end_time=end,
+        )
+
+    def get_elb_request_count(self, load_balancer_name: str, days: int = 7) -> MetricSummary | None:
+        """Helper for ELB request count."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        # For Application Load Balancers, dimensions are LoadBalancer
+        return self.get_metric_statistics(
+            namespace="AWS/ApplicationELB",
+            metric_name="RequestCount",
+            dimensions=[{"Name": "LoadBalancer", "Value": load_balancer_name}],
+            start_time=start,
+            end_time=end,
+            statistics=["Sum"],
+        )
+
+    def get_cloudfront_requests(self, distribution_id: str, days: int = 7) -> MetricSummary | None:
+        """Helper for CloudFront request count."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        return self.get_metric_statistics(
+            namespace="AWS/CloudFront",
+            metric_name="Requests",
+            dimensions=[{"Name": "DistributionId", "Value": distribution_id}, {"Name": "Region", "Value": "Global"}],
+            start_time=start,
+            end_time=end,
+            statistics=["Sum"],
+        )
+
+    def get_nat_gateway_bytes_processed(self, nat_gateway_id: str, days: int = 7) -> MetricSummary | None:
+        """Helper for NAT Gateway data processing."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        return self.get_metric_statistics(
+            namespace="AWS/NATGateway",
+            metric_name="BytesProcessed",
+            dimensions=[{"Name": "NatGatewayId", "Value": nat_gateway_id}],
+            start_time=start,
+            end_time=end,
+            statistics=["Sum"],
+        )

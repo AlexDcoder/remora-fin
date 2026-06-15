@@ -442,6 +442,31 @@ class PricingService(BaseService):
         filters = [{"Field": "regionCode", "Value": region_code}]
         return self.get_products("AWSTransfer", filters)
 
+    def get_apigateway_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for API Gateway pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AmazonApiGateway", filters)
+
+    def get_waf_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for AWS WAF pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("awswaf", filters)
+
+    def get_route53_price(self) -> list[PricingDetail]:
+        """Helper for Route53 pricing (Global)."""
+        # Route53 doesn't use regionCode in the same way usually
+        return self.get_products("AmazonRoute53", [])
+
+    def get_athena_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for Athena pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AmazonAthena", filters)
+
+    def get_kinesis_price(self, region_code: str) -> list[PricingDetail]:
+        """Helper for Kinesis Data Streams pricing."""
+        filters = [{"Field": "regionCode", "Value": region_code}]
+        return self.get_products("AmazonKinesis", filters)
+
     def get_region_pricing_summary(self, region_code: str) -> dict[str, Any]:
         """Get a summary of key pricing benchmarks for a region."""
         summary = {}
