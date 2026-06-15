@@ -8,6 +8,25 @@
 
 ---
 
+## 🏁 Getting Started
+
+Get up and running in seconds:
+
+1. **Install** Remora-Fin:
+   ```bash
+   uv tool install remora-fin
+   ```
+2. **Configure** your AWS credentials:
+   ```bash
+   remora-fin login --configure
+   ```
+3. **Launch** the interactive dashboard:
+   ```bash
+   remora-fin dashboard
+   ```
+
+---
+
 ## 🚀 Key Features
 
 * **📈 Vector Graphics:** Native PDF visualizations (Bars & Lines) with zero external dependencies.
