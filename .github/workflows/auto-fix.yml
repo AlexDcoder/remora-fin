@@ -1,4 +1,4 @@
-name: Auto-Fix Lint & Format
+name: Auto-Fix Lint & Format Status
 
 on:
   pull_request:
