@@ -1,11 +1,11 @@
 name: Auto-Fix Lint & Format Status
 
 on:
-  pull_request:
-  workflow_dispatch: # Allows you to trigger this manually from GitHub Actions UI
+  pull_request_target:
+  workflow_dispatch: 
 
 permissions:
-  contents: write # Required to allow pushing changes back to the repository
+  contents: write 
 
 jobs:
   auto-fix:
@@ -14,7 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }} # Check out the actual PR branch, not the merge commit
+          # Check out the head repo and ref securely so changes can be committed back
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - uses: astral-sh/setup-uv@v5
         with:
@@ -22,15 +24,14 @@ jobs:
 
       - run: uv sync --all-extras --frozen
 
-      # Run Ruff with fix and format flags
       - name: Fix Lint Issues
         run: uv run ruff check --fix .
-        continue-on-error: true # Continues even if some errors require manual fixing
+        continue-on-error: true 
 
       - name: Format Code
         run: uv run ruff format .
 
-      # Commit the changes back if any modifications were made
+      # Commits style updates back to the PR branch safely
       - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
