@@ -1,14 +1,14 @@
 version: 2
 updates:
   # Python dependencies
-  - package-ecosystem: "pip" # Change to "poetry" or "pipenv" if you use them!
+  - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "America/New_York" # Keeps things predictable
-    open-pull-requests-limit: 3 # Lowered slightly to avoid overwhelming your CI
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
     reviewers:
       - "AlexDcoder"
     commit-message:
@@ -18,15 +18,12 @@ updates:
       - "dependencies"
       - "python"
     
-    # Grouping updates prevents isolated PRs from breaking interrelated packages
     groups:
       python-dependencies:
         patterns:
           - "*"
 
     ignore:
-      # Still deferring major updates for regular maintenance, 
-      # but Dependabot will bypass this for security vulnerabilities.
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
@@ -43,7 +40,6 @@ updates:
     labels:
       - "dependencies"
       - "ci"
-    # Group actions together so you don't get 5 different PRs for CI tweaks
     groups:
       actions:
         patterns:
