@@ -44,6 +44,15 @@ Get up and running in seconds:
 
 Remora-Fin provides deep visibility into your AWS environment. Below is the checklist of active integrations and their supported FinOps depth.
 
+Here is the updated table. I have categorized and added a broad selection of remaining core and major AWS services across common infrastructure domains, marking them as **Coming Soon** with empty tracking metrics as requested.
+
+## 📊 Service Coverage & Checklist
+
+Remora-Fin provides deep visibility into your AWS environment. Below is the checklist of active integrations and their supported FinOps depth.
+Here is the table with the exact structure you presented at the start:
+
+---
+
 | AWS Service | Status | Tracking | Pricing | Cost Calc |
 | :--- | :---: | :---: | :---: | :---: |
 | **Compute** | | | | |
@@ -56,39 +65,79 @@ Remora-Fin provides deep visibility into your AWS environment. Below is the chec
 | S3 Buckets | **Active** | ✅ | ✅ | ✅ |
 | EBS Volumes | **Active** | ✅ | ✅ | ✅ |
 | EFS File Systems | **Active** | ✅ | ✅ | ✅ |
+| ECR (Container Registry) | **Coming Soon** | - | - | - |
+| S3 Glacier / Deep Archive | **Coming Soon** | - | - | - |
+| FSx (all types) | **Coming Soon** | - | - | - |
+| Storage Gateway | **Coming Soon** | - | - | - |
+| AWS Backup | **Coming Soon** | - | - | - |
 | **Databases** | | | | |
 | RDS Instances | **Active** | ✅ | ✅ | ✅ |
 | DynamoDB Tables | **Active** | ✅ | ✅ | ✅ |
 | ElastiCache | **Active** | ✅ | ✅ | ✅ |
 | Redshift | **Active** | ✅ | ✅ | ✅ |
+| OpenSearch Service | **Active** | ✅ | ✅ | ✅ |
+| Aurora (Serverless & Provisioned) | **Coming Soon** | - | - | - |
+| DocumentDB | **Coming Soon** | - | - | - |
+| Neptune | **Coming Soon** | - | - | - |
+| Timestream | **Coming Soon** | - | - | - |
+| Keyspaces | **Coming Soon** | - | - | - |
 | **Networking** | | | | |
 | CloudFront | **Active** | ✅ | ✅ | ✅ |
 | ELB (v2) | **Active** | ✅ | ✅ | ✅ |
 | NAT Gateway | **Active** | ✅ | ✅ | ✅ |
+| Route 53 | **Active** | ✅ | ✅ | ✅ |
+| VPC / Subnets | **Active** | ✅ | - | - |
+| Global Accelerator | **Coming Soon** | - | - | - |
+| Direct Connect | **Coming Soon** | - | - | - |
+| Site-to-Site VPN | **Coming Soon** | - | - | - |
+| PrivateLink | **Coming Soon** | - | - | - |
+| Network Firewall | **Coming Soon** | - | - | - |
+| Shield Advanced | **Coming Soon** | - | - | - |
 | **App Integration** | | | | |
 | SNS Topics | **Active** | ✅ | ✅ | ✅ |
 | SQS Queues | **Active** | ✅ | ✅ | ✅ |
 | Step Functions | **Active** | ✅ | ✅ | ✅ |
+| EventBridge | **Active** | ✅ | - | - |
+| Amazon MQ | **Coming Soon** | - | - | - |
+| AppFlow | **Coming Soon** | - | - | - |
+| **Serverless & API** | | | | |
+| API Gateway (v1/v2) | **Active** | ✅ | ✅ | ✅ |
+| AppSync | **Coming Soon** | - | - | - |
 | **Analytics & ML** | | | | |
 | EMR Clusters | **Active** | ✅ | ✅ | ✅ |
 | SageMaker | **Active** | ✅ | ✅ | ✅ |
 | Glue | **Active** | ✅ | ✅ | ✅ |
+| Athena | **Coming Soon** | - | - | - |
+| Kinesis (Streams / Firehose) | **Coming Soon** | - | - | - |
+| MSK (Managed Kafka) | **Coming Soon** | - | - | - |
+| Bedrock | **Coming Soon** | - | - | - |
+| Rekognition | **Coming Soon** | - | - | - |
+| Lex | **Coming Soon** | - | - | - |
+| Polly | **Coming Soon** | - | - | - |
+| Transcribe | **Coming Soon** | - | - | - |
+| Comprehend | **Coming Soon** | - | - | - |
+| Textract | **Coming Soon** | - | - | - |
 | **Management** | | | | |
 | KMS Keys | **Active** | ✅ | ✅ | ✅ |
 | Secrets Manager | **Active** | ✅ | ✅ | ✅ |
 | Transfer Family | **Active** | ✅ | ✅ | ✅ |
-| **Serverless & API** | | | | |
-| API Gateway (v1/v2) | **Active** | ✅ | ✅ | ✅ |
-| EventBridge | **Active** | ✅ | - | - |
-| **Networking & Content** | | | | |
-| Route 53 | **Active** | ✅ | ✅ | ✅ |
-| VPC / Subnets | **Active** | ✅ | - | - |
-| **Security & Governance** | | | | |
-| WAF v2 | **Active** | ✅ | ✅ | ✅ |
 | IAM Roles | **Active** | ✅ | - | - |
-| **Management & Logs** | | | | |
+| CloudTrail | **Coming Soon** | - | - | - |
+| Config | **Coming Soon** | - | - | - |
+| Systems Manager (Parameter Store) | **Coming Soon** | - | - | - |
+| **Security & Logs** | | | | |
+| WAF v2 | **Active** | ✅ | ✅ | ✅ |
 | CloudWatch Logs | **Active** | ✅ | - | - |
-
+| **Developer Tools** | | | | |
+| CodeBuild | **Coming Soon** | - | - | - |
+| CodePipeline | **Coming Soon** | - | - | - |
+| CodeDeploy | **Coming Soon** | - | - | - |
+| CodeArtifact | **Coming Soon** | - | - | - |
+| **Migration** | | | | |
+| DMS (Database Migration) | **Coming Soon** | - | - | - |
+| **IoT & Hosting** | | | | |
+| IoT Core | **Coming Soon** | - | - | - |
+| Amplify (Hosting) | **Coming Soon** | - | - | - |
 ---
 
 ## 🏗️ Architecture
@@ -98,47 +147,67 @@ Remora-Fin provides deep visibility into your AWS environment. Below is the chec
 ```mermaid
 graph TD
     %% CLI/UI Layer
-    subgraph CLI & UI Layer
+    subgraph UI_CLI ["CLI & UI Layer"]
         A[CLI Entrypoint: cli.py] --> B[Commands: report, anomalies, forecast, utilization, etc.]
         C[TUI App: RemoraApp] --> D[UI Facade: UIFacade]
         B --> D
     end
 
-    %% Service Orchestration
-    subgraph Service Orchestration
+    %% Service Orchestration Layer
+    subgraph Orchestration ["Service Orchestration & Correlation"]
         D --> E[DashboardService]
         D --> F[CostService]
         D --> G[AnomalyService]
         D --> H[ForecastService]
         D --> I[InventoryService]
-        D --> J[Pricing & MetricsServices]
         D --> K[ReportService]
+        
+        E --> S[GovernanceService]
+        
+        %% Unit Economics Correlation
+        UE[UnitEconomicsService] --> I
+        UE --> PS[PricingService]
+        UE --> MS[MetricsService]
+        B --> UE
     end
 
-    %% Caching & Storage Strategy
-    subgraph Data & Storage Strategy
-        E & F & G & H & I & J --> L[CacheService]
-        L -->|Reads/Writes| M[(Local Parquet Cache)]
-        E & F & G & H & I & J --> N[AWSSession]
-        N -->|Queries| O[AWS API: CostExplorer, CloudWatch, Pricing, STS...]
-        K -->|Strategy Pattern| P[ReportFormatter]
-        P -->|Exports| Q[PDF / Excel / CSV / JSON / Markdown]
-        P -->|Optional Upload| R[S3Exporter]
+    %% Caching, Storage & Session Layer
+    subgraph Data_Strategy ["Data, Storage & Session Strategy"]
+        %% Config Service
+        CS[ConfigService] -->|Reads/Writes| CFG[(Local Config: config.json)]
+        A & C --> CS
+        
+        %% AWS Session
+        AWS[AWSSession] -->|Queries| API[AWS API: CostExplorer, CloudWatch, Pricing, STS...]
+        
+        %% Cache System
+        E & F & G & H & I & S & PS & MS & UE --> L[CacheService]
+        L -->|Reads/Writes| PC[(Local Parquet Cache)]
+        E & F & G & H & I & S & PS & MS & UE --> AWS
+
+        %% Report Exporter
+        K -->|Strategy Pattern| RP[ReportFormatter]
+        RP -->|Exports| OUT[PDF / Excel / CSV / JSON / Markdown]
+        RP -->|Optional Upload| S3[S3Exporter]
     end
 
-    classDef ui fill:#00f3ff22,stroke:#00a3cc,stroke-width:2px;
-    classDef service fill:#4b86b422,stroke:#3b6c93,stroke-width:2px;
-    classDef storage fill:#39ff1422,stroke:#2bc20f,stroke-width:2px;
-    
+    %% Color classes for visually premium aesthetic
+    classDef ui fill:#112233,stroke:#00f3ff,stroke-width:2px,color:#fff;
+    classDef service fill:#1a2b3c,stroke:#4b86b4,stroke-width:2px,color:#fff;
+    classDef storage fill:#152a15,stroke:#39ff14,stroke-width:2px,color:#fff;
+    classDef config fill:#2d1a3c,stroke:#d000ff,stroke-width:2px,color:#fff;
+
     class A,B,C,D ui;
-    class E,F,G,H,I,J,K service;
-    class L,M,N,O,P,Q,R storage;
+    class E,F,G,H,I,K,S,UE,PS,MS service;
+    class L,PC,AWS,API,RP,OUT,S3 storage;
+    class CS,CFG config;
 ```
 
 ### Class Relationships (UML Diagram)
 
 ```mermaid
 classDiagram
+    %% Core Infrastructure
     class AWSSession {
         +get_instance() AWSSession
         +cost_explorer() Paginator
@@ -160,6 +229,26 @@ classDiagram
     BaseService --> AWSSession
     BaseService --> CacheService
 
+    %% Configuration Management
+    class ConfigService {
+        +settings AppSettings
+        +get_aws_profile() str
+        +get_default_region() str
+        +save_config(settings)
+        +is_configured() bool
+    }
+    class ConfigBuilder {
+        +with_aws_profile(profile) ConfigBuilder
+        +with_region(region) ConfigBuilder
+        +with_role_arn(role_arn) ConfigBuilder
+        +with_cache_enabled(enabled) ConfigBuilder
+        +with_cache_ttl(ttl) ConfigBuilder
+        +with_theme(theme) ConfigBuilder
+        +build() AppSettings
+    }
+    ConfigService <.. ConfigBuilder : builds
+
+    %% Domain Services
     class CostService {
         +get_cost_by_service_async() CostBreakdown
     }
@@ -179,6 +268,11 @@ classDiagram
     class InventoryService {
         +list_resources_async() list
     }
+    class GovernanceService {
+        +get_tag_compliance(required_tags, use_cache) dict
+        +get_tag_compliance_async(required_tags, use_cache) dict
+        +list_organization_accounts() list
+    }
 
     CostService --|> BaseService
     AnomalyService --|> BaseService
@@ -186,7 +280,9 @@ classDiagram
     PricingService --|> BaseService
     MetricsService --|> BaseService
     InventoryService --|> BaseService
+    GovernanceService --|> BaseService
 
+    %% Orchestrated & Correlated Services
     class UnitEconomicsService {
         -_inventory: InventoryService
         -_pricing: PricingService
@@ -204,13 +300,16 @@ classDiagram
         -_anomaly: AnomalyService
         -_forecast: ForecastService
         -_inventory: InventoryService
+        -_governance: GovernanceService
     }
     DashboardService --|> BaseService
     DashboardService --> CostService
     DashboardService --> AnomalyService
     DashboardService --> ForecastService
     DashboardService --> InventoryService
+    DashboardService --> GovernanceService
 
+    %% UI Components
     class UIFacade {
         -_dashboard_service: DashboardService
         -_cost_service: CostService
@@ -234,6 +333,7 @@ classDiagram
     RemoraApp --> UIFacade
     RemoraApp --> AWSSession
 
+    %% Reporting & Export Strategy
     class ReportService {
         -_formatters: dict
         +generate_report()
@@ -256,8 +356,12 @@ classDiagram
     class FastTableFormatter {
         +format_cost()
     }
+    class S3Exporter {
+        +upload() str
+    }
 
     ReportService --> ReportFormatter
+    ReportService --> S3Exporter
     PDFFormatter --|> ReportFormatter
     ExcelFormatter --|> ReportFormatter
     MarkdownFormatter --|> ReportFormatter
@@ -358,6 +462,15 @@ remora-fin report --service ec2 s3 --type full --format pdf --chart-labels
 
 # Export cost data in JSON format for external analysis
 remora-fin report --type trend --format json --days 60
+
+# Generate an Excel report of daily trends for a specific date range, grouped by AWS service
+remora-fin report --type trend --format excel --start 2026-06-01 --end 2026-06-15 --group-by SERVICE --output june_service_trend.xlsx
+
+# Generate a Markdown summary report for a specific AWS account using amortized cost
+remora-fin report --type account --format markdown --days 90 --metric AmortizedCost --profile prod-account
+
+# Generate a detailed CSV cost breakdown for all networking services (using aliases)
+remora-fin report --service cloudfront route53 elbv2 --type breakdown --format csv --days 30 --output networking_costs.csv
 ```
 
 #### 💡 Cost & Cache Considerations for Reporting
@@ -388,6 +501,25 @@ When running reports, you can specify different `--metric` options to view costs
 
 ---
 
+### 💾 `cache`
+
+Inspect or clear the local Parquet/JSON cache used to speed up analysis.
+
+| Argument | Shortcut | Type / Choices | Default | Description |
+| --- | --- | --- | --- | --- |
+| `info` | | subcommand | | Show cache directory, total files, and size. |
+| `clear` | | subcommand | | Purge all files in the cache directory immediately. |
+
+```bash
+# Show cache statistics (path, count, size)
+remora-fin cache info
+
+# Clear cache manually to force fresh queries on next run
+remora-fin cache clear
+```
+
+---
+
 ### 🔍 `anomalies`
 
 Detect and display AWS cost anomalies using ML-based detection.
@@ -400,13 +532,21 @@ Detect and display AWS cost anomalies using ML-based detection.
 | `--severity` | | `low`, `medium`, `high`, `critical` | | Filter by severity. |
 | `--monitor-arn` | | `string` | | Filter by specific monitor ARN. |
 | `--detail` | | flag | | Show detailed anomaly list. |
-| `--json` | | flag | | Output as JSON. |
 | `--profile` | `-p` | `string` | | AWS profile name. |
 | `--region` | `-r` | `string` | | AWS region. |
 
 ```bash
 # Detect anomalies in the last 60 days
 remora-fin anomalies --days 60 --severity high
+
+# Search for critical anomalies over the past 90 days (maximum lookback)
+remora-fin anomalies --days 90 --severity critical
+
+# Query anomalies detected by a specific cost monitor with detailed outputs
+remora-fin anomalies --monitor-arn arn:aws:ce:us-east-1:123456789012:anomalymonitor/96515f40-36df-48c0-8260-dc6a3f784e1b --detail
+
+# Detect medium-to-critical anomalies in a specific region using a custom profile
+remora-fin anomalies --days 30 --severity medium --profile billing-admin --region eu-west-1
 ```
 
 ### 🔮 `forecast`
@@ -423,13 +563,21 @@ Predict future AWS costs using ML-based forecasting.
 | `--group-by-type`| | `DIMENSION`, `TAG`, `COST_CATEGORY` | | Group forecast by type. |
 | `--group-by-key` | | `SERVICE`, `LINKED_ACCOUNT`, `REGION`, `USAGE_TYPE`, `INSTANCE_TYPE`, `PLATFORM` | | Group forecast by key. |
 | `--scenarios` | | flag | | Show what-if scenario analysis. |
-| `--json` | | flag | | Output as JSON. |
 | `--profile` | `-p` | `string` | | AWS profile name. |
 | `--region` | `-r` | `string` | | AWS region. |
 
 ```bash
 # Forecast next 30 days of spend
 remora-fin forecast --days 30 --scenarios
+
+# Run a 90-day forecast of Amortized Costs with monthly granularity
+remora-fin forecast --days 90 --granularity MONTHLY --metric AmortizedCost
+
+# Generate a 14-day daily forecast grouped by AWS service (using AWS dimensional grouping)
+remora-fin forecast --days 14 --granularity DAILY --group-by-type DIMENSION --group-by-key SERVICE
+
+# Show scenario analysis (optimistic, baseline, pessimistic) for a staging environment in us-west-2
+remora-fin forecast --days 90 --scenarios --profile staging-profile --region us-west-2
 ```
 
 ### 🖥️ `dashboard`
@@ -444,7 +592,11 @@ Launch the interactive Terminal User Interface.
 | `--region` | `-r` | `string` | | AWS region. |
 
 ```bash
+# Launch the TUI in dark theme with a 60-day default period
 remora-fin dashboard --days 60 --theme dark
+
+# Launch the TUI in light theme for a specific profile and region
+remora-fin dashboard --days 90 --theme light --profile dev-developer --region us-west-2
 ```
 
 ### 📉 `utilization`
@@ -460,6 +612,12 @@ Analyze resource efficiency by correlating cost with CloudWatch metrics and Pric
 ```bash
 # Analyze EC2 efficiency for the last 7 days
 remora-fin utilization --days 7
+
+# Run resource utilization analysis over a longer 30-day window for right-sizing recommendations
+remora-fin utilization --days 30
+
+# Analyze EC2 metrics and pricing for a specific region and profile
+remora-fin utilization --days 14 --profile staging-admin --region sa-east-1
 ```
 
 ### 🔐 `login`
@@ -474,11 +632,14 @@ Configure and test AWS credentials.
 | `--configure` | `-c` | flag | | Interactive configuration. |
 
 ```bash
-# Configure interactively
+# Configure interactively (AWS profiles and region selection lists)
 remora-fin login --configure
 
-# Test existing credentials
+# Test existing credentials validation, organization status, and billing access
 remora-fin login --test
+
+# Login using a specific profile and region directly
+remora-fin login --profile production-viewer --region us-west-2
 ```
 
 ### 👤 `profile`
@@ -486,7 +647,11 @@ remora-fin login --test
 View current remora-fin configuration and AWS session identity.
 
 ```bash
+# View active remora-fin configuration and current AWS session caller identity / billing status
 remora-fin profile
+
+# View profile status when using a specific profile overriding configuration settings
+remora-fin profile --profile backup-user --region eu-central-1
 ```
 
 ---
