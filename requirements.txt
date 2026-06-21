@@ -84,7 +84,7 @@ pygments==2.20.0
     # via
     #   rich
     #   textual
-pypdf==6.12.2
+pypdf==6.13.3
     # via remora-fin (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
