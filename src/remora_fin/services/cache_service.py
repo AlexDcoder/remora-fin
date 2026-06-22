@@ -90,7 +90,7 @@ class CacheService:
         except Exception as e:
             logger.error("Failed to write cache file %s: %s", cache_file, e)
 
-    def get_json(self, query: dict[str, Any], max_age_hours: int = 24) -> Any | None:
+    def get_json(self, query: dict[str, Any], max_age_hours: int = 24) -> dict[str, Any] | list[Any] | None:
         """Retrieve JSON data from cache if it exists and is within the age limit.
 
         Args:

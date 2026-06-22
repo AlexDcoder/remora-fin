@@ -55,6 +55,108 @@ DIMENSION_KEYS = (
     "RECORD_TYPE",
 )
 
+# Mapeamento para normalizar nomes de serviços AWS
+SERVICE_NAME_MAP = {
+    "AWS EC2": "EC2",
+    "EC2": "EC2",
+    "Amazon EC2": "EC2",
+    "Amazon Elastic Compute Cloud": "EC2",
+    "EC2 - Other": "EC2-Other",
+    "AWS EC2 - Other": "EC2-Other",
+    "Amazon Simple Storage Service": "S3",
+    "AWS S3": "S3",
+    "S3": "S3",
+    "Amazon RDS": "RDS",
+    "AWS RDS": "RDS",
+    "RDS": "RDS",
+    "Amazon Relational Database Service": "RDS",
+    "AWS Lambda": "Lambda",
+    "Lambda": "Lambda",
+    "Amazon DynamoDB": "DynamoDB",
+    "AWS DynamoDB": "DynamoDB",
+    "DynamoDB": "DynamoDB",
+    "Amazon CloudFront": "CloudFront",
+    "AWS CloudFront": "CloudFront",
+    "CloudFront": "CloudFront",
+    "Amazon Redshift": "Redshift",
+    "AWS Redshift": "Redshift",
+    "Redshift": "Redshift",
+    "Amazon ElastiCache": "ElastiCache",
+    "AWS ElastiCache": "ElastiCache",
+    "ElastiCache": "ElastiCache",
+    "Amazon SageMaker": "SageMaker",
+    "AWS SageMaker": "SageMaker",
+    "SageMaker": "SageMaker",
+    "Amazon EMR": "EMR",
+    "AWS EMR": "EMR",
+    "EMR": "EMR",
+    "Amazon EKS": "EKS",
+    "AWS EKS": "EKS",
+    "EKS": "EKS",
+    "Amazon ECS": "ECS",
+    "AWS ECS": "ECS",
+    "ECS": "ECS",
+    "AWS Elastic Load Balancing": "ELB",
+    "Elastic Load Balancing": "ELB",
+    "ELB": "ELB",
+    "Application Load Balancer": "ALB",
+    "Network Load Balancer": "NLB",
+    "AWS NAT Gateway": "NAT Gateway",
+    "NAT Gateway": "NAT Gateway",
+    "AWS Direct Connect": "Direct Connect",
+    "Direct Connect": "Direct Connect",
+    "AWS VPN": "VPN",
+    "VPN": "VPN",
+    "Amazon API Gateway": "API Gateway",
+    "AWS API Gateway": "API Gateway",
+    "API Gateway": "API Gateway",
+    "AWS KMS": "KMS",
+    "KMS": "KMS",
+    "AWS Secrets Manager": "Secrets Manager",
+    "Secrets Manager": "Secrets Manager",
+    "Amazon SNS": "SNS",
+    "AWS SNS": "SNS",
+    "SNS": "SNS",
+    "Amazon SQS": "SQS",
+    "AWS SQS": "SQS",
+    "SQS": "SQS",
+    "Amazon Route 53": "Route 53",
+    "AWS Route 53": "Route 53",
+    "Route 53": "Route 53",
+    "AWS WAF": "WAF",
+    "WAF": "WAF",
+    "Amazon GuardDuty": "GuardDuty",
+    "AWS GuardDuty": "GuardDuty",
+    "GuardDuty": "GuardDuty",
+    "AWS Shield": "Shield",
+    "Shield": "Shield",
+    "AWS CloudTrail": "CloudTrail",
+    "CloudTrail": "CloudTrail",
+    "Amazon CloudWatch": "CloudWatch",
+    "AWS CloudWatch": "CloudWatch",
+    "CloudWatch": "CloudWatch",
+    "AWS Config": "Config",
+    "Config": "Config",
+    "AWS IAM": "IAM",
+    "IAM": "IAM",
+    "AWS Organizations": "Organizations",
+    "Organizations": "Organizations",
+    "AWS Transfer Family": "Transfer Family",
+    "Transfer Family": "Transfer Family",
+    "Amazon OpenSearch Service": "OpenSearch",
+    "OpenSearch": "OpenSearch",
+    "Amazon Athena": "Athena",
+    "Athena": "Athena",
+    "AWS Glue": "Glue",
+    "Glue": "Glue",
+    "Amazon EventBridge": "EventBridge",
+    "EventBridge": "EventBridge",
+    "AWS Step Functions": "Step Functions",
+    "Step Functions": "Step Functions",
+    "Amazon App Runner": "App Runner",
+    "App Runner": "App Runner",
+}
+
 
 class CostQueryBuilder:
     """Fluent builder for AWS Cost Explorer query parameters."""
@@ -161,6 +263,28 @@ class CostService(BaseService):
         """Initialize CostService with optional AWS session and Cache service."""
         super().__init__("cost", session, cache)
 
+    @staticmethod
+    def normalize_service_name(name: str) -> str:
+        """Normalize AWS service names for display."""
+        if not name:
+            return "Unknown"
+        
+        # Verifica se é EC2-Other
+        if "EC2 - Other" in name or "EC2-Other" in name:
+            return "EC2-Other"
+        
+        # Verifica se é EC2 puro
+        if "EC2" in name and "Other" not in name:
+            return "EC2"
+        
+        # Tenta o mapeamento
+        for key, value in SERVICE_NAME_MAP.items():
+            if key in name or name in key:
+                return value
+        
+        # Se não encontrar, retorna o nome original
+        return name
+
     @retry_with_backoff(max_retries=5)
     def _fetch_all_pages(self, query: dict[str, Any]) -> list[dict[str, Any]]:
         """Internal helper to fetch all paginated results from AWS Cost Explorer."""
@@ -184,10 +308,13 @@ class CostService(BaseService):
                 for group in result.get("Groups", []):
                     keys = group.get("Keys", [])
                     metrics = group.get("Metrics", {})
+                    # Normaliza o nome do serviço
+                    service_name = self.normalize_service_name(keys[0] if len(keys) > 0 else "")
                     rows.append(
                         {
                             "date": period_start,
-                            "service": keys[0] if len(keys) > 0 else "",
+                            "service": service_name,
+                            "service_raw": keys[0] if len(keys) > 0 else "",  # Mantém o nome original
                             "account": keys[1] if len(keys) > 1 else "",
                             "unblended_cost": Decimal(metrics.get("UnblendedCost", {}).get("Amount", "0")),
                             "blended_cost": Decimal(metrics.get("BlendedCost", {}).get("Amount", "0")),
@@ -203,6 +330,7 @@ class CostService(BaseService):
                         {
                             "date": period_start,
                             "service": "Total",
+                            "service_raw": "Total",
                             "account": "",
                             "unblended_cost": Decimal(totals.get("UnblendedCost", {}).get("Amount", "0")),
                             "blended_cost": Decimal(totals.get("BlendedCost", {}).get("Amount", "0")),
@@ -237,8 +365,15 @@ class CostService(BaseService):
         """Async version of _get_data."""
         if use_cache:
             cached_df = self._cache.get(query)
-            if cached_df is not None:
-                return cached_df
+            if cached_df is not None and not cached_df.is_empty():
+                # Verifica se os dados do cache são válidos
+                try:
+                    test_total = cached_df["unblended_cost"].sum()
+                    if test_total >= 0:
+                        return cached_df
+                except Exception as e:
+                    logger.warning(f"Cache data invalid, refetching: {e}")
+                    self._cache.clear()
 
         try:
             pages = await self._fetch_all_pages_async(query)
@@ -247,7 +382,7 @@ class CostService(BaseService):
             logger.error(f"Error fetching cost data async: {e}")
             return pl.DataFrame()
 
-        if use_cache:
+        if use_cache and not df.is_empty():
             self._cache.set(query, df)
 
         return df
@@ -262,6 +397,21 @@ class CostService(BaseService):
             "UsageQuantity": "usage_quantity",
         }
         return col_map.get(metric, "unblended_cost")
+
+    def _to_decimal(self, value: Any) -> Decimal:
+        """Convert any value to Decimal safely."""
+        if value is None:
+            return Decimal("0")
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))
+        if isinstance(value, str):
+            try:
+                return Decimal(value)
+            except ValueError:
+                return Decimal("0")
+        return Decimal("0")
 
     def get_total_cost(self, start: date, end: date, region: str | None = None) -> CostSummary:
         """Get summary of total costs for a given period."""
@@ -292,9 +442,9 @@ class CostService(BaseService):
                 num_accounts=0,
             )
 
-        total = df["unblended_cost"].sum()
+        total = self._to_decimal(df["unblended_cost"].sum())
         daily_agg = df.group_by("date").agg(pl.col("unblended_cost").sum())
-        daily_avg = daily_agg["unblended_cost"].mean()
+        daily_avg = self._to_decimal(daily_agg["unblended_cost"].mean())
 
         top_service_df = (
             df.filter(pl.col("service") != "Total")
@@ -304,10 +454,10 @@ class CostService(BaseService):
         )
 
         return CostSummary(
-            total_cost=Decimal(str(total)),
-            daily_average=Decimal(str(daily_avg or 0)),
-            max_daily_cost=Decimal(str(daily_agg["unblended_cost"].max() or 0)),
-            min_daily_cost=Decimal(str(daily_agg["unblended_cost"].min() or 0)),
+            total_cost=total,
+            daily_average=daily_avg,
+            max_daily_cost=self._to_decimal(daily_agg["unblended_cost"].max() or 0),
+            min_daily_cost=self._to_decimal(daily_agg["unblended_cost"].min() or 0),
             top_service=top_service_df["service"][0] if len(top_service_df) > 0 else "N/A",
             num_services=df.filter(pl.col("service") != "Total")["service"].n_unique(),
             num_accounts=df["account"].n_unique(),
@@ -323,7 +473,6 @@ class CostService(BaseService):
         query = builder.build()
         df = self._get_data(query)
 
-        # metric name to column name mapping
         col_map = {
             "UnblendedCost": "unblended_cost",
             "BlendedCost": "blended_cost",
@@ -336,7 +485,11 @@ class CostService(BaseService):
         daily_data = df.filter(pl.col("service") == "Total").sort("date")
 
         points = [
-            CostTrendPoint(date=r["date"], cost=Decimal(str(r[col_name])), usage=Decimal(str(r["usage_quantity"])))
+            CostTrendPoint(
+                date=r["date"],
+                cost=self._to_decimal(r[col_name]),
+                usage=self._to_decimal(r["usage_quantity"])
+            )
             for r in daily_data.iter_rows(named=True)
         ]
 
@@ -366,11 +519,26 @@ class CostService(BaseService):
 
         daily_data = df.filter(pl.col("service") == "Total").sort("date")
         points = [
-            CostTrendPoint(date=r["date"], cost=Decimal(str(r[col_name])), usage=Decimal(str(r["usage_quantity"])))
+            CostTrendPoint(
+                date=r["date"],
+                cost=self._to_decimal(r[col_name]),
+                usage=self._to_decimal(r["usage_quantity"])
+            )
             for r in daily_data.iter_rows(named=True)
         ]
 
         return CostTrend(period=DateRange(start=start, end=end), granularity="DAILY", metric=metric, points=points)
+
+    def _calculate_percentage(self, value: Decimal, total: Decimal) -> float:
+        """Calculate percentage safely, ensuring it's between 0 and 100."""
+        if total == 0 or value == 0:
+            return 0.0
+        pct = float(value / total * 100)
+        if pct < 0:
+            return 0.0
+        if pct > 100:
+            return 100.0
+        return pct
 
     async def get_cost_by_service_async(
         self, start: date, end: date, metric: str = "UnblendedCost", region: str | None = None
@@ -409,14 +577,16 @@ class CostService(BaseService):
             .sort(col_name, descending=True)
         )
 
-        total = grouped[col_name].sum()
+        total = self._to_decimal(grouped[col_name].sum())
+        total_for_pct = total if total > 0 else Decimal("1")
+
         groups = [
             CostGroup(
                 key=r["service"],
                 label=r["service"],
-                cost=Decimal(str(r[col_name])),
-                percentage=float(r[col_name] / total * 100) if total > 0 else 0,
-                usage_quantity=Decimal(str(r["usage_quantity"])),
+                cost=self._to_decimal(r[col_name]),
+                percentage=self._calculate_percentage(self._to_decimal(r[col_name]), total_for_pct),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in grouped.iter_rows(named=True)
         ]
@@ -426,10 +596,10 @@ class CostService(BaseService):
                 date=r["date"],
                 service=r["service"],
                 linked_account=r["account"],
-                unblended_cost=Decimal(str(r["unblended_cost"])),
-                blended_cost=Decimal(str(r["blended_cost"])),
-                amortized_cost=Decimal(str(r["amortized_cost"])),
-                usage_quantity=Decimal(str(r["usage_quantity"])),
+                unblended_cost=self._to_decimal(r["unblended_cost"]),
+                blended_cost=self._to_decimal(r["blended_cost"]),
+                amortized_cost=self._to_decimal(r["amortized_cost"]),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in df.iter_rows(named=True)
         ]
@@ -470,15 +640,16 @@ class CostService(BaseService):
             .sort(col_name, descending=True)
         )
 
-        total = grouped[col_name].sum()
+        total = self._to_decimal(grouped[col_name].sum())
+        total_for_pct = total if total > 0 else Decimal("1")
 
         groups = [
             CostGroup(
                 key=r["service"],
                 label=r["service"],
-                cost=Decimal(str(r[col_name])),
-                percentage=float(r[col_name] / total * 100) if total > 0 else 0,
-                usage_quantity=Decimal(str(r["usage_quantity"])),
+                cost=self._to_decimal(r[col_name]),
+                percentage=self._calculate_percentage(self._to_decimal(r[col_name]), total_for_pct),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in grouped.iter_rows(named=True)
         ]
@@ -488,10 +659,10 @@ class CostService(BaseService):
                 date=r["date"],
                 service=r["service"],
                 linked_account=r["account"],
-                unblended_cost=r["unblended_cost"],
-                blended_cost=r["blended_cost"],
-                amortized_cost=r["amortized_cost"],
-                usage_quantity=r["usage_quantity"],
+                unblended_cost=self._to_decimal(r["unblended_cost"]),
+                blended_cost=self._to_decimal(r["blended_cost"]),
+                amortized_cost=self._to_decimal(r["amortized_cost"]),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in df.iter_rows(named=True)
         ]
@@ -531,15 +702,16 @@ class CostService(BaseService):
             .sort(col_name, descending=True)
         )
 
-        total = grouped[col_name].sum()
+        total = self._to_decimal(grouped[col_name].sum())
+        total_for_pct = total if total > 0 else Decimal("1")
 
         groups = [
             CostGroup(
                 key=r["account"],
                 label=r["account"],
-                cost=Decimal(str(r[col_name])),
-                percentage=float(r[col_name] / total * 100) if total > 0 else 0,
-                usage_quantity=Decimal(str(r["usage_quantity"])),
+                cost=self._to_decimal(r[col_name]),
+                percentage=self._calculate_percentage(self._to_decimal(r[col_name]), total_for_pct),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in grouped.iter_rows(named=True)
         ]
@@ -549,10 +721,10 @@ class CostService(BaseService):
                 date=r["date"],
                 service=r["service"],
                 linked_account=r["account"],
-                unblended_cost=r["unblended_cost"],
-                blended_cost=r["blended_cost"],
-                amortized_cost=r["amortized_cost"],
-                usage_quantity=r["usage_quantity"],
+                unblended_cost=self._to_decimal(r["unblended_cost"]),
+                blended_cost=self._to_decimal(r["blended_cost"]),
+                amortized_cost=self._to_decimal(r["amortized_cost"]),
+                usage_quantity=self._to_decimal(r["usage_quantity"]),
             )
             for r in df.iter_rows(named=True)
         ]
