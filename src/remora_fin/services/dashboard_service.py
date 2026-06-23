@@ -56,17 +56,14 @@ class DashboardService(BaseService):
             region or "Global",
         )
 
-        # Core cost and anomaly tasks
         tasks = [
             self._cost.get_total_cost_async(start, end, region=region),
             self._cost.get_daily_trend_async(start, end, region=region),
             self._anomaly.get_anomaly_summary_async(start, end, use_cache=use_cache),
             self._governance.get_tag_compliance_async(tags, use_cache=use_cache),
-            # Cost breakdown by service with normalized names
             self._cost.get_cost_by_service_async(start, end, region=region),
         ]
 
-        # Inventory tasks - consolidated via InventoryService
         resource_types = [
             "ec2",
             "rds",
@@ -89,7 +86,6 @@ class DashboardService(BaseService):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Handle exceptions gracefully
         def _get_result(idx: int, default: Any = None) -> Any:
             try:
                 val = results[idx]
@@ -100,12 +96,10 @@ class DashboardService(BaseService):
             except (IndexError, AttributeError):
                 return default
 
-        # Map back results
         anomaly_data = _get_result(2)
         if isinstance(anomaly_data, str):
             anomaly_data = None
 
-        # Get cost breakdown with normalized service names
         cost_breakdown = _get_result(4)
 
         infra_details = {}

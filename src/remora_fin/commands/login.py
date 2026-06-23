@@ -13,8 +13,7 @@ from rich.panel import Panel
 from rich.prompt import IntPrompt
 from rich.table import Table
 
-from remora_fin.services.aws_service import AWSSession
-from remora_fin.services.config_service import ConfigBuilder, ConfigService
+from remora_fin.services import AWSSession, ConfigBuilder, ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()

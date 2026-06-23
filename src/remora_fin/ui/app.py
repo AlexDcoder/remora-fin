@@ -20,13 +20,15 @@ from textual.widgets import (
     Select,
 )
 
-from remora_fin.services.aws_service import AWSSession
+from remora_fin.services import AWSSession
 from remora_fin.ui.facade import UIFacade
-from remora_fin.ui.styles.theme import get_theme_css
-from remora_fin.ui.widgets.anomaly_panel import AnomalyPanel
-from remora_fin.ui.widgets.cost_chart import CostChartWidget
-from remora_fin.ui.widgets.dashboard import DashboardWidget
-from remora_fin.ui.widgets.forecast_panel import ForecastPanel
+from remora_fin.ui.styles import get_theme_css
+from remora_fin.ui.widgets import (
+    AnomalyPanel, 
+    CostChartWidget, 
+    DashboardWidget, 
+    ForecastPanel
+)
 
 logger = logging.getLogger(__name__)
 

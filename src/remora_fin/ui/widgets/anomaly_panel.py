@@ -88,7 +88,6 @@ class AnomalyPanel(VerticalScroll):
         self._display_summary()
 
     def _display_summary(self) -> None:
-        """Display anomaly summary."""
         if not self._report:
             self.mount(Label("[dim]No anomaly data loaded[/]"))
             return
@@ -100,7 +99,6 @@ class AnomalyPanel(VerticalScroll):
             self.mount(Label("[green]No anomalies in this period[/]"))
             return
 
-        # Severity breakdown
         by_severity = ", ".join(
             f"{sev.value.upper()}: {count}"
             for sev, count in sorted(
@@ -111,7 +109,6 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(f"[dim]By severity: {by_severity}[/]"))
         self.mount(Label(""))
 
-        # Anomaly table
         table: DataTable[str] = DataTable(id="anomaly-table")
         table.add_columns("Severity", "Service", "Variance", "Actual", "Expected")
         table.cursor_type = "row"
@@ -136,14 +133,11 @@ class AnomalyPanel(VerticalScroll):
         self.mount(table)
 
     def update_report(self, report: AnomalyReport) -> None:
-        """Update with new anomaly data."""
         self._report = report
         self._anomalies = report.anomalies
-        # Clear and refresh
         self.remove_children()
         self._display_summary()
 
     def filter_by_severity(self, severity: str) -> list[Anomaly]:
-        """Filter displayed anomalies by severity."""
         filtered = [a for a in self._anomalies if a.severity.value == severity.lower()]
         return filtered

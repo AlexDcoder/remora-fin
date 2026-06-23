@@ -7,12 +7,13 @@ LOCAL enrichments: severity classification, type categorization, trend analysis.
 
 from __future__ import annotations
 
+import inspect
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
-from remora_fin.schemas.anomaly import (
+from remora_fin.schemas import (
     Anomaly,
     AnomalyFeedback,
     AnomalyImpact,
@@ -22,6 +23,7 @@ from remora_fin.schemas.anomaly import (
     AnomalySeverity,
     AnomalyType,
 )
+
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
@@ -96,15 +98,26 @@ class AnomalyService(BaseService):
                 "StartValue": str(min_impact),
             }
 
-        async with self._session.async_client("ce") as ce:
+        ce = await self._session.async_client("ce")
+        try:
             pages = await self._session.fetch_token_paginated_async(ce, "get_anomalies", **params)
+        finally:
+            # attempt to close the client if it exposes an async close()
+            close = getattr(ce, "close", None)
+            if close is not None:
+                if inspect.iscoroutinefunction(close):
+                    await close()
+                else:
+                    try:
+                        close()
+                    except Exception:
+                        pass
 
         logger.info("Fetched %d anomaly pages (async)", len(pages))
         return pages
 
     def _parse_anomaly(self, raw: dict[str, Any]) -> Anomaly:
         """Parse a single raw anomaly from AWS API into schema."""
-        # Parse root causes (native)
         root_causes = [
             AnomalyRootCause(
                 service=rc.get("Service", "Unknown"),
@@ -117,14 +130,12 @@ class AnomalyService(BaseService):
             for rc in raw.get("RootCauses", [])
         ]
 
-        # Parse score (native)
         score_data = raw.get("AnomalyScore", {})
         score = AnomalyScore(
             max_score=score_data.get("MaxScore", 0.0),
             current_score=score_data.get("CurrentScore", 0.0),
         )
 
-        # Parse impact (native)
         impact_data = raw.get("Impact", {})
         impact = AnomalyImpact(
             max_impact=Decimal(impact_data.get("MaxImpact", "0")),
@@ -134,10 +145,7 @@ class AnomalyService(BaseService):
             total_impact_percentage=float(impact_data.get("TotalImpactPercentage", 0.0)),
         )
 
-        # LOCAL: classify severity
         severity = AnomalySeverity.from_percentage(impact.total_impact_percentage)
-
-        # LOCAL: classify type
         anomaly_type = self._classify_type(raw.get("DimensionValue", ""), root_causes)
 
         return Anomaly(
@@ -165,7 +173,6 @@ class AnomalyService(BaseService):
 
         services = {rc.service for rc in root_causes}
 
-        # Check for new service pattern
         if len(services) == 1:
             return AnomalyType.SPIKE
 
@@ -182,8 +189,6 @@ class AnomalyService(BaseService):
                 except (KeyError, ValueError) as e:
                     logger.warning("Failed to parse anomaly: %s", e)
         return anomalies
-
-    # -- Public API --
 
     def fetch_anomalies(
         self,
@@ -274,10 +279,8 @@ class AnomalyService(BaseService):
 
     def get_anomaly_details(self, anomaly_id: str) -> Anomaly | None:
         """Get details for a single anomaly (searches last 90 days)."""
-        from datetime import timedelta
-
         end = date.today()
-        start = end - timedelta(days=90)  # AWS keeps anomalies for 90 days
+        start = end - timedelta(days=90)
 
         anomalies = self.fetch_anomalies(start, end)
         for a in anomalies:
@@ -300,10 +303,7 @@ class AnomalyService(BaseService):
         dimension: str = "SERVICE",
         metadata: dict[str, Any] | None = None,
     ) -> str:
-        """Create a new anomaly monitor via native API.
-
-        Returns: MonitorArn
-        """
+        """Create a new anomaly monitor via native API."""
         ce = self._session.cost_explorer()
         anomaly_monitor: dict[str, Any] = {
             "MonitorName": name,

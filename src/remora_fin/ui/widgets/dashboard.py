@@ -11,10 +11,7 @@ from remora_fin.ui.widgets.cost_chart import CostChartWidget
 
 
 class DashboardWidget(Container):
-    """Consolidated dashboard showing key FinOps metrics.
-
-    Uses ContentSwitcher for high-performance view toggling.
-    """
+    """Consolidated dashboard showing key FinOps metrics."""
 
     DEFAULT_CSS = """
     DashboardWidget {
@@ -70,6 +67,26 @@ class DashboardWidget(Container):
     }
     """
 
+    SUPPORTED_SERVICES = [
+        "All Services",
+        "EC2",
+        "S3",
+        "RDS",
+        "Lambda",
+        "DynamoDB",
+        "CloudFront",
+        "ElastiCache",
+        "Redshift",
+        "EMR",
+        "SageMaker",
+        "KMS",
+        "SecretsManager",
+        "SNS",
+        "SQS",
+        "ECS",
+        "EKS",
+    ]
+
     def __init__(
         self,
         total_cost: str = "$0.00",
@@ -88,27 +105,9 @@ class DashboardWidget(Container):
         self._view_mode = "dashboard"
 
     def compose(self) -> ComposeResult:
-        # Controls
-        integrated_services = [
-            "All Services",
-            "CloudFront",
-            "DynamoDB",
-            "EC2",
-            "ElastiCache",
-            "EMR",
-            "KMS",
-            "Lambda",
-            "RDS",
-            "Redshift",
-            "S3",
-            "SageMaker",
-            "SecretsManager",
-            "SNS",
-            "SQS",
-        ]
         yield Horizontal(
             Select(
-                [(s, s) for s in integrated_services],
+                [(s, s) for s in self.SUPPORTED_SERVICES],
                 value="All Services",
                 id="service-selector",
                 prompt="Select AWS Service",
@@ -117,7 +116,6 @@ class DashboardWidget(Container):
             id="control-row",
         )
 
-        # KPI Row
         yield Horizontal(
             KPICard("Total Spend", self._total_cost, id="kpi-total"),
             KPICard("Daily Average", self._daily_avg, id="kpi-avg"),
@@ -127,24 +125,17 @@ class DashboardWidget(Container):
                 variant="warning" if self._anomaly_count > 5 else "normal",
                 id="kpi-anomalies",
             ),
-            KPICard(
-                "Inventory",
-                "—",
-                id="kpi-inventory",
-            ),
+            KPICard("Inventory", "—", id="kpi-inventory"),
             id="kpi-row",
         )
 
-        # Status Header
         yield Label("GLOBAL_ENVIRONMENT | Comprehensive Monitoring", id="service-status-header")
 
-        # Content Area with ContentSwitcher for better performance
         with ContentSwitcher(id="dashboard-content-switcher", initial="dashboard-chart"):
             yield CostChartWidget("Cost Trend", id="dashboard-chart")
             yield DataTable(id="dashboard-report-table", zebra_stripes=True, cursor_type="row")
 
     def on_mount(self) -> None:
-        """Initialize table columns once."""
         table = self.query_one("#dashboard-report-table", DataTable)
         table.add_columns("Date", "Service", "Cost")
 
@@ -155,7 +146,6 @@ class DashboardWidget(Container):
         anomaly_count: int | None = None,
         inventory: str | None = None,
     ) -> None:
-        """Update KPI cards with new data."""
         if total_cost is not None:
             self.query_one("#kpi-total", KPICard).update_value(total_cost)
         if daily_avg is not None:
@@ -168,12 +158,10 @@ class DashboardWidget(Container):
             self.query_one("#kpi-inventory", KPICard).update_value(inventory)
 
     def update_status_header(self, service_name: str, context: str) -> None:
-        """Update the status header with service context."""
         header = self.query_one("#service-status-header", Label)
         header.update(f"{service_name.upper()} | {context}")
 
     def toggle_view(self) -> None:
-        """Toggle between chart and report table using ContentSwitcher."""
         switcher = self.query_one("#dashboard-content-switcher", ContentSwitcher)
         btn = self.query_one("#view-toggle", Button)
 
@@ -189,7 +177,6 @@ class DashboardWidget(Container):
             btn.variant = "primary"
 
     def update_report_table(self, data: list[tuple[str, str, str]]) -> None:
-        """Update the report table efficiently without re-adding columns."""
         table = self.query_one("#dashboard-report-table", DataTable)
         table.clear()
         table.add_rows(data)

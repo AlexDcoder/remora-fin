@@ -10,8 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from remora_fin.commands.utils import aws_command, get_common_parser
-from remora_fin.services.aws_service import AWSSession
-from remora_fin.services.unit_economics_service import UnitEconomicsService
+from remora_fin.services import AWSSession, UnitEconomicsService
 
 console = Console()
 

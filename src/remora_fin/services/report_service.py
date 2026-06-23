@@ -19,10 +19,17 @@ import xlsxwriter
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
-from remora_fin.schemas.anomaly import AnomalyReport
-from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostTrend, CostTrendPoint
-from remora_fin.schemas.forecast import ForecastResult
-from remora_fin.schemas.report import FullReport, ReportConfig, ReportMetadata
+from remora_fin.schemas import (
+    AnomalyReport, CostBreakdown, 
+    CostGroup, 
+    CostTrend, 
+    CostTrendPoint, 
+    ForecastResult,
+    FullReport, 
+    ReportConfig, 
+    ReportMetadata
+)
+
 from remora_fin.services.aws_service import AWSSession
 
 logger = logging.getLogger(__name__)
@@ -32,20 +39,9 @@ class S3Exporter:
     """Handles uploading generated reports to AWS S3."""
 
     def __init__(self, session: AWSSession | None = None) -> None:
-        """Initialize S3Exporter with an optional AWS session."""
         self._session = session or AWSSession.get_instance()
 
     def upload(self, content: bytes | str, bucket: str, key: str) -> str:
-        """Upload content to a specific S3 bucket and key.
-
-        Args:
-            content: The data to upload (bytes or string).
-            bucket: Target S3 bucket name.
-            key: Target S3 object key.
-
-        Returns:
-            The S3 URI of the uploaded object.
-        """
         s3 = self._session.s3()
         body = content if isinstance(content, bytes) else content.encode("utf-8")
         s3.put_object(Bucket=bucket, Key=key, Body=body)
@@ -64,7 +60,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format cost breakdown or trend data."""
         ...
 
     @abstractmethod
@@ -75,7 +70,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format anomaly detection results."""
         ...
 
     @abstractmethod
@@ -86,7 +80,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format cost forecast results."""
         ...
 
     @abstractmethod
@@ -97,7 +90,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format infrastructure inventory summary."""
         ...
 
     @abstractmethod
@@ -108,7 +100,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format governance and compliance data."""
         ...
 
     @abstractmethod
@@ -119,7 +110,6 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format unit economics and efficiency analysis."""
         ...
 
     @abstractmethod
@@ -130,14 +120,12 @@ class ReportFormatter(ABC):
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
     ) -> bytes | str | FPDF:
-        """Format pricing benchmarks summary."""
         ...
 
     @abstractmethod
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes | str:
-        """Format a comprehensive report."""
         ...
 
 
@@ -145,29 +133,24 @@ class PDFFormatter(ReportFormatter):
     """PDF formatter leveraging the fpdf2 library."""
 
     def _create_base_pdf(self, title: str, metadata: ReportMetadata | None = None) -> FPDF:
-        """Create a PDF object with a standard header and metadata."""
         pdf = FPDF()
         pdf.add_page()
         self._add_header(pdf, title, metadata)
         return pdf
 
     def _add_header(self, pdf: FPDF, title: str, metadata: ReportMetadata | None = None) -> None:
-        """Add header to a new page."""
-        # Header
         pdf.set_font("Helvetica", "B", 20)
-        pdf.set_text_color(44, 62, 80)  # Dark Blue
+        pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 15, "REMORA | FinOps Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
         pdf.set_draw_color(44, 62, 80)
         pdf.line(10, 25, 200, 25)
         pdf.ln(5)
 
-        # Title and Dates
         pdf.set_font("Helvetica", "B", 14)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        # Metadata / User Info
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(100, 100, 100)
 
@@ -197,15 +180,12 @@ class PDFFormatter(ReportFormatter):
         pdf.ln(10)
 
     def _draw_bar_chart(self, pdf: FPDF, groups: list[CostGroup], title: str) -> None:
-        """Draw a horizontal bar chart for the top services based on Usage Quantity."""
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
 
-        max_w = 140  # Max width of a bar
-
-        # Sort by usage for this specific chart
+        max_w = 140
         top_groups = sorted(groups, key=lambda x: x.usage_quantity, reverse=True)[:6]
         if not top_groups:
             return
@@ -213,24 +193,20 @@ class PDFFormatter(ReportFormatter):
         max_val = float(max(g.usage_quantity for g in top_groups)) if top_groups else 1.0
 
         for g in top_groups:
-            # Label
             pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(40, 6, f"{g.key[:18]}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
-            # Bar
             bar_w = (float(g.usage_quantity) / max_val) * max_w if max_val > 0 else 0
-            pdf.set_fill_color(52, 152, 219)  # Lighter Blue for usage
+            pdf.set_fill_color(52, 152, 219)
             pdf.rect(pdf.get_x(), pdf.get_y() + 1, bar_w, 4, "F")
 
-            # Value label
             pdf.set_x(pdf.get_x() + max_w + 5)
             pdf.cell(0, 6, f"{g.usage_quantity:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(2)
         pdf.ln(8)
 
     def _draw_line_chart(self, pdf: FPDF, points: list[CostTrendPoint], title: str, show_labels: bool = True) -> None:
-        """Draw a progression line chart for cost trends with optional minimalistic labels."""
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(44, 62, 80)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -239,12 +215,11 @@ class PDFFormatter(ReportFormatter):
         if not points:
             return
 
-        h = 40  # Chart height
-        w = 170  # Chart width
-        x_start = pdf.get_x() + 15  # Offset for Y labels
+        h = 40
+        w = 170
+        x_start = pdf.get_x() + 15
         y_start = pdf.get_y()
 
-        # Draw background/axes
         pdf.set_draw_color(230, 230, 230)
         pdf.rect(x_start, y_start, w, h)
 
@@ -252,22 +227,17 @@ class PDFFormatter(ReportFormatter):
         min_cost = float(min(p.cost for p in points)) if points else 0.0
         cost_range = max_cost - min_cost if max_cost != min_cost else 1.0
 
-        # Minimalistic Labels
         if show_labels:
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(120, 120, 120)
-
-            # Y-Axis (Max/Min)
             pdf.text(x_start - 14, y_start + 2, f"${max_cost:,.0f}")
             pdf.text(x_start - 14, y_start + h, f"${min_cost:,.0f}")
-
-            # X-Axis (Start/End Dates)
             start_date = str(points[0].date)
             end_date = str(points[-1].date)
             pdf.text(x_start, y_start + h + 4, start_date)
             pdf.text(x_start + w - 18, y_start + h + 4, end_date)
 
-        pdf.set_draw_color(41, 128, 185)  # Blue line
+        pdf.set_draw_color(41, 128, 185)
         pdf.set_line_width(0.5)
 
         step_x = w / (len(points) - 1) if len(points) > 1 else w
@@ -275,7 +245,6 @@ class PDFFormatter(ReportFormatter):
         prev_x, prev_y = 0.0, 0.0
         for i, p in enumerate(points):
             curr_x = x_start + (i * step_x)
-            # Inverse Y (top is 0)
             curr_y = y_start + h - ((float(p.cost) - min_cost) / cost_range * h)
 
             if i > 0:
@@ -303,7 +272,6 @@ class PDFFormatter(ReportFormatter):
             self._add_header(pdf, title, metadata)
 
         if isinstance(data, CostBreakdown):
-            # Summary Box
             if data.summary:
                 pdf.set_fill_color(240, 240, 240)
                 pdf.set_font("Helvetica", "B", 11)
@@ -314,11 +282,9 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(0, 10, f"  Top Service: {data.summary.top_service}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 pdf.ln(8)
 
-            # Chart Section
             if config.include_charts:
                 self._draw_bar_chart(pdf, data.groups, "Visual Breakdown (Top Services)")
 
-            # Table Header
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
             pdf.set_text_color(255, 255, 255)
@@ -327,7 +293,6 @@ class PDFFormatter(ReportFormatter):
             pdf.cell(40, 10, " Cost (USD)", border=1, fill=True, align="C")
             pdf.cell(35, 10, " % of Total", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
-            # Table Rows
             pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
             for g in data.groups[:40]:
@@ -336,11 +301,9 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(40, 8, f"${g.cost:,.2f}", border=1, align="R")
                 pdf.cell(35, 8, f"{g.percentage:.1f}%", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         else:
-            # Trend Chart
             if config.include_charts:
                 self._draw_line_chart(pdf, data.points, "Cost Progression Over Time", show_labels=config.chart_labels)
 
-            # Table Header
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
             pdf.set_text_color(255, 255, 255)
@@ -378,7 +341,7 @@ class PDFFormatter(ReportFormatter):
         pdf.ln(8)
 
         pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(192, 57, 43)  # Soft Red
+        pdf.set_fill_color(192, 57, 43)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(50, 10, " Service", border=1, fill=True)
         pdf.cell(30, 10, " Severity", border=1, fill=True, align="C")
@@ -389,7 +352,8 @@ class PDFFormatter(ReportFormatter):
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(0, 0, 0)
         for a in data.anomalies[:40]:
-            pdf.cell(50, 8, f" {a.top_root_cause or 'Unknown'}", border=1)
+            trc = a.top_root_cause() if callable(getattr(a, "top_root_cause", None)) else getattr(a, "top_root_cause", None)
+            pdf.cell(50, 8, f" {trc or 'Unknown'}", border=1)
             pdf.cell(30, 8, f" {a.severity.value.upper()}", border=1, align="C")
             pdf.cell(35, 8, f"${a.impact.total_actual_spend:,.2f} ", border=1, align="R")
             pdf.cell(35, 8, f"${a.impact.total_expected_spend:,.2f} ", border=1, align="R")
@@ -414,7 +378,14 @@ class PDFFormatter(ReportFormatter):
             pdf.add_page()
             self._add_header(pdf, title, metadata)
 
-        if data.total_predicted_cost:
+        total_predicted_cost_attr = getattr(data, "total_predicted_cost", None)
+        total_predicted = (
+            total_predicted_cost_attr()
+            if callable(total_predicted_cost_attr)
+            else total_predicted_cost_attr
+        )
+
+        if total_predicted is not None and total_predicted > 0:
             pdf.set_fill_color(230, 240, 230)
             pdf.set_font("Helvetica", "B", 11)
             pdf.cell(
@@ -427,12 +398,10 @@ class PDFFormatter(ReportFormatter):
             )
             pdf.ln(6)
 
-        # Draw progression line for forecast
         if config.include_charts:
             trend_points = [CostTrendPoint(date=p.date, cost=p.predicted_cost) for p in data.predictions]
             self._draw_line_chart(pdf, trend_points, "Projected Spend Progression", show_labels=config.chart_labels)
 
-        # Service Breakdown for Forecast (if available)
         if data.grouped_predictions:
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(44, 62, 80)
@@ -455,7 +424,7 @@ class PDFFormatter(ReportFormatter):
             pdf.ln(8)
 
         pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(39, 174, 96)  # Soft Green
+        pdf.set_fill_color(39, 174, 96)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(95, 10, " Date", border=1, fill=True)
         pdf.cell(95, 10, " Predicted Cost (USD)", border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
@@ -523,7 +492,6 @@ class PDFFormatter(ReportFormatter):
         non_compliant = data.get("non_compliant_resources", 0)
         total = data.get("total_resources", 0)
 
-        # Compliance Score Box
         pdf.set_fill_color(245, 245, 245)
         pdf.set_font("Helvetica", "B", 12)
         color = (39, 174, 96) if score >= 80 else (230, 126, 34) if score >= 50 else (192, 57, 43)
@@ -538,7 +506,6 @@ class PDFFormatter(ReportFormatter):
         pdf.cell(0, 10, f"Total Resources: {total}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(8)
 
-        # Details Table
         if data.get("details"):
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_fill_color(44, 62, 80)
@@ -571,7 +538,6 @@ class PDFFormatter(ReportFormatter):
             pdf.add_page()
             self._add_header(pdf, title, metadata)
 
-        # EC2 Efficiency Section
         if "ec2" in data:
             pdf.set_font("Helvetica", "B", 11)
             pdf.cell(0, 10, "EC2 Optimization & Savings Opportunities", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -597,7 +563,6 @@ class PDFFormatter(ReportFormatter):
                 pdf.cell(40, 7, f" {status}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             pdf.ln(8)
 
-        # S3 Section
         if "s3" in data:
             pdf.set_font("Helvetica", "B", 11)
             pdf.cell(0, 10, "S3 Storage Efficiency", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -704,9 +669,7 @@ class ExcelFormatter(ReportFormatter):
         elif isinstance(data, ForecastResult):
             return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
         elif isinstance(data, dict):
-            # Infrastructure or Governance
             if "score" in data:
-                # Simple flat view for Excel
                 return pl.DataFrame([{"metric": k, "value": v} for k, v in data.items() if k != "details"])
             return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
         return pl.DataFrame()
@@ -778,7 +741,6 @@ class ExcelFormatter(ReportFormatter):
         config: ReportConfig | None = None,
         pdf: Any = None,
     ) -> bytes:
-        # For excel, we return the first part or a combined view
         df = pl.DataFrame()
         if "ec2" in data:
             df = pl.DataFrame(data["ec2"])
@@ -861,11 +823,8 @@ class FastTableFormatter(ReportFormatter):
         elif isinstance(data, ForecastResult):
             return pl.DataFrame([{"date": p.date, "predicted_cost": float(p.predicted_cost)} for p in data.predictions])
         elif isinstance(data, dict):
-            # Assume infrastructure or governance dict
             if "score" in data:
-                # Governance
                 return pl.DataFrame([{"score": data["score"], "compliant": data["compliant_resources"]}])
-            # Check if it's pricing
             if any(isinstance(v, (int, float, Decimal)) for v in data.values()):
                 return pl.DataFrame([{"component": k, "rate": float(v)} for k, v in data.items()])
             return pl.DataFrame([{"service": k, "count": v} for k, v in data.items()])
@@ -997,8 +956,19 @@ class MarkdownFormatter(ReportFormatter):
             ]
         )
         for a in data.anomalies[:30]:
+            # top_root_cause may be a callable or a value; handle both safely
+            attr = getattr(a, "top_root_cause", None)
+            if callable(attr):
+                try:
+                    top_cause = attr()
+                except Exception:
+                    top_cause = ""
+            elif isinstance(attr, str):
+                top_cause = attr
+            else:
+                top_cause = ""
             lines.append(
-                f"| {a.id[:18]} | {a.top_root_cause or ''} | {a.severity.value.upper()} | "
+                f"| {a.id[:18]} | {top_cause} | {a.severity.value.upper()} | "
                 f"${a.impact.total_actual_spend:,.2f} | ${a.impact.total_expected_spend:,.2f} | "
                 f"{a.variance_percentage:.1f}% |"
             )
@@ -1135,7 +1105,6 @@ class ReportService:
         config: ReportConfig | None = None,
         metadata: ReportMetadata | None = None,
     ) -> str | bytes:
-        """Generate a report in the specified format based on configuration."""
         config = config or ReportConfig()
         formatter = self._formatters.get(config.format.value)
         if not formatter:
@@ -1150,12 +1119,9 @@ class ReportService:
         elif isinstance(data, FullReport):
             content = formatter.format_full(data, metadata, config=config)
         elif isinstance(data, dict):
-            # Check if it's unit economics, pricing or infrastructure
             if "ec2" in data or "s3" in data:
                 content = formatter.format_unit_economics(data, metadata, config=config)
             elif any(isinstance(v, (int, float, Decimal)) for v in data.values()):
-                # Likely pricing or some count summary
-                # If all values are int, it might be infra. If they are floats/Decimals, likely pricing.
                 if all(isinstance(v, int) for v in data.values()):
                     content = formatter.format_infrastructure(data, metadata, config=config)
                 else:
@@ -1172,13 +1138,11 @@ class ReportService:
             elif isinstance(content, str):
                 config.output_path.write_text(content, encoding="utf-8")
             else:
-                # Should not happen when final output is expected, but satisfies mypy
                 logger.warning(
                     "[yellow]Report content is neither bytes nor string[/] (type: [cyan]%s[/]). Not saved.",
                     type(content),
                 )
 
-        # Final safety check for return type
         if isinstance(content, FPDF):
             return bytes(content.output())
         if isinstance(content, bytearray):

@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from remora_fin.services.cache_service import CacheService
+from remora_fin.services import CacheService
 
 logger = logging.getLogger(__name__)
 console = Console()

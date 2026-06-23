@@ -29,13 +29,11 @@ class CostChartWidget(Static):
         self._values: list[float] = []
 
     def update_data(self, dates: list[str], values: list[float]) -> None:
-        """Update chart with new data."""
         self._dates = dates
         self._values = values
         self._render_chart()
 
     def _render_chart(self) -> None:
-        """Render as a stylized cyberpunk text-based bar chart."""
         if not self._values:
             self.update("[dim]No data available[/]")
             return
@@ -44,43 +42,37 @@ class CostChartWidget(Static):
         lines.append(f"[bold #00f3ff]» {self._title.upper()}[/]")
         lines.append("")
 
-        # Simple bar chart using text
         max_val = max(self._values) if self._values else 1
         bar_width = 40
 
-        # Show last 12 days for a cleaner, sparser look
         display_dates = self._dates[-12:]
         display_values = self._values[-12:]
 
         for d, v in zip(display_dates, display_values):
             bar_len = int((v / max_val) * bar_width) if max_val > 0 else 0
 
-            # Stylized bar segments
-            # █ ▓ ▒ ░
             if v > max_val * 0.8:
-                color = "#ff4500"  # Danger/Peak (Red-Orange)
+                color = "#ff4500"
             elif v > max_val * 0.5:
-                color = "#4b86b4"  # Warning/High (Aquamarine)
+                color = "#4b86b4"
             else:
-                color = "#00f3ff"  # Normal/Cyan
+                color = "#00f3ff"
 
             bar = "█" * bar_len
             glow = "░" * (bar_len // 4)
 
             lines.append(f"  [#e0e0ff]{d}[/]  [{color}]{bar}{glow}[/]  [bold #39ff14]${v:,.2f}[/]")
-            lines.append("")  # Sparse layout
+            lines.append("")
 
         self.update("\n".join(lines))
 
     def show_daily_trend(self, trend_data: list[tuple[str, float]]) -> None:
-        """Show daily cost trend."""
         dates = [d for d, _ in trend_data]
         values = [v for _, v in trend_data]
         self._title = "Daily Cost Trend"
         self.update_data(dates, values)
 
     def show_service_breakdown(self, services: list[tuple[str, float]]) -> None:
-        """Show cost breakdown by service."""
         names = [s for s, _ in services]
         values = [v for _, v in services]
         self._title = "Cost by Service"

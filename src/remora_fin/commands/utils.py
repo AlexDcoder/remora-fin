@@ -11,8 +11,7 @@ from typing import Any, TypeVar
 
 from rich.console import Console
 
-from remora_fin.services.aws_service import AWSSession
-from remora_fin.services.config_service import ConfigService
+from remora_fin.services import AWSSession, ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()

@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.status import Status
 
 from remora_fin.commands.utils import aws_command, get_common_parser
-from remora_fin.schemas.forecast import ForecastMetric
+from remora_fin.schemas import ForecastMetric
 from remora_fin.services import AWSSession, ForecastService
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 import aioboto3
@@ -17,7 +17,6 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
-    from mypy_boto3_budgets.client import BudgetsClient
     from mypy_boto3_ce.client import CostExplorerClient as SyncCEClient
     from mypy_boto3_organizations.client import OrganizationsClient
     from mypy_boto3_pricing.client import PricingClient
@@ -30,12 +29,7 @@ T = TypeVar("T")
 
 
 class AWSSession:
-    """Thread-safe multiton for AWS sessions (sync + async).
-
-    Usage:
-        session = AWSSession.get_instance(region="us-west-2", profile="dev")
-        ce_client = session.cost_explorer()
-    """
+    """Thread-safe multiton for AWS sessions (sync + async)."""
 
     _instances: ClassVar[dict[tuple[str, str], AWSSession]] = {}
 
@@ -81,29 +75,20 @@ class AWSSession:
 
     @property
     def region(self) -> str:
-        """Return the current AWS region."""
         return self._region
 
     @property
     def profile(self) -> str:
-        """Return the current AWS profile."""
         return self._profile
-
-    # -- Sync client factory (with lru_cache-like reuse) --
 
     def _sync_client(self, service: str, **kwargs: Any) -> Any:
         cfg = Config(
             retries={"max_attempts": 5, "mode": "adaptive"},
         )
-        # Using Any to avoid complex boto3 type overloads
-        client_func: Any = self._sync_session.client
-        return client_func(service, config=cfg, **kwargs)
+        return self._sync_session.client(service, config=cfg, **kwargs)  # type: ignore[call-overload]
 
     def cost_explorer(self) -> SyncCEClient:
         return cast("SyncCEClient", self._sync_client("ce", region_name="us-east-1"))
-
-    def budgets(self) -> BudgetsClient:
-        return cast("BudgetsClient", self._sync_client("budgets", region_name="us-east-1"))
 
     def organizations(self) -> OrganizationsClient:
         return cast("OrganizationsClient", self._sync_client("organizations", region_name="us-east-1"))
@@ -166,12 +151,10 @@ class AWSSession:
     def async_session(self) -> aioboto3.Session:
         return self._async_session
 
-    def async_client(self, service: str, **kwargs: Any) -> Any:
-        """Return an async context manager for an aioboto3 client."""
+    async def async_client(self, service: str, **kwargs: Any) -> Any:
         return self._async_session.client(service, **kwargs)
 
     def validate_credentials(self) -> bool:
-        """Check if AWS credentials are valid."""
         try:
             identity = self.sts().get_caller_identity()
             logger.info("AWS identity: Account=%s, ARN=%s", identity["Account"], identity["Arn"])
@@ -181,10 +164,8 @@ class AWSSession:
             return False
 
     def check_billing_access(self) -> bool:
-        """Check if the session has access to Cost Explorer."""
         try:
             ce = self.cost_explorer()
-            # Try a dummy query
             ce.get_cost_and_usage(
                 TimePeriod={"Start": "2024-01-01", "End": "2024-01-02"},
                 Granularity="DAILY",
@@ -192,14 +173,12 @@ class AWSSession:
             )
             return True
         except Exception as e:
-            # If it's a date error, we have access but there's no data or range is invalid
             if "InvalidParameterException" in str(e) or "ValidationException" in str(e):
                 return True
             logger.debug("Billing access check failed: %s", e)
             return False
 
     def get_caller_identity(self) -> dict[str, str]:
-        """Return caller identity info."""
         resp = self.sts().get_caller_identity()
         return {
             "user_id": resp["UserId"],
@@ -213,8 +192,7 @@ class AWSSession:
         token_field: str = "NextPageToken",
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        """Generic helper for APIs that use NextPageToken manually."""
-        pages = []
+        pages: list[dict[str, Any]] = []
         current_kwargs = kwargs.copy()
         while True:
             resp = method(**current_kwargs)
@@ -232,8 +210,7 @@ class AWSSession:
         token_field: str = "NextPageToken",
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        """Async generic helper for APIs that use NextPageToken manually."""
-        pages = []
+        pages: list[dict[str, Any]] = []
         current_kwargs = kwargs.copy()
         method = getattr(client, method_name)
         while True:
@@ -244,21 +221,6 @@ class AWSSession:
                 break
             current_kwargs[token_field] = token
         return pages
-
-
-def paginate_all(
-    client_method: Any,
-    **kwargs: Any,
-) -> Generator[dict[str, Any], None, None]:
-    """Yield all pages from a paginated AWS API call.
-
-    Usage:
-        ce = session.cost_explorer()
-        for page in paginate_all(ce.get_cost_and_usage, **params):
-            process(page)
-    """
-    paginator = client_method.__self__.get_paginator(client_method.__name__)
-    yield from paginator.paginate(**kwargs)
 
 
 def retry_with_backoff(
@@ -347,3 +309,10 @@ def async_retry_with_backoff(
         return wrapper
 
     return decorator
+
+
+__all__ = [
+    "AWSSession",
+    "retry_with_backoff",
+    "async_retry_with_backoff",
+]

@@ -8,8 +8,7 @@ import rich_argparse
 from rich.console import Console
 
 from remora_fin.commands.utils import aws_command, get_common_parser
-from remora_fin.services import AWSSession
-from remora_fin.services.config_service import ConfigService
+from remora_fin.services import AWSSession, ConfigService
 from remora_fin.ui.app import RemoraApp
 
 console = Console()

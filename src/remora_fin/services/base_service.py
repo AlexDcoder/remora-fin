@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from enum import Enum, auto
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.services.cache_service import CacheService
@@ -18,25 +17,8 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class ServiceType(Enum):
-    REGIONAL = auto()
-    GLOBAL = auto()
-
-
-def aws_service_type(type_: ServiceType) -> Callable[[type[T]], type[T]]:
-    """Decorator to mark a service as regional or global."""
-
-    def decorator(cls: type[T]) -> type[T]:
-        cast(Any, cls)._service_type = type_
-        return cls
-
-    return decorator
-
-
 class BaseService:
     """Base class for services to reduce boilerplate and unify async patterns."""
-
-    _service_type: ServiceType = ServiceType.REGIONAL
 
     def __init__(
         self,
@@ -59,7 +41,7 @@ class BaseService:
     async def get_cached_or_fetch_async(
         self,
         query: dict[str, Any],
-        fetch_func: Any,
+        fetch_func: Callable[[], Any],
         use_cache: bool = True,
         max_age_hours: int = 1,
     ) -> Any:
@@ -76,7 +58,6 @@ class BaseService:
             return None
 
         if use_cache:
-            # Handle Pydantic models by dumping to JSON-serializable dict
             cache_data = data
             if hasattr(data, "model_dump"):
                 cache_data = data.model_dump(mode="json")

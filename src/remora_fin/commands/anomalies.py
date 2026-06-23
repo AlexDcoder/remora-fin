@@ -60,7 +60,7 @@ async def anomalies(args: argparse.Namespace, session: AWSSession) -> None:
             )
             anomaly_table.add_row(
                 str(a.start_date),
-                a.top_root_cause or "Unknown",
+                a.top_root_cause() or "Unknown",
                 f"[{severity_color}]{a.severity.upper()}[/]",
                 f"${a.impact.total_actual_spend:,.2f}",
             )

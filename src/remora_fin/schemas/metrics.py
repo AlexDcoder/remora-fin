@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ResourceMetric(BaseModel):
@@ -30,6 +31,15 @@ class MetricSummary(BaseModel):
     average: float = 0.0
     p95: float = 0.0
     data_points: list[ResourceMetric] = Field(default_factory=list)
+
+    @field_validator("data_points", mode="before")
+    @classmethod
+    def _validate_data_points(cls, v: Any) -> list[ResourceMetric]:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return v
+        return []
 
     @property
     def is_underutilized(self) -> bool:
