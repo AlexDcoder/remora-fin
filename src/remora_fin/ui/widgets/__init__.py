@@ -1,47 +1,36 @@
 """UI Widgets — Reusable Textual components for the Remora-Fin TUI.
 
-This package contains all custom Textual widgets used in the Remora-Fin interface,
-organized by functionality and reusability.
+This package contains all custom Textual widgets used in the Remora-Fin interface.
 """
 
-# Anomaly widgets
-from remora_fin.ui.widgets.anomaly_panel import (
-    AnomalyDetailCard,
-    AnomalyPanel,
-    SeverityBadge,
-)
+# ─── Anomaly Widgets ───
+from remora_fin.ui.widgets.anomaly_panel import AnomalyDetailCard, AnomalyPanel, SeverityBadge
 
-# Chart widgets
+# ─── Common Widgets ───
+from remora_fin.ui.widgets.common.widgets import ErrorBanner, KPICard
+
+# ─── Chart Widgets ───
 from remora_fin.ui.widgets.cost_chart import CostChartWidget
 
-# Dashboard widgets
+# ─── Dashboard Widgets ───
 from remora_fin.ui.widgets.dashboard import DashboardWidget
 
-# Forecast widgets
-from remora_fin.ui.widgets.forecast_panel import (
-    AccuracyMeter,
-    ForecastPanel,
-)
-
-# Common widgets
-from remora_fin.ui.widgets.common.widgets import (
-    ErrorBanner,
-    KPICard,
-)
+# ─── Forecast Widgets ───
+from remora_fin.ui.widgets.forecast_panel import AccuracyMeter, ForecastPanel
 
 __all__ = [
+    # Forecast
+    "AccuracyMeter",
     # Anomaly
     "AnomalyDetailCard",
     "AnomalyPanel",
-    "SeverityBadge",
     # Chart
     "CostChartWidget",
     # Dashboard
     "DashboardWidget",
-    # Forecast
-    "AccuracyMeter",
-    "ForecastPanel",
     # Common
     "ErrorBanner",
+    "ForecastPanel",
     "KPICard",
+    "SeverityBadge",
 ]

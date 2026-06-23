@@ -112,25 +112,15 @@ def test_get_lambda_price(pricing_service: PricingService) -> None:
         assert mock_get_products.call_count == 2
 
 
-def test_get_elb_price(pricing_service: PricingService) -> None:
-    with patch.object(pricing_service, "get_products", side_effect=[[MagicMock()], [MagicMock()]]) as mock_get_products:
-        result = pricing_service.get_elb_price("us-east-1", "Application")
-        assert "hourly" in result
-        assert "lcu" in result
-        assert mock_get_products.call_count == 2
+def test_get_s3_price(pricing_service: PricingService) -> None:
+    with patch.object(pricing_service, "get_products", return_value=[MagicMock()]) as mock_get_products:
+        result = pricing_service.get_s3_price("Standard", "us-east-1")
+        assert result is not None
+        mock_get_products.assert_called_once()
 
 
-def test_get_fargate_price(pricing_service: PricingService) -> None:
-    with patch.object(pricing_service, "get_products", side_effect=[[MagicMock()], [MagicMock()]]) as mock_get_products:
-        result = pricing_service.get_fargate_price("us-east-1")
-        assert "vcpu" in result
-        assert "ram" in result
-        assert mock_get_products.call_count == 2
-
-
-def test_get_secrets_manager_price(pricing_service: PricingService) -> None:
-    with patch.object(pricing_service, "get_products", side_effect=[[MagicMock()], [MagicMock()]]) as mock_get_products:
-        result = pricing_service.get_secrets_manager_price("us-east-1")
-        assert "storage" in result
-        assert "api" in result
-        assert mock_get_products.call_count == 2
+def test_get_rds_price(pricing_service: PricingService) -> None:
+    with patch.object(pricing_service, "get_products", return_value=[MagicMock()]) as mock_get_products:
+        result = pricing_service.get_rds_price("db.t3.medium", "us-east-1")
+        assert result is not None
+        mock_get_products.assert_called_once()

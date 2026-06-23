@@ -1,71 +1,49 @@
-"""Remora-Fin — High-performance AWS FinOps CLI and TUI.
+"""UI package — Textual TUI for Remora FinOps.
 
-A lightweight, high-performance FinOps toolkit for AWS built with Polars and Textual.
+This package provides the interactive terminal user interface for AWS FinOps
+operations, including dashboards, cost analysis, anomaly detection, and forecasting.
 """
 
-__version__ = "1.0.6"
+# ─── Main Application ───
+from remora_fin.ui.app import RemoraApp
 
-# Core exports for easy access
-from remora_fin import commands, schemas, services, ui
+# ─── Facade ───
+from remora_fin.ui.facade import UIFacade
 
-# Infrastructure services (most commonly used)
-from remora_fin.services import (
-    AWSSession,
-    CacheService,
-    ConfigService,
-    CostService,
-    AnomalyService,
-    ForecastService,
-    DashboardService,
-    GovernanceService,
-    InventoryService,
-    MetricsService,
-    PricingService,
-    ReportService,
-    UnitEconomicsService,
-)
+# ─── Themes ───
+from remora_fin.ui.styles.theme import DARK_THEME, LIGHT_THEME, THEMES, get_theme_css
 
-# Schemas (most commonly used)
-from remora_fin.schemas import (
-    AppSettings,
-    CostBreakdown,
-    CostTrend,
-    AnomalyReport,
-    ForecastResult,
-    FullReport,
-    ReportConfig,
+# ─── Widgets ───
+from remora_fin.ui.widgets import (
+    AccuracyMeter,
+    AnomalyDetailCard,
+    AnomalyPanel,
+    CostChartWidget,
+    DashboardWidget,
+    ErrorBanner,
+    ForecastPanel,
+    KPICard,
+    SeverityBadge,
 )
 
 __all__ = [
-    # Version
-    "__version__",
-    # Subpackages
-    "commands",
-    "schemas",
-    "services",
-    "ui",
-    # Infrastructure Services
-    "AWSSession",
-    "CacheService",
-    "ConfigService",
-    "ConfigBuilder",
-    # Core Services
-    "CostService",
-    "AnomalyService",
-    "ForecastService",
-    "DashboardService",
-    "GovernanceService",
-    "InventoryService",
-    "MetricsService",
-    "PricingService",
-    "ReportService",
-    "UnitEconomicsService",
-    # Core Schemas
-    "AppSettings",
-    "CostBreakdown",
-    "CostTrend",
-    "AnomalyReport",
-    "ForecastResult",
-    "FullReport",
-    "ReportConfig",
+    # Themes
+    "DARK_THEME",
+    "LIGHT_THEME",
+    "THEMES",
+    # Widgets
+    "AccuracyMeter",
+    "AnomalyDetailCard",
+    "AnomalyPanel",
+    "CostChartWidget",
+    "DashboardWidget",
+    "ErrorBanner",
+    "ForecastPanel",
+    "KPICard",
+    # App
+    "RemoraApp",
+    "SeverityBadge",
+    # Facade
+    "UIFacade",
+    "get_theme_css",
 ]

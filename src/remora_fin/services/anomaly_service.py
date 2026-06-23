@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+from contextlib import suppress
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
@@ -23,7 +24,6 @@ from remora_fin.schemas import (
     AnomalySeverity,
     AnomalyType,
 )
-
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
@@ -108,10 +108,8 @@ class AnomalyService(BaseService):
                 if inspect.iscoroutinefunction(close):
                     await close()
                 else:
-                    try:
+                    with suppress(Exception):
                         close()
-                    except Exception:
-                        pass
 
         logger.info("Fetched %d anomaly pages (async)", len(pages))
         return pages

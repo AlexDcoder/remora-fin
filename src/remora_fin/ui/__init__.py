@@ -4,13 +4,13 @@ This package provides the interactive terminal user interface for AWS FinOps
 operations, including dashboards, cost analysis, anomaly detection, and forecasting.
 """
 
-# Main application
+# ─── Main Application ───
 from remora_fin.ui.app import RemoraApp
 
-# Facade for UI services
+# ─── Facade ───
 from remora_fin.ui.facade import UIFacade
 
-# Themes
+# ─── Themes ───
 from remora_fin.ui.styles.theme import (
     DARK_THEME,
     LIGHT_THEME,
@@ -18,37 +18,42 @@ from remora_fin.ui.styles.theme import (
     get_theme_css,
 )
 
-# Widgets
+# ─── Widgets ───
 from remora_fin.ui.widgets import (
+    # Forecast
+    AccuracyMeter,
+    # Anomaly
     AnomalyDetailCard,
     AnomalyPanel,
-    SeverityBadge,
+    # Chart
     CostChartWidget,
+    # Dashboard
     DashboardWidget,
-    ForecastPanel,
-    AccuracyMeter,
+    # Common
     ErrorBanner,
+    ForecastPanel,
     KPICard,
+    SeverityBadge,
 )
 
 __all__ = [
-    # App
-    "RemoraApp",
-    # Facade
-    "UIFacade",
     # Themes
     "DARK_THEME",
     "LIGHT_THEME",
     "THEMES",
-    "get_theme_css",
     # Widgets
+    "AccuracyMeter",
     "AnomalyDetailCard",
     "AnomalyPanel",
-    "SeverityBadge",
     "CostChartWidget",
     "DashboardWidget",
-    "ForecastPanel",
-    "AccuracyMeter",
     "ErrorBanner",
+    "ForecastPanel",
     "KPICard",
+    # App
+    "RemoraApp",
+    "SeverityBadge",
+    # Facade
+    "UIFacade",
+    "get_theme_css",
 ]

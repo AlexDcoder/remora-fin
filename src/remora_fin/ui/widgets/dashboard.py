@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
 from textual.widgets import Button, ContentSwitcher, DataTable, Label, Select
@@ -67,7 +69,7 @@ class DashboardWidget(Container):
     }
     """
 
-    SUPPORTED_SERVICES = [
+    SUPPORTED_SERVICES: ClassVar[list[str]] = [
         "All Services",
         "EC2",
         "S3",

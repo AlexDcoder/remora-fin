@@ -313,6 +313,6 @@ def async_retry_with_backoff(
 
 __all__ = [
     "AWSSession",
-    "retry_with_backoff",
     "async_retry_with_backoff",
+    "retry_with_backoff",
 ]

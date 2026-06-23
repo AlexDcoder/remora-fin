@@ -16,15 +16,14 @@ from typing import Any
 import polars as pl
 
 from remora_fin.schemas import (
-    DateRange,
     CostBreakdown,
     CostEntry,
     CostGroup,
     CostSummary,
     CostTrend,
     CostTrendPoint,
+    DateRange,
 )
-
 from remora_fin.services.aws_service import AWSSession, async_retry_with_backoff, retry_with_backoff
 from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
@@ -418,9 +417,7 @@ class CostService(BaseService):
         daily_data = df.filter(pl.col("service") == "Total").sort("date")
         points = [
             CostTrendPoint(
-                date=r["date"],
-                cost=self._to_decimal(r[col_name]),
-                usage=self._to_decimal(r["usage_quantity"])
+                date=r["date"], cost=self._to_decimal(r[col_name]), usage=self._to_decimal(r["usage_quantity"])
             )
             for r in daily_data.iter_rows(named=True)
         ]

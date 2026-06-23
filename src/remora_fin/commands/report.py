@@ -15,14 +15,14 @@ from rich.status import Status
 
 from remora_fin.commands.utils import aws_command, get_common_parser, parse_dates
 from remora_fin.schemas import (
-    DateRange, 
-    CostBreakdown, 
-    CostTrend, 
-    FullReport, 
-    ReportConfig, 
-    ReportFilters, 
-    ReportFormat, 
-    ReportMetadata
+    CostBreakdown,
+    CostTrend,
+    DateRange,
+    FullReport,
+    ReportConfig,
+    ReportFilters,
+    ReportFormat,
+    ReportMetadata,
 )
 from remora_fin.services import (
     AWSSession,

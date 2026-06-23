@@ -20,16 +20,16 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 from remora_fin.schemas import (
-    AnomalyReport, CostBreakdown, 
-    CostGroup, 
-    CostTrend, 
-    CostTrendPoint, 
+    AnomalyReport,
+    CostBreakdown,
+    CostGroup,
+    CostTrend,
+    CostTrendPoint,
     ForecastResult,
-    FullReport, 
-    ReportConfig, 
-    ReportMetadata
+    FullReport,
+    ReportConfig,
+    ReportMetadata,
 )
-
 from remora_fin.services.aws_service import AWSSession
 
 logger = logging.getLogger(__name__)
@@ -59,8 +59,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_anomalies(
@@ -69,8 +68,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_forecast(
@@ -79,8 +77,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_infrastructure(
@@ -89,8 +86,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_governance(
@@ -99,8 +95,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_unit_economics(
@@ -109,8 +104,7 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_pricing(
@@ -119,14 +113,12 @@ class ReportFormatter(ABC):
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
-    ) -> bytes | str | FPDF:
-        ...
+    ) -> bytes | str | FPDF: ...
 
     @abstractmethod
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
-    ) -> bytes | str:
-        ...
+    ) -> bytes | str: ...
 
 
 class PDFFormatter(ReportFormatter):
@@ -352,7 +344,11 @@ class PDFFormatter(ReportFormatter):
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(0, 0, 0)
         for a in data.anomalies[:40]:
-            trc = a.top_root_cause() if callable(getattr(a, "top_root_cause", None)) else getattr(a, "top_root_cause", None)
+            trc = (
+                a.top_root_cause()
+                if callable(getattr(a, "top_root_cause", None))
+                else getattr(a, "top_root_cause", None)
+            )
             pdf.cell(50, 8, f" {trc or 'Unknown'}", border=1)
             pdf.cell(30, 8, f" {a.severity.value.upper()}", border=1, align="C")
             pdf.cell(35, 8, f"${a.impact.total_actual_spend:,.2f} ", border=1, align="R")
@@ -380,9 +376,7 @@ class PDFFormatter(ReportFormatter):
 
         total_predicted_cost_attr = getattr(data, "total_predicted_cost", None)
         total_predicted = (
-            total_predicted_cost_attr()
-            if callable(total_predicted_cost_attr)
-            else total_predicted_cost_attr
+            total_predicted_cost_attr() if callable(total_predicted_cost_attr) else total_predicted_cost_attr
         )
 
         if total_predicted is not None and total_predicted > 0:

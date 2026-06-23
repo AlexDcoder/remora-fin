@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from textual.app import ComposeResult
-from textual.containers import Horizontal
-from textual.widgets import Button, Input, Select, Static
+from textual.widgets import Static
 
 
 class ErrorBanner(Static):

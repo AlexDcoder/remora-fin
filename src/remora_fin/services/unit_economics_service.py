@@ -131,14 +131,24 @@ class UnitEconomicsService(BaseService):
         duration_price = price_data.get("duration")
         request_price = price_data.get("requests")
 
-        duration_rate = duration_price.on_demand_price.price_per_unit if duration_price and duration_price.on_demand_price else Decimal("0.0000166667")
-        request_rate = request_price.on_demand_price.price_per_unit if request_price and request_price.on_demand_price else Decimal("0.0000002")
+        duration_rate = (
+            duration_price.on_demand_price.price_per_unit
+            if duration_price and duration_price.on_demand_price
+            else Decimal("0.0000166667")
+        )
+        request_rate = (
+            request_price.on_demand_price.price_per_unit
+            if request_price and request_price.on_demand_price
+            else Decimal("0.0000002")
+        )
 
         for func in functions:
             name = func["name"]
             memory = func.get("memory", 128)
 
-            duration_summary = getattr(self._metrics, "get_lambda_duration", lambda *args, **kwargs: None)(name, days=days)
+            duration_summary = getattr(self._metrics, "get_lambda_duration", lambda *args, **kwargs: None)(
+                name, days=days
+            )
             error_summary = getattr(self._metrics, "get_lambda_errors", lambda *args, **kwargs: None)(name, days=days)
 
             avg_duration_ms = duration_summary.average if duration_summary else 0.0
