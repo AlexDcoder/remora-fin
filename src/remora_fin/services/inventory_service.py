@@ -141,6 +141,17 @@ RESOURCE_REGISTRY: dict[str, ResourceConfig] = {
         result_path=["clusters"],
         mapper=lambda x: {"name": x},
     ),
+    "vpc": ResourceConfig(
+    client_name="ec2",
+    paginator_name="describe_vpcs",
+    result_path=["Vpcs"],
+    mapper=lambda x: {
+        "id": x["VpcId"],
+        "cidr": x["CidrBlock"],
+        "state": x["State"],
+        "is_default": x["IsDefault"],
+    },
+    ),
 }
 
 
