@@ -14,7 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Check out the head repo and ref securely so changes can be committed back
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
@@ -22,7 +21,7 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - run: uv sync --all-extras --frozen
+      - run: uv sync --all-groups --frozen
 
       - name: Fix Lint Issues
         run: uv run ruff check --fix .
@@ -31,7 +30,6 @@ jobs:
       - name: Format Code
         run: uv run ruff format .
 
-      # Commits style updates back to the PR branch safely
       - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:

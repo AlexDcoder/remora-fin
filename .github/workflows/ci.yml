@@ -14,7 +14,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version-file: ".python-version"
-      - run: uv sync --all-extras --frozen
+      - run: uv sync --all-groups --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
@@ -26,7 +26,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version-file: ".python-version"
-      - run: uv sync --all-extras --frozen
+      - run: uv sync --all-groups --frozen
       - run: uv run mypy src/remora_fin tests --ignore-missing-imports
 
   test:
@@ -37,7 +37,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version-file: ".python-version"
-      - run: uv sync --all-extras --frozen
+      - run: uv sync --all-groups --frozen
       - name: Run tests
         run: |
           if [ -d "tests" ]; then
