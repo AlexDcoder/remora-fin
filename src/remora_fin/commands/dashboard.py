@@ -8,8 +8,7 @@ import rich_argparse
 from rich.console import Console
 
 from remora_fin.commands.utils import aws_command, get_common_parser
-from remora_fin.services import AWSSession
-from remora_fin.services.config_service import ConfigService
+from remora_fin.services import AWSSession, ConfigService
 from remora_fin.ui.app import RemoraApp
 
 console = Console()
@@ -44,7 +43,11 @@ async def dashboard(args: argparse.Namespace, session: AWSSession) -> None:
         default_days=settings.ui.default_period_days,
         theme=settings.ui.theme,
     )
-    await app.run_async()
+    try:
+        await app.run_async()
+    except Exception as e:
+        console.print(f"\n[bold #ff4500]Error running dashboard:[/] {e}")
+        console.print("[dim #4b86b4]Try checking your AWS credentials with 'remora-fin login'[/]")
 
 
 def add_dashboard_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

@@ -16,9 +16,9 @@ Get up and running in seconds:
    ```bash
    uv tool install remora-fin
    ```
-2. **Configure** your AWS credentials:
+2. **Configure** your AWS credentials interactively:
    ```bash
-   remora-fin login --configure
+   remora-fin login
    ```
 3. **Launch** the interactive dashboard:
    ```bash
@@ -37,21 +37,13 @@ Get up and running in seconds:
 * **🖥️ Terminal UI:** Interactive dashboard (TUI) with a high-performance **UI Facade** and internal caching for ultra-responsive navigation.
 * **🏗️ Registry Architecture:** Dynamically managed AWS inventory via a centralized resource registry, making it easy to extend monitoring to new services.
 * **🔒 Privacy First:** All data processing happens locally on your machine. Remora-Fin never sends your billing data to external servers.
+* **📊 Smart Service Normalization:** Automatically maps and normalizes AWS service names (e.g., "EC2-Other" → "EC2-Other") for cleaner, more intuitive dashboard displays.
 
 ---
 
 ## 📊 Service Coverage & Checklist
 
 Remora-Fin provides deep visibility into your AWS environment. Below is the checklist of active integrations and their supported FinOps depth.
-
-Here is the updated table. I have categorized and added a broad selection of remaining core and major AWS services across common infrastructure domains, marking them as **Coming Soon** with empty tracking metrics as requested.
-
-## 📊 Service Coverage & Checklist
-
-Remora-Fin provides deep visibility into your AWS environment. Below is the checklist of active integrations and their supported FinOps depth.
-Here is the table with the exact structure you presented at the start:
-
----
 
 | AWS Service | Status | Tracking | Pricing | Cost Calc |
 | :--- | :---: | :---: | :---: | :---: |
@@ -138,6 +130,7 @@ Here is the table with the exact structure you presented at the start:
 | **IoT & Hosting** | | | | |
 | IoT Core | **Coming Soon** | - | - | - |
 | Amplify (Hosting) | **Coming Soon** | - | - | - |
+
 ---
 
 ## 🏗️ Architecture
@@ -251,6 +244,7 @@ classDiagram
     %% Domain Services
     class CostService {
         +get_cost_by_service_async() CostBreakdown
+        +normalize_service_name(name) str
     }
     class AnomalyService {
         +get_anomaly_report() AnomalyReport
@@ -549,6 +543,8 @@ remora-fin anomalies --monitor-arn arn:aws:ce:us-east-1:123456789012:anomalymoni
 remora-fin anomalies --days 30 --severity medium --profile billing-admin --region eu-west-1
 ```
 
+---
+
 ### 🔮 `forecast`
 
 Predict future AWS costs using ML-based forecasting.
@@ -580,6 +576,8 @@ remora-fin forecast --days 14 --granularity DAILY --group-by-type DIMENSION --gr
 remora-fin forecast --days 90 --scenarios --profile staging-profile --region us-west-2
 ```
 
+---
+
 ### 🖥️ `dashboard`
 
 Launch the interactive Terminal User Interface.
@@ -598,6 +596,8 @@ remora-fin dashboard --days 60 --theme dark
 # Launch the TUI in light theme for a specific profile and region
 remora-fin dashboard --days 90 --theme light --profile dev-developer --region us-west-2
 ```
+
+---
 
 ### 📉 `utilization`
 
@@ -620,27 +620,26 @@ remora-fin utilization --days 30
 remora-fin utilization --days 14 --profile staging-admin --region sa-east-1
 ```
 
+---
+
 ### 🔐 `login`
 
-Configure and test AWS credentials.
+Configure and test AWS credentials interactively.
 
 | Argument | Shortcut | Type / Choices | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--profile` | `-p` | `string` | `default` | AWS profile name. |
-| `--region` | `-r` | `string` | | AWS region. |
-| `--test` | `-t` | flag | | Test existing credentials. |
-| `--configure` | `-c` | flag | | Interactive configuration. |
+| `--profile` | `-p` | `string` | | AWS profile name (skip interactive selection). |
+| `--region` | `-r` | `string` | | AWS region (skip interactive selection). |
 
 ```bash
-# Configure interactively (AWS profiles and region selection lists)
-remora-fin login --configure
+# Interactive configuration (AWS profiles and region selection lists)
+remora-fin login
 
-# Test existing credentials validation, organization status, and billing access
-remora-fin login --test
-
-# Login using a specific profile and region directly
+# Login using a specific profile and region directly (skips interactive selection)
 remora-fin login --profile production-viewer --region us-west-2
 ```
+
+---
 
 ### 👤 `profile`
 
@@ -655,6 +654,7 @@ remora-fin profile --profile backup-user --region eu-central-1
 ```
 
 ---
+
 ## 🤝 Contributing
 
 Contributions are welcome!
@@ -664,6 +664,8 @@ Contributions are welcome!
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+---
 
 ## 🛠️ Development
 
@@ -687,4 +689,4 @@ If a specific Python version is not found on your system, `uv` will automaticall
 
 ## 📝 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.

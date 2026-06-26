@@ -11,8 +11,7 @@ from typing import Any, TypeVar
 
 from rich.console import Console
 
-from remora_fin.services.aws_service import AWSSession
-from remora_fin.services.config_service import ConfigService
+from remora_fin.services import AWSSession, ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -26,7 +25,7 @@ def validate_aws_session(session: AWSSession) -> bool:
         console.print("\n[bold #ff4500]AUTHENTICATION ERROR[/]")
         console.print("[#e6f4f8]No valid AWS credentials found or session has expired.[/]")
         console.print("\n[bold #ffff00]RECOMMENDED ACTION[/]")
-        console.print("Run [bold #00f3ff]remora-fin login --configure[/] to set up your credentials.")
+        console.print("Run [bold #00f3ff]remora-fin login[/] to set up your credentials interactively.")
         return False
     return True
 

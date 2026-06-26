@@ -14,9 +14,16 @@ from rich.panel import Panel
 from rich.status import Status
 
 from remora_fin.commands.utils import aws_command, get_common_parser, parse_dates
-from remora_fin.schemas.common import DateRange
-from remora_fin.schemas.cost import CostBreakdown, CostTrend
-from remora_fin.schemas.report import FullReport, ReportConfig, ReportFilters, ReportFormat, ReportMetadata
+from remora_fin.schemas import (
+    CostBreakdown,
+    CostTrend,
+    DateRange,
+    FullReport,
+    ReportConfig,
+    ReportFilters,
+    ReportFormat,
+    ReportMetadata,
+)
 from remora_fin.services import (
     AWSSession,
     CostService,
@@ -160,7 +167,7 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
         elif args.type == "trend":
             data = await cost_service.get_daily_trend_async(start, end, metric=metric)
         elif args.type == "account":
-            data = cost_service.get_cost_by_account(start, end, metric=metric)
+            data = await cost_service.get_cost_by_account_async(start, end, metric=metric)
         else:  # breakdown/service
             data = await cost_service.get_cost_by_service_async(start, end, metric=metric)
             if service_filters:

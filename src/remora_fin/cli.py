@@ -12,27 +12,30 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
+import asyncio
+import inspect
 import logging
+import sys
 from textwrap import dedent
 
 import rich_argparse
 
-from remora_fin.commands.anomalies import add_anomalies_parser
-from remora_fin.commands.cache import add_cache_parser
-from remora_fin.commands.dashboard import add_dashboard_parser
-from remora_fin.commands.forecast import add_forecast_parser
-from remora_fin.commands.login import add_login_parser
-from remora_fin.commands.profile import add_profile_parser
-from remora_fin.commands.report import add_report_parser
-from remora_fin.commands.utilization import add_utilization_parser
-from remora_fin.ui.app import RemoraApp
+from remora_fin.commands import (
+    add_anomalies_parser,
+    add_cache_parser,
+    add_dashboard_parser,
+    add_forecast_parser,
+    add_login_parser,
+    add_profile_parser,
+    add_report_parser,
+    add_utilization_parser
+)
 
 
 def setup_logging(level: int = logging.INFO) -> None:
     """Configure logging using RichHandler for better visual feedback."""
     from rich.logging import RichHandler
-    
+
     logging.basicConfig(
         level=level,
         format="%(message)s",
@@ -116,9 +119,6 @@ def execute_cli() -> None:
 
     # Execute the command
     if hasattr(args, "func"):
-        import asyncio
-        import inspect
-
         try:
             if inspect.iscoroutinefunction(args.func):
                 asyncio.run(args.func(args))

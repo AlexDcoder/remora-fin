@@ -57,10 +57,12 @@ class AnomalyDetailCard(Vertical):
     def on_mount(self) -> None:
         a = self._anomaly
         root_cause_str = ", ".join(rc.service for rc in a.root_causes[:3]) if a.root_causes else "Unknown"
+        top_root_cause = a.top_root_cause
+        top_cause = top_root_cause() if callable(top_root_cause) else top_root_cause or "Unknown"
 
         self.mount(
             Label(f"[bold #00f3ff]ANOMALY ID:[/] [#e0e0ff]{a.id}[/]"),
-            Label(f"[bold #00f3ff]SERVICE:[/] [#e0e0ff]{a.top_root_cause or 'Unknown'}[/]"),
+            Label(f"[bold #00f3ff]SERVICE:[/] [#e0e0ff]{top_cause}[/]"),
             Label(f"[bold #00f3ff]TIMELINE:[/] [#e0e0ff]{a.start_date} → {a.end_date or 'ACTIVE'}[/]"),
             Label(f"[bold #00f3ff]ACTUAL SPEND:[/] [bold #39ff14]${a.impact.total_actual_spend:,.2f}[/]"),
             Label(f"[bold #00f3ff]EXPECTED SPEND:[/] [#ffff00]${a.impact.total_expected_spend:,.2f}[/]"),
@@ -88,7 +90,6 @@ class AnomalyPanel(VerticalScroll):
         self._display_summary()
 
     def _display_summary(self) -> None:
-        """Display anomaly summary."""
         if not self._report:
             self.mount(Label("[dim]No anomaly data loaded[/]"))
             return
@@ -100,7 +101,6 @@ class AnomalyPanel(VerticalScroll):
             self.mount(Label("[green]No anomalies in this period[/]"))
             return
 
-        # Severity breakdown
         by_severity = ", ".join(
             f"{sev.value.upper()}: {count}"
             for sev, count in sorted(
@@ -111,7 +111,6 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(f"[dim]By severity: {by_severity}[/]"))
         self.mount(Label(""))
 
-        # Anomaly table
         table: DataTable[str] = DataTable(id="anomaly-table")
         table.add_columns("Severity", "Service", "Variance", "Actual", "Expected")
         table.cursor_type = "row"
@@ -124,9 +123,12 @@ class AnomalyPanel(VerticalScroll):
                 "critical": "bold red",
             }.get(a.severity.value, "white")
 
+            top_root_cause = a.top_root_cause
+            top_cause = top_root_cause() if callable(top_root_cause) else top_root_cause or "Unknown"
+
             table.add_row(
                 f"[{sev_color}]{a.severity.value.upper()}[/{sev_color}]",
-                a.top_root_cause or "Unknown",
+                top_cause or "Unknown",
                 f"[red]{a.variance_percentage:.1f}%[/]",
                 f"${a.impact.total_actual_spend:,.2f}",
                 f"${a.impact.total_expected_spend:,.2f}",
@@ -136,14 +138,11 @@ class AnomalyPanel(VerticalScroll):
         self.mount(table)
 
     def update_report(self, report: AnomalyReport) -> None:
-        """Update with new anomaly data."""
         self._report = report
         self._anomalies = report.anomalies
-        # Clear and refresh
         self.remove_children()
         self._display_summary()
 
     def filter_by_severity(self, severity: str) -> list[Anomaly]:
-        """Filter displayed anomalies by severity."""
         filtered = [a for a in self._anomalies if a.severity.value == severity.lower()]
         return filtered

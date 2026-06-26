@@ -9,7 +9,7 @@ import json
 import logging
 from pathlib import Path
 
-from remora_fin.schemas.config import AppSettings, AWSConfig, CacheConfig, UIConfig
+from remora_fin.schemas import AppSettings, AWSConfig, CacheConfig, UIConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,6 @@ class ConfigService:
             logger.debug("Failed to load from env, using defaults")
             settings = AppSettings()
 
-        # Override with config file if exists
         if self._config_path.exists():
             try:
                 data = json.loads(self._config_path.read_text())
@@ -83,7 +82,7 @@ class ConfigService:
         return self.settings.aws.region
 
     def get_output_format(self) -> str:
-        return "pdf"  # default
+        return "pdf"
 
     def save_config(self, settings: AppSettings) -> None:
         """Persist settings to config file."""
@@ -122,10 +121,6 @@ class ConfigBuilder:
             region=self._aws.region,
             role_arn=role_arn,
         )
-        return self
-
-    def with_output_format(self, fmt: str) -> ConfigBuilder:
-        # Format is handled at report level, not config level
         return self
 
     def with_cache_enabled(self, enabled: bool) -> ConfigBuilder:

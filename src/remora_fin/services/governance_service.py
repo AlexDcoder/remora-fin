@@ -1,7 +1,7 @@
 """Governance Service — Tag hygiene and compliance.
 
 This service identifies resources missing mandatory tags and provides compliance
-scoring and details, along with AWS Organization account listing.
+scoring and details.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ class GovernanceService(BaseService):
     """Handles AWS tag compliance and resource hygiene management."""
 
     def __init__(self, session: AWSSession | None = None) -> None:
-        """Initialize GovernanceService with an optional AWS session."""
         super().__init__("governance", session)
 
     @retry_with_backoff(max_retries=3)
@@ -68,16 +67,17 @@ class GovernanceService(BaseService):
 
         async def _fetch():
             resources = []
-            async with self._session.async_client("resourcegroupstaggingapi") as tagging:
-                paginator = tagging.get_paginator("get_resources")
-                async for page in paginator.paginate():
-                    for mapping in page.get("ResourceTagMappingList", []):
-                        arn = mapping["ResourceARN"]
-                        tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
-                        missing = [rt for rt in required_tags if rt not in tags]
-                        resources.append(
-                            {"arn": arn, "tags": tags, "missing_tags": missing, "is_compliant": len(missing) == 0}
-                        )
+            # async_client() is a coroutine that returns an async client; await it first
+            tagging = await self._session.async_client("resourcegroupstaggingapi")
+            paginator = tagging.get_paginator("get_resources")
+            async for page in paginator.paginate():
+                for mapping in page.get("ResourceTagMappingList", []):
+                    arn = mapping["ResourceARN"]
+                    tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
+                    missing = [rt for rt in required_tags if rt not in tags]
+                    resources.append(
+                        {"arn": arn, "tags": tags, "missing_tags": missing, "is_compliant": len(missing) == 0}
+                    )
 
             total = len(resources)
             compliant = sum(1 for r in resources if r["is_compliant"])
@@ -92,29 +92,3 @@ class GovernanceService(BaseService):
             }
 
         return await self.get_cached_or_fetch_async(query, _fetch, use_cache=use_cache, max_age_hours=2)
-
-    @retry_with_backoff(max_retries=3)
-    def list_organization_accounts(self) -> list[dict[str, str]]:
-        """List all accounts within the current AWS Organization.
-
-        Falls back to the current account if the organization cannot be accessed.
-
-        Returns:
-            A list of dictionaries, each representing an AWS account.
-        """
-        orgs = self._session.organizations()
-        accounts = []
-
-        try:
-            paginator = orgs.get_paginator("list_accounts")
-            for page in paginator.paginate():
-                for acct in page.get("Accounts", []):
-                    accounts.append(
-                        {"id": acct["Id"], "name": acct["Name"], "email": acct["Email"], "status": acct["Status"]}
-                    )
-        except Exception as e:
-            logger.warning("Failed to list organization accounts (falling back to current account): %s", e)
-            identity = self._session.get_caller_identity()
-            accounts.append({"id": identity["account"], "name": "Current Account", "email": "N/A", "status": "ACTIVE"})
-
-        return accounts

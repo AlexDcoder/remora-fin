@@ -14,7 +14,7 @@ from remora_fin.schemas.common import DateRange
 class CostEntry(BaseModel):
     """A single cost entry from Cost Explorer."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     date: date
     service: str
@@ -28,12 +28,9 @@ class CostEntry(BaseModel):
     usage_quantity: Decimal = Field(default=Decimal("0"))
     currency: str = "USD"
 
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
-
     @field_validator("unblended_cost", "blended_cost", "amortized_cost", mode="before")
     @classmethod
     def clip_negative_costs(cls, v: Any) -> Any:
-        """Clip extremely small negative costs to zero (precision errors)."""
         if v is not None:
             try:
                 dec_v = Decimal(str(v))
@@ -61,7 +58,6 @@ class CostSummary(BaseModel):
     @field_validator("total_cost", "daily_average", "max_daily_cost", "min_daily_cost", mode="before")
     @classmethod
     def clip_negative_costs(cls, v: Any) -> Any:
-        """Clip extremely small negative costs to zero (precision errors)."""
         if v is not None:
             try:
                 dec_v = Decimal(str(v))
@@ -71,10 +67,8 @@ class CostSummary(BaseModel):
                 pass
         return v
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def peak_to_average_ratio(self) -> float:
-        """Ratio indicating cost volatility."""
         if self.daily_average == 0:
             return 0.0
         return float(self.max_daily_cost / self.daily_average)
@@ -85,7 +79,7 @@ class CostGroup(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    key: str  # e.g. service name or account ID
+    key: str
     label: str | None = None
     cost: Decimal = Field(ge=0)
     percentage: float = Field(ge=0, le=100)
@@ -94,7 +88,6 @@ class CostGroup(BaseModel):
     @field_validator("cost", mode="before")
     @classmethod
     def clip_negative_costs(cls, v: Any) -> Any:
-        """Clip extremely small negative costs to zero (precision errors)."""
         if v is not None:
             try:
                 dec_v = Decimal(str(v))
@@ -111,14 +104,13 @@ class CostBreakdown(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     period: DateRange
-    granularity: str  # DAILY | MONTHLY | HOURLY
+    granularity: str
     metric: str = "UnblendedCost"
     entries: list[CostEntry] = Field(default_factory=list)
     groups: list[CostGroup] = Field(default_factory=list)
     summary: CostSummary | None = None
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def total_cost(self) -> Decimal:
         if self.summary:
             return self.summary.total_cost
@@ -137,7 +129,6 @@ class CostTrendPoint(BaseModel):
     @field_validator("cost", mode="before")
     @classmethod
     def clip_negative_costs(cls, v: Any) -> Any:
-        """Clip extremely small negative costs to zero (precision errors)."""
         if v is not None:
             try:
                 dec_v = Decimal(str(v))
@@ -158,16 +149,14 @@ class CostTrend(BaseModel):
     metric: str
     points: list[CostTrendPoint]
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def trend_direction(self) -> str:
-        """Simple trend: 'increasing', 'decreasing', or 'stable'."""
         if len(self.points) < 2:
             return "insufficient_data"
         first_half = sum(p.cost for p in self.points[: len(self.points) // 2])
         second_half = sum(p.cost for p in self.points[len(self.points) // 2 :])
         diff = float(second_half - first_half)
-        threshold = float(first_half) * 0.05  # 5% threshold
+        threshold = float(first_half) * 0.05
         if diff > threshold:
             return "increasing"
         if diff < -threshold:

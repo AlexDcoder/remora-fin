@@ -42,7 +42,6 @@ class AccuracyMeter(Static):
             pct = self._accuracy * 100
             variant = "" if pct > 80 else "poor"
             bar_len = int(pct / 100 * 20)
-            # Stylized meter
             bar = "█" * bar_len + "░" * (20 - bar_len)
             self.update(f"[meter-label]» {self._label}[/] [meter-value {variant}][{bar}] {pct:.0f}%[/]")
 
@@ -70,7 +69,6 @@ class ForecastPanel(VerticalScroll):
 
         r = self._result
 
-        # Header info
         self.mount(
             Horizontal(
                 Label(f"[bold]Model:[/] {r.model_used.value}"),
@@ -80,16 +78,14 @@ class ForecastPanel(VerticalScroll):
             )
         )
 
-        # Accuracy meter if available
         if r.accuracy_score is not None:
             self.mount(AccuracyMeter(r.accuracy_score, "Forecast Accuracy"))
 
-        # Forecast table
         table: DataTable[str] = DataTable(id="forecast-table")
         table.add_columns("Date", "Predicted Cost", "Lower Bound", "Upper Bound")
         table.cursor_type = "row"
 
-        for p in r.predictions[:60]:  # Show up to 60 days
+        for p in r.predictions[:60]:
             lower = f"${p.lower_bound:,.2f}" if p.lower_bound is not None else "—"
             upper = f"${p.upper_bound:,.2f}" if p.upper_bound is not None else "—"
 
@@ -105,12 +101,9 @@ class ForecastPanel(VerticalScroll):
         self.mount(table)
 
     def update_forecast(self, result: ForecastResult) -> None:
-        """Update with new forecast data."""
         self._result = result
         self.remove_children()
         self._display_forecast()
 
     def toggle_confidence_interval(self) -> None:
-        """Toggle display of confidence intervals."""
-        # Would toggle visibility of lower/upper bound columns
         pass

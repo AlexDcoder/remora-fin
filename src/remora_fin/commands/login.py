@@ -13,8 +13,7 @@ from rich.panel import Panel
 from rich.prompt import IntPrompt
 from rich.table import Table
 
-from remora_fin.services.aws_service import AWSSession
-from remora_fin.services.config_service import ConfigBuilder, ConfigService
+from remora_fin.services import AWSSession, ConfigBuilder, ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -188,32 +187,24 @@ def add_login_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     """Add login subparser to the argument parser."""
     parser = subparsers.add_parser(
         "login",
-        help="Configure AWS credentials",
-        description="Set up or test AWS credential profiles.",
+        help="Configure AWS credentials interactively",
+        description=(
+            "[bold #00f3ff]Interactive AWS credential setup[/]\n\n"
+            "This command guides you through selecting an AWS profile and region,\n"
+            "validates your credentials, and saves the configuration for future use."
+        ),
         formatter_class=rich_argparse.RawDescriptionRichHelpFormatter,
     )
     parser.add_argument(
         "--profile",
         "-p",
-        default="default",
-        help="AWS profile name (default: default)",
+        default=None,
+        help="AWS profile name (skip interactive selection)",
     )
     parser.add_argument(
         "--region",
         "-r",
         default=None,
-        help="AWS region (default: us-east-1)",
-    )
-    parser.add_argument(
-        "--test",
-        "-t",
-        action="store_true",
-        help="Test existing credentials without configuring",
-    )
-    parser.add_argument(
-        "--configure",
-        "-c",
-        action="store_true",
-        help="Interactive credential configuration",
+        help="AWS region (skip interactive selection)",
     )
     parser.set_defaults(func=login)

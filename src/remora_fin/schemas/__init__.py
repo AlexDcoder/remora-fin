@@ -1,17 +1,11 @@
-"""Schemas package — Pydantic models for all data transfer objects.
+"""Schemas package — Pydantic models for AWS FinOps data structures.
 
-Organized by domain:
-    common   → shared types (DateRange, Money, Percent)
-    aws      → AWS infrastructure (credentials, accounts, services, regions)
-    cost     → Cost Explorer data (entries, summaries, breakdowns, trends)
-    anomaly  → Anomaly detection (severity, types, root causes, reports)
-    forecast → Cost forecasting (metrics, points, results, variance analysis)
-    report   → Report export (formats, filters, config, metadata)
-    config   → Application settings (AWS, cache, UI, AppSettings)
+This package contains all data models used throughout the application,
+including cost, anomaly, forecast, metrics, pricing, and configuration schemas.
 """
 
-from __future__ import annotations
-
+# ─── Common ───
+# ─── Anomaly ───
 from remora_fin.schemas.anomaly import (
     Anomaly,
     AnomalyFeedback,
@@ -22,14 +16,15 @@ from remora_fin.schemas.anomaly import (
     AnomalySeverity,
     AnomalyType,
 )
+
+# ─── AWS ───
 from remora_fin.schemas.aws import AWSCallerIdentity
 from remora_fin.schemas.common import DateRange, DateRangeInput, Money, Percent
-from remora_fin.schemas.config import (
-    AppSettings,
-    AWSConfig,
-    CacheConfig,
-    UIConfig,
-)
+
+# ─── Configuration ───
+from remora_fin.schemas.config import AppSettings, AWSConfig, CacheConfig, UIConfig
+
+# ─── Cost ───
 from remora_fin.schemas.cost import (
     CostBreakdown,
     CostEntry,
@@ -38,6 +33,8 @@ from remora_fin.schemas.cost import (
     CostTrend,
     CostTrendPoint,
 )
+
+# ─── Forecast ───
 from remora_fin.schemas.forecast import (
     ForecastComparison,
     ForecastMetric,
@@ -46,7 +43,16 @@ from remora_fin.schemas.forecast import (
     ForecastResult,
     VarianceAnalysis,
 )
+
+# ─── Metrics ───
+from remora_fin.schemas.metrics import MetricSummary, ResourceMetric
+
+# ─── Pricing ───
+from remora_fin.schemas.pricing import AWSPrice, PricingDetail, ProductAttributes
+
+# ─── Report ───
 from remora_fin.schemas.report import (
+    FullReport,
     ReportConfig,
     ReportFilters,
     ReportFormat,
@@ -54,8 +60,12 @@ from remora_fin.schemas.report import (
 )
 
 __all__ = [
+    # AWS
     "AWSCallerIdentity",
     "AWSConfig",
+    # Pricing
+    "AWSPrice",
+    # Anomaly
     "Anomaly",
     "AnomalyFeedback",
     "AnomalyImpact",
@@ -64,27 +74,38 @@ __all__ = [
     "AnomalyScore",
     "AnomalySeverity",
     "AnomalyType",
+    # Config
     "AppSettings",
     "CacheConfig",
+    # Cost
     "CostBreakdown",
     "CostEntry",
     "CostGroup",
     "CostSummary",
     "CostTrend",
     "CostTrendPoint",
+    # Common
     "DateRange",
     "DateRangeInput",
+    # Forecast
     "ForecastComparison",
     "ForecastMetric",
     "ForecastModel",
     "ForecastPoint",
     "ForecastResult",
+    # Report
+    "FullReport",
+    # Metrics
+    "MetricSummary",
     "Money",
     "Percent",
+    "PricingDetail",
+    "ProductAttributes",
     "ReportConfig",
     "ReportFilters",
     "ReportFormat",
     "ReportMetadata",
+    "ResourceMetric",
     "UIConfig",
     "VarianceAnalysis",
 ]

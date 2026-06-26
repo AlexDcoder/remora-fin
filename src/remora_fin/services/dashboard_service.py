@@ -56,15 +56,14 @@ class DashboardService(BaseService):
             region or "Global",
         )
 
-        # Core cost and anomaly tasks
         tasks = [
             self._cost.get_total_cost_async(start, end, region=region),
             self._cost.get_daily_trend_async(start, end, region=region),
             self._anomaly.get_anomaly_summary_async(start, end, use_cache=use_cache),
             self._governance.get_tag_compliance_async(tags, use_cache=use_cache),
+            self._cost.get_cost_by_service_async(start, end, region=region),
         ]
 
-        # Inventory tasks - consolidated via InventoryService
         resource_types = [
             "ec2",
             "rds",
@@ -87,7 +86,6 @@ class DashboardService(BaseService):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Handle exceptions gracefully
         def _get_result(idx: int, default: Any = None) -> Any:
             try:
                 val = results[idx]
@@ -98,19 +96,21 @@ class DashboardService(BaseService):
             except (IndexError, AttributeError):
                 return default
 
-        # Map back results
         anomaly_data = _get_result(2)
         if isinstance(anomaly_data, str):
             anomaly_data = None
 
+        cost_breakdown = _get_result(4)
+
         infra_details = {}
         for i, r_type in enumerate(resource_types):
-            infra_details[r_type] = _get_result(4 + i, [])
+            infra_details[r_type] = _get_result(5 + i, [])
 
         summary = {
             "cost_summary": _get_result(0),
             "cost_trend": _get_result(1),
             "anomalies": anomaly_data,
+            "cost_breakdown": cost_breakdown,
             "infrastructure": {
                 "counts": {k: len(v) if isinstance(v, (list, dict, str)) else 0 for k, v in infra_details.items()},
                 "details": infra_details,

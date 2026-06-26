@@ -17,8 +17,8 @@ from typing import Any
 
 import polars as pl
 
-from remora_fin.schemas.common import DateRange
-from remora_fin.schemas.forecast import (
+from remora_fin.schemas import (
+    DateRange,
     ForecastComparison,
     ForecastMetric,
     ForecastModel,
@@ -32,9 +32,6 @@ from remora_fin.services.cache_service import CacheService
 from remora_fin.services.cost_service import CostService
 
 logger = logging.getLogger(__name__)
-
-
-# -- Strategy Interface --
 
 
 class ForecastStrategy(ABC):
@@ -53,14 +50,8 @@ class ForecastStrategy(ABC):
         ...
 
 
-# -- Concrete Strategies --
-
-
 class AWSCostExplorerNativeForecast(ForecastStrategy):
-    """DEFAULT strategy: uses AWS native get_cost_forecast() API.
-
-    AWS uses ARIMA-based ML. Supports up to 365 days forecast.
-    """
+    """DEFAULT strategy: uses AWS native get_cost_forecast() API."""
 
     def __init__(self, session: AWSSession | None = None):
         self._session = session or AWSSession.get_instance()
@@ -88,17 +79,14 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
             "Granularity": granularity,
         }
 
-        # Optional filter
         if kwargs.get("filter"):
             params["Filter"] = kwargs["filter"]
 
-        # Optional group-by
         if group_by_type and group_by_key:
             params["GroupBy"] = [{"Type": group_by_type, "Key": group_by_key}]
 
         resp = ce.get_cost_forecast(**params)
 
-        # Parse native forecast
         forecast_points = []
 
         for res in resp.get("ForecastResultsByTime", []):
@@ -118,10 +106,8 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
             )
             forecast_points.append(point)
 
-        # Sort by date
         forecast_points.sort(key=lambda p: p.date)
 
-        # Calculate actual period from historical data
         actual_period: DateRange | None = None
         if not historical_data.is_empty():
             actual_start = historical_data["date"].min()
@@ -132,8 +118,6 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
                     end=actual_end,
                 )
 
-        model = ForecastModel.AWS_NATIVE_ARIMA
-
         return ForecastResult(
             forecast_period=DateRange(start=start, end=end),
             actual_period=actual_period,
@@ -142,72 +126,7 @@ class AWSCostExplorerNativeForecast(ForecastStrategy):
             predictions=forecast_points,
             group_by_type=group_by_type,
             group_by_key=group_by_key,
-            model_used=model,
-        )
-
-
-class LinearRegressionForecast(ForecastStrategy):
-    """FALLBACK strategy: simple linear regression on historical data.
-
-    Used when AWS native forecast API is not available (permissions).
-    """
-
-    def predict(
-        self,
-        historical_data: pl.DataFrame,
-        start: date,
-        end: date,
-        metric: ForecastMetric = ForecastMetric.UNBLENDED_COST,
-        **kwargs: Any,
-    ) -> ForecastResult:
-        if historical_data.is_empty():
-            raise ValueError("Historical data required for linear regression")
-
-        # Simple linear regression using Polars
-        df = historical_data.with_columns(
-            pl.col("date").map_elements(lambda d: d.toordinal(), return_dtype=pl.Int64).alias("day_num")
-        )
-
-        # Get cost column
-        cost_col = "unblended_cost" if "unblended_cost" in df.columns else "cost"
-
-        day_nums = df["day_num"].to_list()
-        costs = [float(c) for c in df[cost_col].to_list()]
-
-        n = len(day_nums)
-        if n < 2:
-            raise ValueError("Need at least 2 data points")
-
-        mean_x = sum(day_nums) / n
-        mean_y = sum(costs) / n
-
-        numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(day_nums, costs))
-        denominator = sum((x - mean_x) ** 2 for x in day_nums)
-
-        slope = 0 if denominator == 0 else numerator / denominator
-        intercept = mean_y - slope * mean_x
-
-        # Generate forecast
-        days = (end - start).days + 1
-        start.toordinal()
-        predictions = []
-
-        for i in range(days):
-            day = start + timedelta(days=i)
-            x = day.toordinal()
-            predicted = max(0, slope * x + intercept)
-            predictions.append(
-                ForecastPoint(
-                    date=day,
-                    predicted_cost=Decimal(f"{predicted:.6f}"),
-                )
-            )
-
-        return ForecastResult(
-            forecast_period=DateRange(start=start, end=end),
-            metric=metric,
-            predictions=predictions,
-            model_used=ForecastModel.LINEAR_REGRESSION,
+            model_used=ForecastModel.AWS_NATIVE_ARIMA,
         )
 
 
@@ -230,7 +149,6 @@ class MovingAverageForecast(ForecastStrategy):
 
         cost_col = "unblended_cost" if "unblended_cost" in historical_data.columns else "cost"
 
-        # Calculate moving average
         df = historical_data.sort("date")
         ma = df.select(pl.col(cost_col).rolling_mean(window_size=self._window))
         avg_cost = ma[-1][cost_col].item() or Decimal("0")
@@ -255,16 +173,8 @@ class MovingAverageForecast(ForecastStrategy):
         )
 
 
-# -- ForecastService --
-
-
 class ForecastService(BaseService):
-    """Cost forecasting using AWS native API + local fallbacks.
-
-    Strategy Pattern:
-      - DEFAULT: AWSCostExplorerNativeForecast (boto3 get_cost_forecast)
-      - FALLBACK: LinearRegression, MovingAverage, SeasonalDecomposition
-    """
+    """Cost forecasting using AWS native API + local fallbacks."""
 
     def __init__(
         self,
@@ -273,12 +183,9 @@ class ForecastService(BaseService):
         cache: CacheService | None = None,
     ):
         super().__init__("forecast", session, cache)
-        from remora_fin.services.cost_service import CostService
-
         self._cost_service = cost_service or CostService(self._session, self._cache)
 
     def _parse_forecast_response(self, resp: dict[str, Any]) -> list[ForecastPoint]:
-        """Convert AWS forecast response into a list of ForecastPoint models."""
         forecast_points = []
         for res in resp.get("ForecastResultsByTime", []):
             time_period = res.get("TimePeriod", {})
@@ -308,7 +215,6 @@ class ForecastService(BaseService):
         granularity: str = "DAILY",
         use_cache: bool = True,
     ) -> ForecastResult:
-        """Async version of get_aws_native_forecast."""
         query = {
             "service": "forecast",
             "start": start.isoformat(),
@@ -318,7 +224,8 @@ class ForecastService(BaseService):
         }
 
         async def _fetch():
-            async with self._session.async_client("ce") as ce:
+            ce_client = await self._session.async_client("ce")
+            async with ce_client as ce:
                 resp = await ce.get_cost_forecast(
                     TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
                     Metric=metric.name,
@@ -348,13 +255,9 @@ class ForecastService(BaseService):
         group_by_key: str | None = None,
         historical_days: int = 90,
     ) -> ForecastResult:
-        """Get forecast using AWS native ARIMA-based API."""
-        # Fetch historical data for context
         hist_start = start - timedelta(days=historical_days)
-        # CostService expects camelCase metric names
         trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
 
-        # Convert to DataFrame
         df = pl.DataFrame([{"date": p.date, "cost": p.cost} for p in trend.points])
 
         strategy = AWSCostExplorerNativeForecast(self._session)
@@ -376,13 +279,11 @@ class ForecastService(BaseService):
         granularity: str = "DAILY",
         **kwargs: Any,
     ) -> ForecastResult:
-        """Get forecast with automatic fallback to local models if AWS native fails."""
         try:
             return self.get_aws_native_forecast(start, end, metric, granularity, **kwargs)
         except Exception as e:
             logger.warning("AWS native forecast failed, falling back to moving average: %s", e)
 
-            # Fetch historical data for moving average
             hist_start = start - timedelta(days=60)
             trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
 
@@ -403,28 +304,19 @@ class ForecastService(BaseService):
         metric: ForecastMetric = ForecastMetric.UNBLENDED_COST,
         confidence_level: float = 0.95,
     ) -> ForecastResult:
-        """Get forecast with LOCAL confidence intervals.
-
-        AWS native gives point estimates only.
-        We add confidence intervals using historical variance.
-        """
         result = self.get_aws_native_forecast(start, end, metric)
 
-        # Fetch historical data for variance calculation
         hist_start = start - timedelta(days=90)
         trend = self._cost_service.get_daily_trend(hist_start, start, metric=metric.value)
         costs = [float(p.cost) for p in trend.points]
 
         if len(costs) >= 2:
-            # Calculate standard deviation
             mean = sum(costs) / len(costs)
             variance = sum((c - mean) ** 2 for c in costs) / (len(costs) - 1)
             std_dev = variance**0.5
 
-            # Z-score for confidence level
             z = 1.96 if confidence_level >= 0.95 else 1.645
 
-            # Add confidence intervals to predictions
             enhanced_predictions = []
             for p in result.predictions:
                 cost = float(p.predicted_cost)
@@ -457,12 +349,10 @@ class ForecastService(BaseService):
         actual_start: date,
         actual_end: date,
     ) -> ForecastComparison:
-        """Compare forecast vs actuals and compute accuracy metrics."""
         trend = self._cost_service.get_daily_trend(actual_start, actual_end, forecast.metric.value)
 
         actual_total = sum(p.cost for p in trend.points)
 
-        # Get overlapping predicted points
         actual_map = {p.date: float(p.cost) for p in trend.points}
         predicted_map = {p.date: float(p.predicted_cost) for p in forecast.predictions}
 
@@ -517,41 +407,11 @@ class ForecastService(BaseService):
             variance_analysis=analysis,
         )
 
-    def get_forecast_accuracy(
-        self,
-        historical_actuals: list[float],
-        historical_predictions: list[float],
-    ) -> float | None:
-        """Calculate MAPE for historical forecast accuracy."""
-        if len(historical_actuals) != len(historical_predictions):
-            return None
-        if not historical_actuals:
-            return None
-
-        pct_errors = []
-        for actual, predicted in zip(historical_actuals, historical_predictions):
-            if actual != 0:
-                pct_errors.append(abs(predicted - actual) / actual * 100)
-
-        if not pct_errors:
-            return None
-
-        return round(sum(pct_errors) / len(pct_errors), 2)
-
     def scenario_analysis(
         self,
         forecast: ForecastResult,
         variations: dict[str, float],
     ) -> dict[str, ForecastResult]:
-        """What-if scenario analysis.
-
-        Args:
-            forecast: Base forecast
-            variations: {"optimistic": -0.10, "pessimistic": 0.15, ...}
-
-        Returns:
-            Dict of scenario name → ForecastResult
-        """
         scenarios = {}
         for name, pct_change in variations.items():
             new_predictions = [

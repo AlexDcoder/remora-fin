@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
-from remora_fin.schemas.metrics import MetricSummary, ResourceMetric
+from remora_fin.schemas import MetricSummary, ResourceMetric
 from remora_fin.services.aws_service import AWSSession, retry_with_backoff
 from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
@@ -32,11 +33,13 @@ class MetricsService(BaseService):
         start_time: datetime,
         end_time: datetime,
         period: int = 3600,
-        statistics: list[str] = ["Average", "Minimum", "Maximum"],
+        statistics: list[str] | None = None,
     ) -> MetricSummary | None:
-        """Fetch statistics for a specific metric from CloudWatch."""
+        if statistics is None:
+            statistics = ["Average", "Minimum", "Maximum"]
+
         resource_id = dimensions[0]["Value"] if dimensions else "unknown"
-        query = {
+        query: dict[str, Any] = {
             "service": "metrics",
             "method": "get_metric_statistics",
             "namespace": namespace,
@@ -47,7 +50,7 @@ class MetricsService(BaseService):
         }
 
         cached = self._cache.get_json(query, max_age_hours=1)
-        if cached:
+        if isinstance(cached, dict):
             return MetricSummary(**cached)
 
         cw = self._session.cloudwatch()
@@ -84,7 +87,7 @@ class MetricsService(BaseService):
                 min=min(values),
                 max=max(values),
                 average=sum(values) / len(values),
-                p95=sorted(values)[int(len(values) * 0.95)],
+                p95=sorted(values)[int(len(values) * 0.95)] if values else 0.0,
                 data_points=points,
             )
 
@@ -96,7 +99,6 @@ class MetricsService(BaseService):
             return None
 
     def get_ec2_cpu_utilization(self, instance_id: str, days: int = 7) -> MetricSummary | None:
-        """Helper for EC2 CPU utilization."""
         end = datetime.now()
         start = end - timedelta(days=days)
         return self.get_metric_statistics(
@@ -108,7 +110,6 @@ class MetricsService(BaseService):
         )
 
     def get_rds_cpu_utilization(self, db_instance_id: str, days: int = 7) -> MetricSummary | None:
-        """Helper for RDS CPU utilization."""
         end = datetime.now()
         start = end - timedelta(days=days)
         return self.get_metric_statistics(
@@ -120,7 +121,6 @@ class MetricsService(BaseService):
         )
 
     def get_lambda_errors(self, function_name: str, days: int = 7) -> MetricSummary | None:
-        """Helper for Lambda error counts."""
         end = datetime.now()
         start = end - timedelta(days=days)
         return self.get_metric_statistics(
@@ -132,57 +132,14 @@ class MetricsService(BaseService):
             statistics=["Sum"],
         )
 
-    def get_ecs_cpu_utilization(self, cluster_name: str, service_name: str, days: int = 7) -> MetricSummary | None:
-        """Helper for ECS Service CPU utilization."""
+    def get_lambda_duration(self, function_name: str, days: int = 7) -> MetricSummary | None:
         end = datetime.now()
         start = end - timedelta(days=days)
         return self.get_metric_statistics(
-            namespace="AWS/ECS",
-            metric_name="CPUUtilization",
-            dimensions=[
-                {"Name": "ClusterName", "Value": cluster_name},
-                {"Name": "ServiceName", "Value": service_name},
-            ],
+            namespace="AWS/Lambda",
+            metric_name="Duration",
+            dimensions=[{"Name": "FunctionName", "Value": function_name}],
             start_time=start,
             end_time=end,
-        )
-
-    def get_elb_request_count(self, load_balancer_name: str, days: int = 7) -> MetricSummary | None:
-        """Helper for ELB request count."""
-        end = datetime.now()
-        start = end - timedelta(days=days)
-        # For Application Load Balancers, dimensions are LoadBalancer
-        return self.get_metric_statistics(
-            namespace="AWS/ApplicationELB",
-            metric_name="RequestCount",
-            dimensions=[{"Name": "LoadBalancer", "Value": load_balancer_name}],
-            start_time=start,
-            end_time=end,
-            statistics=["Sum"],
-        )
-
-    def get_cloudfront_requests(self, distribution_id: str, days: int = 7) -> MetricSummary | None:
-        """Helper for CloudFront request count."""
-        end = datetime.now()
-        start = end - timedelta(days=days)
-        return self.get_metric_statistics(
-            namespace="AWS/CloudFront",
-            metric_name="Requests",
-            dimensions=[{"Name": "DistributionId", "Value": distribution_id}, {"Name": "Region", "Value": "Global"}],
-            start_time=start,
-            end_time=end,
-            statistics=["Sum"],
-        )
-
-    def get_nat_gateway_bytes_processed(self, nat_gateway_id: str, days: int = 7) -> MetricSummary | None:
-        """Helper for NAT Gateway data processing."""
-        end = datetime.now()
-        start = end - timedelta(days=days)
-        return self.get_metric_statistics(
-            namespace="AWS/NATGateway",
-            metric_name="BytesProcessed",
-            dimensions=[{"Name": "NatGatewayId", "Value": nat_gateway_id}],
-            start_time=start,
-            end_time=end,
-            statistics=["Sum"],
+            statistics=["Average"],
         )
