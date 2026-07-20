@@ -2,13 +2,13 @@
 #    uv pip compile pyproject.toml -o requirements.txt
 aioboto3==15.5.0
     # via remora-fin (pyproject.toml)
-aiobotocore==2.25.1
+aiobotocore==2.26.0
     # via aioboto3
 aiofiles==25.1.0
     # via aioboto3
-aiohappyeyeballs==2.6.2
+aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.1
     # via aiobotocore
 aioitertools==0.13.0
     # via aiobotocore
@@ -18,11 +18,11 @@ annotated-types==0.7.0
     # via pydantic
 attrs==26.1.0
     # via aiohttp
-boto3==1.40.61
+boto3==1.43.51
     # via
     #   remora-fin (pyproject.toml)
     #   aiobotocore
-botocore==1.40.61
+botocore==1.43.51
     # via
     #   aiobotocore
     #   boto3
@@ -39,7 +39,7 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-idna==3.17
+idna==3.18
     # via yarl
 jmespath==1.1.0
     # via
@@ -64,13 +64,13 @@ multidict==6.7.1
     #   yarl
 openpyxl==3.1.5
     # via remora-fin (pyproject.toml)
-pillow==12.2.0
+pillow==12.3.0
     # via fpdf2
-platformdirs==4.10.0
+platformdirs==4.10.1
     # via textual
-polars==1.41.2
+polars==1.42.1
     # via remora-fin (pyproject.toml)
-polars-runtime-32==1.41.2
+polars-runtime-32==1.42.1
     # via polars
 propcache==0.5.2
     # via
@@ -78,13 +78,13 @@ propcache==0.5.2
     #   yarl
 pydantic==2.13.4
     # via remora-fin (pyproject.toml)
-pydantic-core==2.46.4
+pydantic-core==2.47.0
     # via pydantic
 pygments==2.20.0
     # via
     #   rich
     #   textual
-pypdf==6.12.2
+pypdf==6.14.2
     # via remora-fin (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
@@ -99,13 +99,13 @@ rich==15.0.0
     #   textual
 rich-argparse==1.8.0
     # via remora-fin (pyproject.toml)
-s3transfer==0.14.0
+s3transfer==0.19.1
     # via boto3
 six==1.17.0
     # via python-dateutil
-textual==8.2.7
+textual==8.2.8
     # via remora-fin (pyproject.toml)
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   aiosignal
     #   pydantic
@@ -122,5 +122,5 @@ wrapt==1.17.3
     # via aiobotocore
 xlsxwriter==3.2.9
     # via remora-fin (pyproject.toml)
-yarl==1.24.2
+yarl==1.24.5
     # via aiohttp
