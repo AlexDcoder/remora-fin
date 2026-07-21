@@ -64,7 +64,7 @@ multidict==6.7.1
     #   yarl
 openpyxl==3.1.5
     # via remora-fin (pyproject.toml)
-pillow==12.2.0
+pillow==12.3.0
     # via fpdf2
 platformdirs==4.10.0
     # via textual
