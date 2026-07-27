@@ -178,23 +178,25 @@ class PDFFormatter(ReportFormatter):
         pdf.ln(4)
 
         max_w = 140
-        top_groups = sorted(groups, key=lambda x: x.usage_quantity, reverse=True)[:6]
+        top_groups = sorted(groups, key=lambda x: (x.cost, x.usage_quantity), reverse=True)[:6]
         if not top_groups:
             return
 
-        max_val = float(max(g.usage_quantity for g in top_groups)) if top_groups else 1.0
+        max_val = float(max((g.cost if g.cost > 0 else g.usage_quantity) for g in top_groups)) if top_groups else 1.0
 
         for g in top_groups:
             pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(40, 6, f"{g.key[:18]}", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
-            bar_w = (float(g.usage_quantity) / max_val) * max_w if max_val > 0 else 0
+            val = float(g.cost) if g.cost > 0 else float(g.usage_quantity)
+            bar_w = (val / max_val) * max_w if max_val > 0 else 0
             pdf.set_fill_color(52, 152, 219)
             pdf.rect(pdf.get_x(), pdf.get_y() + 1, bar_w, 4, "F")
 
             pdf.set_x(pdf.get_x() + max_w + 5)
-            pdf.cell(0, 6, f"{g.usage_quantity:,.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            display_str = f"${g.cost:,.2f}" if g.cost > 0 else f"{g.usage_quantity:,.2f}"
+            pdf.cell(0, 6, display_str, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(2)
         pdf.ln(8)
 

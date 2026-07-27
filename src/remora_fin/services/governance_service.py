@@ -67,17 +67,16 @@ class GovernanceService(BaseService):
 
         async def _fetch():
             resources = []
-            # async_client() is a coroutine that returns an async client; await it first
-            tagging = await self._session.async_client("resourcegroupstaggingapi")
-            paginator = tagging.get_paginator("get_resources")
-            async for page in paginator.paginate():
-                for mapping in page.get("ResourceTagMappingList", []):
-                    arn = mapping["ResourceARN"]
-                    tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
-                    missing = [rt for rt in required_tags if rt not in tags]
-                    resources.append(
-                        {"arn": arn, "tags": tags, "missing_tags": missing, "is_compliant": len(missing) == 0}
-                    )
+            async with self._session.async_client("resourcegroupstaggingapi") as tagging:
+                paginator = tagging.get_paginator("get_resources")
+                async for page in paginator.paginate():
+                    for mapping in page.get("ResourceTagMappingList", []):
+                        arn = mapping["ResourceARN"]
+                        tags = {t["Key"]: t["Value"] for t in mapping.get("Tags", [])}
+                        missing = [rt for rt in required_tags if rt not in tags]
+                        resources.append(
+                            {"arn": arn, "tags": tags, "missing_tags": missing, "is_compliant": len(missing) == 0}
+                        )
 
             total = len(resources)
             compliant = sum(1 for r in resources if r["is_compliant"])

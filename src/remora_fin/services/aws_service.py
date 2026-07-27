@@ -151,7 +151,7 @@ class AWSSession:
     def async_session(self) -> aioboto3.Session:
         return self._async_session
 
-    async def async_client(self, service: str, **kwargs: Any) -> Any:
+    def async_client(self, service: str, **kwargs: Any) -> Any:
         return self._async_session.client(service, **kwargs)
 
     def validate_credentials(self) -> bool:

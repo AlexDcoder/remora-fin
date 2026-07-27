@@ -224,8 +224,7 @@ class ForecastService(BaseService):
         }
 
         async def _fetch():
-            ce_client = await self._session.async_client("ce")
-            async with ce_client as ce:
+            async with self._session.async_client("ce") as ce:
                 resp = await ce.get_cost_forecast(
                     TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
                     Metric=metric.name,
