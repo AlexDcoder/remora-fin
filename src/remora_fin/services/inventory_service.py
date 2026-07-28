@@ -176,7 +176,7 @@ class InventoryService(BaseService):
 
         async def _fetch() -> list[dict[str, Any]]:
             items: list[dict[str, Any]] = []
-            async with await self._session.async_client(config.client_name) as client:
+            async with self._session.async_client(config.client_name) as client:
                 if config.paginator_name:
                     paginator = client.get_paginator(config.paginator_name)
                     async for page in paginator.paginate():

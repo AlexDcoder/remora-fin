@@ -248,8 +248,8 @@ class CostService(BaseService):
     @async_retry_with_backoff(max_retries=5)
     async def _fetch_all_pages_async(self, query: dict[str, Any]) -> list[dict[str, Any]]:
         """Async version of fetch_all_pages."""
-        ce = await self._session.async_client("ce")
-        return await self._session.fetch_token_paginated_async(ce, "get_cost_and_usage", **query)
+        async with self._session.async_client("ce") as ce:
+            return await self._session.fetch_token_paginated_async(ce, "get_cost_and_usage", **query)
 
     def _parse_results(self, pages: list[dict[str, Any]]) -> pl.DataFrame:
         """Parse raw AWS Cost Explorer pages into a standardized Polars DataFrame."""

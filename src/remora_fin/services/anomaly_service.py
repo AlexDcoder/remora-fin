@@ -7,9 +7,7 @@ LOCAL enrichments: severity classification, type categorization, trend analysis.
 
 from __future__ import annotations
 
-import inspect
 import logging
-from contextlib import suppress
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
@@ -98,18 +96,8 @@ class AnomalyService(BaseService):
                 "StartValue": str(min_impact),
             }
 
-        ce = await self._session.async_client("ce")
-        try:
+        async with self._session.async_client("ce") as ce:
             pages = await self._session.fetch_token_paginated_async(ce, "get_anomalies", **params)
-        finally:
-            # attempt to close the client if it exposes an async close()
-            close = getattr(ce, "close", None)
-            if close is not None:
-                if inspect.iscoroutinefunction(close):
-                    await close()
-                else:
-                    with suppress(Exception):
-                        close()
 
         logger.info("Fetched %d anomaly pages (async)", len(pages))
         return pages
