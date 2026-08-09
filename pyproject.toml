@@ -1,6 +1,6 @@
 [project]
 name = "remora-fin"
-version = "1.0.8"
+version = "1.0.9"
 description = "Lightweight, high-performance FinOps toolkit for AWS"
 readme = "README.md"
 license = {file = "LICENSE"}
