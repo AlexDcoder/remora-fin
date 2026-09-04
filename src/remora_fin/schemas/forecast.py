@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -82,5 +83,5 @@ class ForecastComparison(BaseModel):
     def overall_variance_pct(self) -> float:
         if self.actuals_total == 0:
             return 0.0
-        total = self.forecast.total_predicted_cost
+        total = cast(Decimal, self.forecast.total_predicted_cost)
         return float((total - self.actuals_total) / self.actuals_total * 100)
