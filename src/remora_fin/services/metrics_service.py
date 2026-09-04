@@ -49,7 +49,7 @@ class MetricsService(BaseService):
             "end": end_time.isoformat(),
         }
 
-        cached = self._cache.get_json(query, max_age_hours=1)
+        cached = self._cache.get_json(self.cache_query(query), max_age_hours=1)
         if isinstance(cached, dict):
             return MetricSummary(**cached)
 
@@ -91,7 +91,7 @@ class MetricsService(BaseService):
                 data_points=points,
             )
 
-            self._cache.set_json(query, summary.model_dump(mode="json"))
+            self._cache.set_json(self.cache_query(query), summary.model_dump(mode="json"))
             return summary
 
         except Exception as e:

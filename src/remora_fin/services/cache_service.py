@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -23,8 +25,16 @@ CACHE_DIR = Path.home() / ".remora" / "cache"
 class CacheService:
     """Handles local caching of Polars DataFrames using Parquet files."""
 
-    def __init__(self, cache_dir: Path = CACHE_DIR) -> None:
+    def __init__(
+        self,
+        cache_dir: Path = CACHE_DIR,
+        *,
+        enabled: bool = True,
+        ttl_seconds: int = 3600,
+    ) -> None:
         self.cache_dir = cache_dir
+        self.enabled = enabled
+        self.ttl_seconds = ttl_seconds
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cleanup()
 
@@ -32,15 +42,21 @@ class CacheService:
         query_str = json.dumps(query, sort_keys=True, default=str)
         return hashlib.sha256(query_str.encode()).hexdigest()
 
-    def get(self, query: dict[str, Any], max_age_hours: int = 24) -> pl.DataFrame | None:
+    def _is_expired(self, cache_file: Path, max_age_hours: int | None) -> bool:
+        max_age_seconds = max_age_hours * 3600 if max_age_hours is not None else self.ttl_seconds
+        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
+        return datetime.now() - mtime > timedelta(seconds=max_age_seconds)
+
+    def get(self, query: dict[str, Any], max_age_hours: int | None = None) -> pl.DataFrame | None:
+        if not self.enabled:
+            return None
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.parquet"
 
         if not cache_file.exists():
             return None
 
-        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
-        if datetime.now() - mtime > timedelta(hours=max_age_hours):
+        if self._is_expired(cache_file, max_age_hours):
             logger.debug("Cache expired for query %s", key[:8])
             return None
 
@@ -53,24 +69,33 @@ class CacheService:
             return None
 
     def set(self, query: dict[str, Any], df: pl.DataFrame) -> None:
+        if not self.enabled:
+            return
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.parquet"
 
         try:
-            df.write_parquet(cache_file)
+            with tempfile.NamedTemporaryFile(dir=self.cache_dir, suffix=".parquet", delete=False) as temp_file:
+                temp_path = Path(temp_file.name)
+            try:
+                df.write_parquet(temp_path)
+                os.replace(temp_path, cache_file)
+            finally:
+                temp_path.unlink(missing_ok=True)
             logger.debug("Cache saved for query %s", key[:8])
         except Exception as e:
             logger.error("Failed to write cache file %s: %s", cache_file, e)
 
-    def get_json(self, query: dict[str, Any], max_age_hours: int = 24) -> dict[str, Any] | list[Any] | None:
+    def get_json(self, query: dict[str, Any], max_age_hours: int | None = None) -> dict[str, Any] | list[Any] | None:
+        if not self.enabled:
+            return None
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.json"
 
         if not cache_file.exists():
             return None
 
-        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
-        if datetime.now() - mtime > timedelta(hours=max_age_hours):
+        if self._is_expired(cache_file, max_age_hours):
             logger.debug("JSON cache expired for query %s", key[:8])
             return None
 
@@ -83,11 +108,25 @@ class CacheService:
             return None
 
     def set_json(self, query: dict[str, Any], data: Any) -> None:
+        if not self.enabled:
+            return
         key = self._generate_key(query)
         cache_file = self.cache_dir / f"{key}.json"
 
         try:
-            cache_file.write_text(json.dumps(data, default=str), encoding="utf-8")
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                dir=self.cache_dir,
+                suffix=".json",
+                encoding="utf-8",
+                delete=False,
+            ) as temp_file:
+                temp_file.write(json.dumps(data, default=str))
+                temp_path = Path(temp_file.name)
+            try:
+                os.replace(temp_path, cache_file)
+            finally:
+                temp_path.unlink(missing_ok=True)
             logger.debug("JSON cache saved for query %s", key[:8])
         except Exception as e:
             logger.error("Failed to write JSON cache file %s: %s", cache_file, e)

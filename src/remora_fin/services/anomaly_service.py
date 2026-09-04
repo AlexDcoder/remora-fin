@@ -204,7 +204,7 @@ class AnomalyService(BaseService):
         }
 
         if use_cache:
-            cached_data = self._cache.get_json(query)
+            cached_data = self._cache.get_json(self.cache_query(query))
             if cached_data:
                 return AnomalyReport.model_validate(cached_data)
 
@@ -212,7 +212,7 @@ class AnomalyService(BaseService):
         report = self._build_report(anomalies)
 
         if use_cache:
-            self._cache.set_json(query, report.model_dump(mode="json"))
+            self._cache.set_json(self.cache_query(query), report.model_dump(mode="json"))
 
         return report
 

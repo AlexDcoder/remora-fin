@@ -362,7 +362,7 @@ class CostService(BaseService):
     async def _get_data_async(self, query: dict[str, Any], use_cache: bool = True) -> pl.DataFrame:
         """Async version of _get_data."""
         if use_cache:
-            cached_df = self._cache.get(query)
+            cached_df = self._cache.get(self.cache_query(query))
             if cached_df is not None and not cached_df.is_empty():
                 try:
                     test_total = cached_df["unblended_cost"].sum()
@@ -370,7 +370,6 @@ class CostService(BaseService):
                         return cached_df
                 except Exception as e:
                     logger.warning(f"Cache data invalid, refetching: {e}")
-                    self._cache.clear()
 
         try:
             pages = await self._fetch_all_pages_async(query)
@@ -380,7 +379,7 @@ class CostService(BaseService):
             return pl.DataFrame()
 
         if use_cache and not df.is_empty():
-            self._cache.set(query, df)
+            self._cache.set(self.cache_query(query), df)
 
         return df
 

@@ -14,6 +14,7 @@ from typing import Any
 from remora_fin.services.anomaly_service import AnomalyService
 from remora_fin.services.aws_service import AWSSession
 from remora_fin.services.base_service import BaseService
+from remora_fin.services.cache_service import CacheService
 from remora_fin.services.cost_service import CostService
 from remora_fin.services.governance_service import GovernanceService
 from remora_fin.services.inventory_service import InventoryService
@@ -27,16 +28,17 @@ class DashboardService(BaseService):
     def __init__(
         self,
         session: AWSSession | None = None,
+        cache: CacheService | None = None,
         cost_service: CostService | None = None,
         anomaly_service: AnomalyService | None = None,
         inventory_service: InventoryService | None = None,
         governance_service: GovernanceService | None = None,
     ) -> None:
-        super().__init__("dashboard", session)
-        self._cost = cost_service or CostService(self._session)
-        self._anomaly = anomaly_service or AnomalyService(self._session)
-        self._inventory = inventory_service or InventoryService(self._session)
-        self._governance = governance_service or GovernanceService(self._session)
+        super().__init__("dashboard", session, cache)
+        self._cost = cost_service or CostService(self._session, self._cache)
+        self._anomaly = anomaly_service or AnomalyService(self._session, self._cache)
+        self._inventory = inventory_service or InventoryService(self._session, self._cache)
+        self._governance = governance_service or GovernanceService(self._session, self._cache)
 
     async def get_summary_parallel(
         self,
