@@ -36,7 +36,7 @@ async def anomalies(args: argparse.Namespace, session: AWSSession) -> None:
 
     # Output
     if report_data.total_anomalies == 0:
-        console.print("\n[bold #39ff14]No cost anomalies detected in the selected period.[/] ✨\n")
+        console.print("\n[bold #39ff14]No cost anomalies detected in the selected period.[/]\n")
     else:
         from rich.table import Table
 
@@ -58,9 +58,10 @@ async def anomalies(args: argparse.Namespace, session: AWSSession) -> None:
                 if a.severity == "medium"
                 else "#39ff14"
             )
+            top_cause = a.top_root_cause() if callable(a.top_root_cause) else a.top_root_cause
             anomaly_table.add_row(
                 str(a.start_date),
-                a.top_root_cause() or "Unknown",
+                top_cause or "Unknown",
                 f"[{severity_color}]{a.severity.upper()}[/]",
                 f"${a.impact.total_actual_spend:,.2f}",
             )

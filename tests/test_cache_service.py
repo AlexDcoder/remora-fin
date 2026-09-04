@@ -2,6 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
+from remora_fin.services.base_service import BaseService
 from remora_fin.services.cache_service import CacheService
 
 
@@ -68,3 +69,52 @@ def test_cache_json_expiration(tmp_path: Path) -> None:
         os.utime(f, (old_time, old_time))
 
     assert cache.get_json(query, max_age_hours=1) is None
+
+
+def test_cache_uses_configured_ttl_when_no_override_is_given(tmp_path: Path) -> None:
+    cache = CacheService(cache_dir=tmp_path, ttl_seconds=60)
+    query = {"id": "configured_ttl"}
+    cache.set_json(query, {"value": 1})
+
+    import os
+    import time
+
+    old_time = time.time() - 61
+    for cache_file in tmp_path.glob("*.json"):
+        os.utime(cache_file, (old_time, old_time))
+
+    assert cache.get_json(query) is None
+
+
+def test_disabled_cache_does_not_write_files(tmp_path: Path) -> None:
+    cache = CacheService(cache_dir=tmp_path, enabled=False)
+    cache.set_json({"id": "disabled"}, {"value": 1})
+
+    assert list(tmp_path.iterdir()) == []
+
+
+class _SessionStub:
+    profile = "finance"
+    region = "sa-east-1"
+
+    def get_caller_identity(self) -> dict[str, str]:
+        return {"account": "123456789012", "user_id": "test", "arn": "test"}
+
+
+def test_base_service_scopes_cache_queries_by_aws_identity(tmp_path: Path) -> None:
+    service = BaseService(
+        "test",
+        session=_SessionStub(),  # type: ignore[arg-type]
+        cache=CacheService(cache_dir=tmp_path),
+    )
+
+    scoped_query = service.cache_query({"service": "cost", "period": "30d"})
+
+    assert scoped_query == {
+        "cache_scope": {
+            "account_id": "123456789012",
+            "profile": "finance",
+            "region": "sa-east-1",
+        },
+        "query": {"service": "cost", "period": "30d"},
+    }

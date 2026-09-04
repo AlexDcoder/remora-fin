@@ -20,6 +20,8 @@ async def dashboard(args: argparse.Namespace, session: AWSSession) -> None:
 
     config = ConfigService()
     settings = config.settings
+    theme = args.theme or settings.ui.theme
+    default_days = args.days or settings.ui.default_period_days
 
     from rich.panel import Panel
     from rich.text import Text
@@ -31,7 +33,7 @@ async def dashboard(args: argparse.Namespace, session: AWSSession) -> None:
         ("\nRegion:  ", "dim #4b86b4"),
         (f"{session.region}", "#00f3ff"),
         ("\nTheme:   ", "dim #4b86b4"),
-        (f"{settings.ui.theme}", "#00f3ff"),
+        (f"{theme}", "#00f3ff"),
         ("\n\nStarting Textual TUI...", "italic dim #4b86b4"),
     )
     console.print(Panel(welcome_text, border_style="#00f3ff", expand=False))
@@ -40,8 +42,8 @@ async def dashboard(args: argparse.Namespace, session: AWSSession) -> None:
     app = RemoraApp(
         region=session.region,
         profile=session.profile,
-        default_days=settings.ui.default_period_days,
-        theme=settings.ui.theme,
+        default_days=default_days,
+        theme=theme,
     )
     try:
         await app.run_async()

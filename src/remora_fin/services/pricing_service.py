@@ -34,7 +34,7 @@ class PricingService(BaseService):
             "filters": sorted([f"{f['Field']}={f['Value']}" for f in filters]),
         }
 
-        cached = self._cache.get_json(query, max_age_hours=24)
+        cached = self._cache.get_json(self.cache_query(query), max_age_hours=24)
         if cached:
             cached_products = cast(list[dict[str, Any]], cached)
             return [PricingDetail(**p) for p in cached_products]
@@ -51,7 +51,7 @@ class PricingService(BaseService):
                     item = json.loads(price_list_str)
                     details.append(self._parse_item(item))
 
-            self._cache.set_json(query, [d.model_dump(mode="json") for d in details])
+            self._cache.set_json(self.cache_query(query), [d.model_dump(mode="json") for d in details])
             return details
 
         except Exception as e:

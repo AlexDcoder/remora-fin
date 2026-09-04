@@ -127,6 +127,7 @@ class ConfigBuilder:
         self._cache = CacheConfig(
             enabled=enabled,
             ttl_seconds=self._cache.ttl_seconds,
+            directory=self._cache.directory,
         )
         return self
 
@@ -134,6 +135,7 @@ class ConfigBuilder:
         self._cache = CacheConfig(
             enabled=self._cache.enabled,
             ttl_seconds=ttl,
+            directory=self._cache.directory,
         )
         return self
 

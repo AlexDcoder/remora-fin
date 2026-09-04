@@ -62,6 +62,7 @@ class AWSSession:
             region_name=region,
             profile_name=profile,
         )
+        self._caller_identity: dict[str, str] | None = None
         self._initialized = True
         logger.info("AWSSession initialized (region=[cyan]%s[/], profile=[cyan]%s[/])", region, profile)
 
@@ -156,11 +157,14 @@ class AWSSession:
 
     def validate_credentials(self) -> bool:
         try:
-            identity = self.sts().get_caller_identity()
-            logger.info("AWS identity: Account=%s, ARN=%s", identity["Account"], identity["Arn"])
+            identity = self.get_caller_identity()
+            logger.info("AWS identity: Account=%s, ARN=%s", identity.get("account"), identity.get("arn"))
             return True
         except ClientError as e:
             logger.error("AWS credential validation failed: %s", e)
+            return False
+        except Exception as e:
+            logger.error("Unexpected error validating AWS credentials: %s", e)
             return False
 
     def check_billing_access(self) -> bool:
@@ -179,12 +183,15 @@ class AWSSession:
             return False
 
     def get_caller_identity(self) -> dict[str, str]:
-        resp = self.sts().get_caller_identity()
-        return {
-            "user_id": resp["UserId"],
-            "account": resp["Account"],
-            "arn": resp["Arn"],
-        }
+        """Return and cache the identity for this profile/region session."""
+        if self._caller_identity is None:
+            resp = self.sts().get_caller_identity()
+            self._caller_identity = {
+                "user_id": resp["UserId"],
+                "account": resp["Account"],
+                "arn": resp["Arn"],
+            }
+        return self._caller_identity
 
     def fetch_token_paginated(
         self,

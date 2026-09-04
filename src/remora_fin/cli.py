@@ -60,6 +60,12 @@ ASCII_ART = r"""
 
 def execute_cli() -> None:
     """Main CLI entry point."""
+    if sys.platform == "win32":
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     setup_logging()
     logger = logging.getLogger("remora_fin.cli")
 
@@ -114,7 +120,7 @@ def execute_cli() -> None:
         rprint("\n[bold #ff4500]INITIAL SETUP REQUIRED[/]")
         rprint("[#e6f4f8]To ensure consistent session management and caching, you must initialize Remora-Fin first.[/]")
         rprint("\n[bold #00f3ff]Please run:[/]")
-        rprint("  [bold #39ff14]remora-fin login --configure[/]\n")
+        rprint("  [bold #39ff14]remora-fin login[/]\n")
         sys.exit(1)
 
     # Execute the command

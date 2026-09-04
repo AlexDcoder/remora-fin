@@ -82,5 +82,5 @@ class ForecastComparison(BaseModel):
     def overall_variance_pct(self) -> float:
         if self.actuals_total == 0:
             return 0.0
-        total = self.forecast.total_predicted_cost()
+        total = self.forecast.total_predicted_cost
         return float((total - self.actuals_total) / self.actuals_total * 100)
