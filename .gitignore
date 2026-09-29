@@ -58,6 +58,7 @@ htmlcov/
 # GitHub
 .github/CODEOWNERS
 
-#Other to ignore
-Makefile
-docs/*
+# Generated reports can contain account IDs, resource ARNs, and billing data.
+# Keep public, anonymized documentation assets under docs/ explicitly reviewed.
+docs/*.pdf
+docs/*.xlsx
