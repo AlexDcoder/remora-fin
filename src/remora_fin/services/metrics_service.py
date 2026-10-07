@@ -70,10 +70,11 @@ class MetricsService(BaseService):
             if not datapoints:
                 return None
 
+            requested_statistic = statistics[0]
             points = [
                 ResourceMetric(
                     timestamp=dp["Timestamp"],
-                    value=dp.get("Average", dp.get("Maximum", 0.0)),
+                    value=float(dp.get(requested_statistic, 0.0)),
                     unit=dp.get("Unit", "Percent"),
                 )
                 for dp in datapoints
@@ -87,6 +88,7 @@ class MetricsService(BaseService):
                 min=min(values),
                 max=max(values),
                 average=sum(values) / len(values),
+                total=sum(values),
                 p95=sorted(values)[int(len(values) * 0.95)] if values else 0.0,
                 data_points=points,
             )
@@ -130,6 +132,32 @@ class MetricsService(BaseService):
             start_time=start,
             end_time=end,
             statistics=["Sum"],
+        )
+
+    def get_lambda_invocations(self, function_name: str, days: int = 7) -> MetricSummary | None:
+        """Return Lambda invocation counts summed across the analysis window."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        return self.get_metric_statistics(
+            namespace="AWS/Lambda",
+            metric_name="Invocations",
+            dimensions=[{"Name": "FunctionName", "Value": function_name}],
+            start_time=start,
+            end_time=end,
+            statistics=["Sum"],
+        )
+
+    def get_rds_connections(self, db_instance_id: str, days: int = 7) -> MetricSummary | None:
+        """Return average RDS database connections for corroborating low CPU."""
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        return self.get_metric_statistics(
+            namespace="AWS/RDS",
+            metric_name="DatabaseConnections",
+            dimensions=[{"Name": "DBInstanceIdentifier", "Value": db_instance_id}],
+            start_time=start,
+            end_time=end,
+            statistics=["Average"],
         )
 
     def get_lambda_duration(self, function_name: str, days: int = 7) -> MetricSummary | None:

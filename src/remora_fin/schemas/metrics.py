@@ -29,6 +29,7 @@ class MetricSummary(BaseModel):
     min: float = 0.0
     max: float = 0.0
     average: float = 0.0
+    total: float = 0.0
     p95: float = 0.0
     data_points: list[ResourceMetric] = Field(default_factory=list)
 

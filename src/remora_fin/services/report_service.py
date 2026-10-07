@@ -8,6 +8,7 @@ includes an S3 exporter for remote storage.
 from __future__ import annotations
 
 import io
+import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -27,6 +28,7 @@ from remora_fin.schemas import (
     CostTrendPoint,
     ForecastResult,
     FullReport,
+    RecommendationSummary,
     ReportConfig,
     ReportMetadata,
 )
@@ -110,6 +112,15 @@ class ReportFormatter(ABC):
     def format_pricing(
         self,
         data: dict[str, Any],
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | str | FPDF: ...
+
+    @abstractmethod
+    def format_recommendations(
+        self,
+        data: RecommendationSummary,
         metadata: ReportMetadata | None = None,
         config: ReportConfig | None = None,
         pdf: FPDF | None = None,
@@ -614,6 +625,66 @@ class PDFFormatter(ReportFormatter):
 
         return pdf if is_partial else bytes(pdf.output())
 
+    def format_recommendations(
+        self,
+        data: RecommendationSummary,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: FPDF | None = None,
+    ) -> bytes | FPDF:
+        title = "FinOps Recommendations"
+        is_partial = pdf is not None
+        if not pdf:
+            pdf = self._create_base_pdf(title, metadata)
+        else:
+            pdf.add_page()
+            self._add_header(pdf, title, metadata)
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(
+            0,
+            9,
+            f"Findings: {data.total_findings} | Estimated monthly savings: ${data.total_estimated_monthly_savings:,.2f}",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT,
+        )
+        pdf.ln(3)
+        for item in data.recommendations[:40]:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+            savings = (
+                f"${item.estimated_monthly_savings:,.2f}/month"
+                if item.estimated_monthly_savings is not None
+                else "Savings not estimated"
+            )
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.multi_cell(
+                0,
+                6,
+                f"[{item.severity.value.upper()}] {item.service} - {item.title} ({savings})",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
+            pdf.set_font("Helvetica", "", 8)
+            pdf.multi_cell(
+                0,
+                5,
+                f"Resource: {item.resource_id}\nEvidence: {'; '.join(item.evidence)}",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.multi_cell(
+                0,
+                5,
+                f"Suggested action: {item.suggested_action}",
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
+            pdf.ln(2)
+        return pdf if is_partial else bytes(pdf.output())
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -635,6 +706,8 @@ class PDFFormatter(ReportFormatter):
             self.format_infrastructure(data.infrastructure_summary, metadata, config=config, pdf=pdf)
         if data.governance:
             self.format_governance(data.governance, metadata, config=config, pdf=pdf)
+        if data.recommendations:
+            self.format_recommendations(data.recommendations, metadata, config=config, pdf=pdf)
         return bytes(pdf.output())
 
 
@@ -756,6 +829,36 @@ class ExcelFormatter(ReportFormatter):
         df.write_excel(buf)
         return buf.getvalue()
 
+    def format_recommendations(
+        self,
+        data: RecommendationSummary,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> bytes:
+        df = pl.DataFrame(
+            [
+                {
+                    "id": item.id,
+                    "service": item.service,
+                    "resource": item.resource_id,
+                    "category": item.category.value,
+                    "severity": item.severity.value,
+                    "confidence": item.confidence.value,
+                    "finding": item.title,
+                    "evidence": "; ".join(item.evidence),
+                    "suggested_action": item.suggested_action,
+                    "estimated_monthly_savings": (
+                        float(item.estimated_monthly_savings) if item.estimated_monthly_savings is not None else None
+                    ),
+                }
+                for item in data.recommendations
+            ]
+        )
+        buf = io.BytesIO()
+        df.write_excel(buf)
+        return buf.getvalue()
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> bytes:
@@ -781,6 +884,26 @@ class ExcelFormatter(ReportFormatter):
             sheets["Infrastructure"] = self._to_df(data.infrastructure_summary)
         if data.governance:
             sheets["Governance"] = self._to_df(data.governance)
+        if data.recommendations:
+            sheets["Recommendations"] = pl.DataFrame(
+                [
+                    {
+                        "service": item.service,
+                        "resource": item.resource_id,
+                        "severity": item.severity.value,
+                        "confidence": item.confidence.value,
+                        "finding": item.title,
+                        "evidence": "; ".join(item.evidence),
+                        "suggested_action": item.suggested_action,
+                        "estimated_monthly_savings": (
+                            float(item.estimated_monthly_savings)
+                            if item.estimated_monthly_savings is not None
+                            else None
+                        ),
+                    }
+                    for item in data.recommendations.recommendations
+                ]
+            )
 
         buf = io.BytesIO()
         with xlsxwriter.Workbook(buf) as workbook:
@@ -895,6 +1018,26 @@ class FastTableFormatter(ReportFormatter):
         pdf: Any = None,
     ) -> str:
         return self._serialize(self._to_df(data))
+
+    def format_recommendations(
+        self,
+        data: RecommendationSummary,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        rows = [
+            {
+                "service": item.service,
+                "resource": item.resource_id,
+                "severity": item.severity.value,
+                "confidence": item.confidence.value,
+                "finding": item.title,
+                "estimated_monthly_savings": item.estimated_monthly_savings,
+            }
+            for item in data.recommendations
+        ]
+        return self._serialize(pl.DataFrame(rows)) if rows else ""
 
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
@@ -1062,6 +1205,36 @@ class MarkdownFormatter(ReportFormatter):
             lines.append(f"| {label} | ${rate:.6f} |")
         return "\n".join(lines)
 
+    def format_recommendations(
+        self,
+        data: RecommendationSummary,
+        metadata: ReportMetadata | None = None,
+        config: ReportConfig | None = None,
+        pdf: Any = None,
+    ) -> str:
+        lines = [
+            "# FinOps Recommendations",
+            "",
+            f"**Findings:** {data.total_findings}",
+            f"**Estimated monthly savings:** ${data.total_estimated_monthly_savings:,.2f}",
+            "",
+            "| Service | Severity | Confidence | Resource | Finding | Est. monthly savings |",
+            "|---|---|---|---|---|---:|",
+        ]
+        for item in data.recommendations:
+            savings = (
+                f"${item.estimated_monthly_savings:,.2f}"
+                if item.estimated_monthly_savings is not None
+                else "Not estimated"
+            )
+            lines.append(
+                f"| {item.service} | {item.severity.value} | {item.confidence.value} | "
+                f"{item.resource_id} | {item.title} | {savings} |"
+            )
+            lines.append(f"\n**Evidence:** {'; '.join(item.evidence)}  ")
+            lines.append(f"**Suggested action:** {item.suggested_action}\n")
+        return "\n".join(lines)
+
     def format_full(
         self, data: FullReport, metadata: ReportMetadata | None = None, config: ReportConfig | None = None
     ) -> str:
@@ -1082,7 +1255,46 @@ class MarkdownFormatter(ReportFormatter):
             parts.append(self.format_infrastructure(data.infrastructure_summary, metadata, config=config))
         if data.governance:
             parts.append(self.format_governance(data.governance, metadata, config=config))
+        if data.recommendations:
+            parts.append(self.format_recommendations(data.recommendations, metadata, config=config))
         return "\n\n\n".join(parts)
+
+
+class JSONFormatter(ReportFormatter):
+    """Serialize typed reports without losing Decimal or date values."""
+
+    @staticmethod
+    def _serialize(data: Any) -> str:
+        if hasattr(data, "model_dump_json"):
+            return str(data.model_dump_json(indent=2))
+        return json.dumps(data, indent=2, default=str)
+
+    def format_cost(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_anomalies(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_forecast(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_infrastructure(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_governance(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_unit_economics(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_pricing(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_recommendations(self, data: Any, metadata: Any = None, config: Any = None, pdf: Any = None) -> str:
+        return self._serialize(data)
+
+    def format_full(self, data: Any, metadata: Any = None, config: Any = None) -> str:
+        return self._serialize(data)
 
 
 class ReportService:
@@ -1093,11 +1305,12 @@ class ReportService:
         "excel": ExcelFormatter(),
         "csv": FastTableFormatter(format="csv"),
         "markdown": MarkdownFormatter(),
+        "json": JSONFormatter(),
     }
 
     def generate_report(
         self,
-        data: CostBreakdown | CostTrend | AnomalyReport | ForecastResult | FullReport,
+        data: CostBreakdown | CostTrend | AnomalyReport | ForecastResult | FullReport | RecommendationSummary,
         config: ReportConfig | None = None,
         metadata: ReportMetadata | None = None,
     ) -> str | bytes:
@@ -1114,6 +1327,8 @@ class ReportService:
             content = formatter.format_forecast(data, metadata, config=config)
         elif isinstance(data, FullReport):
             content = formatter.format_full(data, metadata, config=config)
+        elif isinstance(data, RecommendationSummary):
+            content = formatter.format_recommendations(data, metadata, config=config)
         elif isinstance(data, dict):
             if "ec2" in data or "s3" in data:
                 content = formatter.format_unit_economics(data, metadata, config=config)

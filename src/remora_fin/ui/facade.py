@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, NamedTuple
+from typing import Any
 
 from remora_fin.services import (
     AnomalyService,
@@ -19,12 +20,14 @@ from remora_fin.services import (
     DashboardService,
     ForecastService,
     InventoryService,
+    RecommendationService,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class DashboardUIData(NamedTuple):
+@dataclass(frozen=True)
+class DashboardUIData:
     """UI-ready data for the dashboard."""
 
     total_cost: str
@@ -35,6 +38,9 @@ class DashboardUIData(NamedTuple):
     status_subtitle: str
     chart_data: list[tuple[str, float]]
     table_data: list[tuple[str, str, str]]
+    recommendation_count: int = 0
+    estimated_savings: str = "$0.00/mo"
+    recommendation_data: list[tuple[str, str, str, str]] = field(default_factory=list)
 
 
 class UIFacade:
@@ -47,6 +53,7 @@ class UIFacade:
         self._anomaly_service = AnomalyService(session)
         self._forecast_service = ForecastService(session)
         self._inventory_service = InventoryService(session)
+        self._recommendation_service = RecommendationService(session)
 
         # Data cache for UI performance
         self._cache: dict[str, Any] = {}
@@ -149,6 +156,21 @@ class UIFacade:
         start = end - timedelta(days=days)
         breakdown = await self._cost_service.get_cost_by_service_async(start, end, region=region)
         table_data = [("•", g.key, f"${g.cost:,.2f}") for g in breakdown.groups[:50]] if breakdown else []
+        recommendations = await self._recommendation_service.get_recommendations(days=days)
+        recommendation_data = [
+            (
+                item.service,
+                item.severity.value.upper(),
+                item.resource_id,
+                f"{item.title} · "
+                + (
+                    f"${item.estimated_monthly_savings:,.2f}/mo"
+                    if item.estimated_monthly_savings is not None
+                    else "review"
+                ),
+            )
+            for item in recommendations.recommendations[:100]
+        ]
 
         return DashboardUIData(
             total_cost=total_cost_str,
@@ -159,6 +181,9 @@ class UIFacade:
             status_subtitle="Comprehensive Monitoring",
             chart_data=chart_data,
             table_data=table_data,
+            recommendation_count=recommendations.total_findings,
+            estimated_savings=f"${recommendations.total_estimated_monthly_savings:,.2f}/mo",
+            recommendation_data=recommendation_data,
         )
 
     async def _get_single_service_dashboard(
@@ -239,6 +264,9 @@ class UIFacade:
             status_subtitle=context,
             chart_data=chart_points,
             table_data=table_data,
+            recommendation_count=0,
+            estimated_savings="$0.00/mo",
+            recommendation_data=[],
         )
 
     async def get_cost_data(self, days: int) -> list[tuple[str, float]]:

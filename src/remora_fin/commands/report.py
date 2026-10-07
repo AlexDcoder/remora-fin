@@ -30,6 +30,7 @@ from remora_fin.services import (
     DashboardService,
     ForecastService,
     PricingService,
+    RecommendationService,
     ReportService,
     UnitEconomicsService,
 )
@@ -144,6 +145,7 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
             # Fetch unit economics (EC2 efficiency, S3 rates)
             unit_economics = {}
             pricing_summary = {}
+            recommendations = None
             try:
                 ue_service = UnitEconomicsService(session)
                 pricing_service = PricingService(session)
@@ -154,6 +156,13 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
             except Exception as e:
                 logger.debug("Failed to fetch unit economics/pricing: %s", e)
 
+            try:
+                recommendations = await RecommendationService(session).get_recommendations(
+                    days=args.days, services=service_filters or None
+                )
+            except Exception as e:
+                logger.debug("Failed to fetch recommendations: %s", e)
+
             data = FullReport(
                 cost_breakdown=breakdown,
                 cost_trend=summary_data.get("cost_trend"),
@@ -163,6 +172,7 @@ async def report(args: argparse.Namespace, session: AWSSession) -> None:
                 governance=summary_data.get("governance"),
                 unit_economics=unit_economics,
                 pricing_summary=pricing_summary,
+                recommendations=recommendations,
             )
         elif args.type == "trend":
             data = await cost_service.get_daily_trend_async(start, end, metric=metric)

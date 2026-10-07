@@ -27,8 +27,9 @@ from remora_fin.commands import (
     add_forecast_parser,
     add_login_parser,
     add_profile_parser,
+    add_recommendations_parser,
     add_report_parser,
-    add_utilization_parser
+    add_utilization_parser,
 )
 
 
@@ -84,12 +85,14 @@ def execute_cli() -> None:
 
     try:
         from importlib.metadata import version as get_version
+
         pkg_version = get_version("remora-fin")
     except Exception:
         pkg_version = "1.0.4"
 
     parser.add_argument(
-        "-v", "--version",
+        "-v",
+        "--version",
         action="version",
         version=f"[bold #00f3ff]remora-fin[/] [bold #39ff14]v{pkg_version}[/] [dim #4b86b4][DEEP-BLUE-RELEASE][/]",
     )
@@ -105,6 +108,7 @@ def execute_cli() -> None:
     add_login_parser(subparsers)
     add_profile_parser(subparsers)
     add_utilization_parser(subparsers)
+    add_recommendations_parser(subparsers)
     args = parser.parse_args()
 
     if not args.command:
@@ -132,10 +136,12 @@ def execute_cli() -> None:
                 args.func(args)
         except KeyboardInterrupt:
             from rich import print as rprint
+
             rprint("\n[bold #ffff00]Session Aborted.[/]")
             sys.exit(130)
         except Exception as e:
             from rich import print as rprint
+
             logger.exception("Command failed")
             rprint(f"[bold #ff4500]CRITICAL ERROR:[/] {e}")
             sys.exit(1)

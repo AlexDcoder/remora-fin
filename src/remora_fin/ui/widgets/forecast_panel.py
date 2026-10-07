@@ -11,25 +11,6 @@ from remora_fin.schemas.forecast import ForecastResult
 class AccuracyMeter(Static):
     """Visual gauge of forecast accuracy."""
 
-    DEFAULT_CSS = """
-    AccuracyMeter {
-        height: 3;
-        background: #0f0f1f;
-        border: tall #00f2ff;
-        padding: 0 1;
-    }
-    AccuracyMeter .meter-label {
-        color: #00f2ff;
-        text-style: bold;
-    }
-    AccuracyMeter .meter-value {
-        color: #39ff14;
-    }
-    AccuracyMeter .meter-value.poor {
-        color: #ff0055;
-    }
-    """
-
     def __init__(self, accuracy: float | None = None, label: str = "ACCURACY") -> None:
         super().__init__()
         self._accuracy = accuracy
@@ -37,23 +18,18 @@ class AccuracyMeter(Static):
 
     def on_mount(self) -> None:
         if self._accuracy is None:
-            self.update(f"[meter-label]» {self._label}[/] [dim]DATA DEFICIT[/]")
+            self.update(f"[bold #ffffff]{self._label.upper()}[/] [#6e7681]DATA UNAVAILABLE[/]")
         else:
-            pct = self._accuracy * 100
-            variant = "" if pct > 80 else "poor"
+            pct = max(0.0, min(100.0, self._accuracy * 100))
+            color = "#42e3f5" if pct >= 80 else "#ffb300" if pct >= 50 else "#ff5252"
             bar_len = int(pct / 100 * 20)
-            bar = "█" * bar_len + "░" * (20 - bar_len)
-            self.update(f"[meter-label]» {self._label}[/] [meter-value {variant}][{bar}] {pct:.0f}%[/]")
+            bar = "━" * bar_len
+            track = "━" * (20 - bar_len)
+            self.update(f"[bold #ffffff]{self._label.upper()}[/] [{color}]{bar}[/][#333742]{track}[/] {pct:.0f}%")
 
 
 class ForecastPanel(VerticalScroll):
     """Panel for displaying cost forecasts."""
-
-    DEFAULT_CSS = """
-    ForecastPanel {
-        background: #06060e;
-    }
-    """
 
     def __init__(self, result: ForecastResult | None = None, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -73,7 +49,7 @@ class ForecastPanel(VerticalScroll):
             Horizontal(
                 Label(f"[bold]Model:[/] {r.model_used.value}"),
                 Label(f"[bold]Period:[/] {r.forecast_period.start} → {r.forecast_period.end}"),
-                Label(f"[bold]Total:[/] [green]${r.total_predicted_cost:,.2f}[/]"),
+                Label(f"[bold]Total:[/] [#ffffff]${r.total_predicted_cost:,.2f}[/]"),
                 id="forecast-header",
             )
         )
@@ -81,7 +57,7 @@ class ForecastPanel(VerticalScroll):
         if r.accuracy_score is not None:
             self.mount(AccuracyMeter(r.accuracy_score, "Forecast Accuracy"))
 
-        table: DataTable[str] = DataTable(id="forecast-table")
+        table: DataTable[str] = DataTable(id="forecast-table", cursor_background_priority="css")
         table.add_columns("Date", "Predicted Cost", "Lower Bound", "Upper Bound")
         table.cursor_type = "row"
 

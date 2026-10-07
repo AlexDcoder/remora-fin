@@ -13,6 +13,7 @@ from remora_fin.schemas.anomaly import AnomalyReport
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostTrend
 from remora_fin.schemas.forecast import ForecastResult
+from remora_fin.schemas.recommendation import RecommendationSummary
 
 
 class ReportFormat(StrEnum):
@@ -22,6 +23,7 @@ class ReportFormat(StrEnum):
     EXCEL = "excel"
     CSV = "csv"
     MARKDOWN = "markdown"
+    JSON = "json"
 
 
 class ReportFilters(BaseModel):
@@ -76,6 +78,7 @@ class FullReport(BaseModel):
     governance: dict[str, Any] | None = None
     unit_economics: dict[str, Any] | None = None
     pricing_summary: dict[str, Any] | None = None
+    recommendations: RecommendationSummary | None = None
 
 
 # Ensure all forward refs are resolved
