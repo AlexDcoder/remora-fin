@@ -24,7 +24,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: System :: Monitoring",
@@ -59,7 +58,7 @@ Changelog = "https://github.com/AlexDcoder/remora-fin/releases"
 remora-fin = "remora_fin.cli:execute_cli"
 
 [build-system]
-requires = ["uv-build>=0.11.19"]
+requires = ["uv-build>=0.11.19,<0.13"]
 build-backend = "uv_build"
 
 # -- Native UV Build Tool Settings --

@@ -11,6 +11,7 @@ from remora_fin.commands.dashboard import add_dashboard_parser, dashboard
 from remora_fin.commands.forecast import add_forecast_parser, forecast_cmd
 from remora_fin.commands.login import add_login_parser, login
 from remora_fin.commands.profile import add_profile_parser, show_profile
+from remora_fin.commands.recommendations import add_recommendations_parser, recommendations
 from remora_fin.commands.report import add_report_parser, report
 from remora_fin.commands.utilization import add_utilization_parser, utilization
 
@@ -30,6 +31,7 @@ __all__ = [
     "add_forecast_parser",
     "add_login_parser",
     "add_profile_parser",
+    "add_recommendations_parser",
     "add_report_parser",
     "add_utilization_parser",
     # Command functions
@@ -42,6 +44,7 @@ __all__ = [
     "get_common_parser",
     "login",
     "parse_dates",
+    "recommendations",
     "report",
     "show_profile",
     "utilization",

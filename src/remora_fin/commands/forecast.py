@@ -125,7 +125,7 @@ def add_forecast_parser(subparsers: argparse._SubParsersAction[argparse.Argument
     parser = subparsers.add_parser(
         "forecast",
         help="Forecast future AWS costs",
-        description="[bold #39ff14]Predict future AWS costs using ML-based forecasting.[/]",
+        description="[bold #39ff14]Predict future AWS costs with AWS Cost Explorer forecasts and local fallback.[/]",
         formatter_class=rich_argparse.RichHelpFormatter,
         parents=[get_common_parser()],
     )

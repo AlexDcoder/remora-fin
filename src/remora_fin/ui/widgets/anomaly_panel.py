@@ -13,42 +13,25 @@ from remora_fin.schemas.anomaly import Anomaly, AnomalyReport
 class SeverityBadge(Static):
     """Colored badge for anomaly severity."""
 
-    DEFAULT_CSS = """
-    SeverityBadge {
-        padding: 0 1;
-        margin: 0 1;
-        text-style: bold;
-    }
-    """
-
     COLOR_MAP: ClassVar[dict[str, str]] = {
-        "low": "#39ff14",
-        "medium": "#ffff00",
-        "high": "#4b86b4",
-        "critical": "#ff4500",
+        "low": "#00e676",
+        "medium": "#ffb300",
+        "high": "#ffb300",
+        "critical": "#ff5252",
     }
 
     def __init__(self, severity: str) -> None:
         super().__init__()
         self._severity = severity
-        self._color = self.COLOR_MAP.get(severity, "#c0c0cf")
+        self._color = self.COLOR_MAP.get(severity, "#a0a8b6")
 
     def on_mount(self) -> None:
         color = self._color
-        self.update(f"[{color}]» [ {self._severity.upper()} ] «[/{color}]")
+        self.update(f"[{color}]{self._severity.upper()}[/{color}]")
 
 
 class AnomalyDetailCard(Vertical):
     """Expanded detail view for a single anomaly."""
-
-    DEFAULT_CSS = """
-    AnomalyDetailCard {
-        background: #0a1931;
-        border: tall #00f3ff;
-        padding: 1 2;
-        margin: 1 0;
-    }
-    """
 
     def __init__(self, anomaly: Anomaly) -> None:
         super().__init__()
@@ -61,24 +44,18 @@ class AnomalyDetailCard(Vertical):
         top_cause = top_root_cause() if callable(top_root_cause) else top_root_cause or "Unknown"
 
         self.mount(
-            Label(f"[bold #00f3ff]ANOMALY ID:[/] [#e0e0ff]{a.id}[/]"),
-            Label(f"[bold #00f3ff]SERVICE:[/] [#e0e0ff]{top_cause}[/]"),
-            Label(f"[bold #00f3ff]TIMELINE:[/] [#e0e0ff]{a.start_date} → {a.end_date or 'ACTIVE'}[/]"),
-            Label(f"[bold #00f3ff]ACTUAL SPEND:[/] [bold #39ff14]${a.impact.total_actual_spend:,.2f}[/]"),
-            Label(f"[bold #00f3ff]EXPECTED SPEND:[/] [#ffff00]${a.impact.total_expected_spend:,.2f}[/]"),
-            Label(f"[bold #00f3ff]VARIANCE:[/] [bold #ff4500]{a.variance_percentage:.1f}%[/]"),
-            Label(f"[bold #00f3ff]ROOT CAUSES:[/] [#e0e0ff]{root_cause_str}[/]"),
+            Label(f"[bold #ffffff]ANOMALY ID:[/] [#a0a8b6]{a.id}[/]"),
+            Label(f"[bold #ffffff]SERVICE:[/] [#a0a8b6]{top_cause}[/]"),
+            Label(f"[bold #ffffff]TIMELINE:[/] [#a0a8b6]{a.start_date} → {a.end_date or 'ACTIVE'}[/]"),
+            Label(f"[bold #ffffff]ACTUAL SPEND:[/] [bold #ffffff]${a.impact.total_actual_spend:,.2f}[/]"),
+            Label(f"[bold #ffffff]EXPECTED SPEND:[/] [#a0a8b6]${a.impact.total_expected_spend:,.2f}[/]"),
+            Label(f"[bold #ffffff]VARIANCE:[/] [bold #ff5252]{a.variance_percentage:.1f}%[/]"),
+            Label(f"[bold #ffffff]ROOT CAUSES:[/] [#a0a8b6]{root_cause_str}[/]"),
         )
 
 
 class AnomalyPanel(VerticalScroll):
     """Main anomaly panel — list + detail view."""
-
-    DEFAULT_CSS = """
-    AnomalyPanel {
-        background: #06060e;
-    }
-    """
 
     def __init__(self, report: AnomalyReport | None = None, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -98,7 +75,7 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(f"[bold]{r.total_anomalies} anomalies detected[/]"))
 
         if r.total_anomalies == 0:
-            self.mount(Label("[green]No anomalies in this period[/]"))
+            self.mount(Label("[#00e676]No anomalies in this period[/]"))
             return
 
         by_severity = ", ".join(
@@ -111,17 +88,17 @@ class AnomalyPanel(VerticalScroll):
         self.mount(Label(f"[dim]By severity: {by_severity}[/]"))
         self.mount(Label(""))
 
-        table: DataTable[str] = DataTable(id="anomaly-table")
+        table: DataTable[str] = DataTable(id="anomaly-table", cursor_background_priority="css")
         table.add_columns("Severity", "Service", "Variance", "Actual", "Expected")
         table.cursor_type = "row"
 
         for a in self._anomalies[:50]:
             sev_color = {
-                "low": "green",
-                "medium": "yellow",
-                "high": "red",
-                "critical": "bold red",
-            }.get(a.severity.value, "white")
+                "low": "#00e676",
+                "medium": "#ffb300",
+                "high": "#ffb300",
+                "critical": "#ff5252",
+            }.get(a.severity.value, "#a0a8b6")
 
             top_root_cause = a.top_root_cause
             top_cause = top_root_cause() if callable(top_root_cause) else top_root_cause or "Unknown"
@@ -129,7 +106,7 @@ class AnomalyPanel(VerticalScroll):
             table.add_row(
                 f"[{sev_color}]{a.severity.value.upper()}[/{sev_color}]",
                 top_cause or "Unknown",
-                f"[red]{a.variance_percentage:.1f}%[/]",
+                f"[#ff5252]{a.variance_percentage:.1f}%[/]",
                 f"${a.impact.total_actual_spend:,.2f}",
                 f"${a.impact.total_expected_spend:,.2f}",
                 key=a.id,

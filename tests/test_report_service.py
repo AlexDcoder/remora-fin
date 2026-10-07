@@ -6,6 +6,13 @@ import pytest
 
 from remora_fin.schemas.common import DateRange
 from remora_fin.schemas.cost import CostBreakdown, CostGroup, CostSummary
+from remora_fin.schemas.recommendation import (
+    Recommendation,
+    RecommendationCategory,
+    RecommendationConfidence,
+    RecommendationSeverity,
+    RecommendationSummary,
+)
 from remora_fin.schemas.report import FullReport, ReportConfig, ReportFormat, ReportMetadata
 from remora_fin.services.report_service import ReportService
 
@@ -105,3 +112,50 @@ def test_generate_full_report_with_pricing(
     assert "S3 Standard (per GB)" in report
     assert "$0.023000" in report
     assert "EC2 t3.medium" in report
+
+
+def test_full_report_includes_recommendations_in_markdown_and_json(
+    report_service: ReportService, report_metadata: ReportMetadata
+) -> None:
+    summary = RecommendationSummary(
+        analysis_days=14,
+        recommendations=[
+            Recommendation(
+                id="finding-1",
+                category=RecommendationCategory.COST,
+                service="EC2",
+                resource_id="i-123",
+                title="Review underutilized EC2 instance",
+                severity=RecommendationSeverity.HIGH,
+                confidence=RecommendationConfidence.HIGH,
+                evidence=["Average CPU was 2.0%"],
+                suggested_action="Review and rightsize after validation.",
+                estimated_monthly_savings=Decimal("42.50"),
+            )
+        ],
+        total_estimated_monthly_savings=Decimal("42.50"),
+    )
+    data = FullReport(recommendations=summary)
+
+    markdown = report_service.generate_report(
+        data, config=ReportConfig(format=ReportFormat.MARKDOWN), metadata=report_metadata
+    )
+    json_report = report_service.generate_report(
+        data, config=ReportConfig(format=ReportFormat.JSON), metadata=report_metadata
+    )
+    pdf_report = report_service.generate_report(
+        data, config=ReportConfig(format=ReportFormat.PDF), metadata=report_metadata
+    )
+    excel_report = report_service.generate_report(
+        data, config=ReportConfig(format=ReportFormat.EXCEL), metadata=report_metadata
+    )
+
+    assert isinstance(markdown, str)
+    assert "# FinOps Recommendations" in markdown
+    assert "$42.50" in markdown
+    assert isinstance(json_report, str)
+    assert '"resource_id": "i-123"' in json_report
+    assert isinstance(pdf_report, bytes)
+    assert pdf_report.startswith(b"%PDF")
+    assert isinstance(excel_report, bytes)
+    assert excel_report.startswith(b"PK")

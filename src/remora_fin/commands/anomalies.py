@@ -81,7 +81,7 @@ def add_anomalies_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
     parser = subparsers.add_parser(
         "anomalies",
         help="Detect cost anomalies in your AWS account",
-        description="[bold #ffff00]Detect and display AWS cost anomalies using ML-based detection.[/]",
+        description="[bold #ffff00]Detect and display AWS Cost Explorer anomaly findings.[/]",
         formatter_class=rich_argparse.RichHelpFormatter,
         parents=[get_common_parser()],
     )

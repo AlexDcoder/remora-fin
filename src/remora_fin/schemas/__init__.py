@@ -49,6 +49,13 @@ from remora_fin.schemas.metrics import MetricSummary, ResourceMetric
 
 # ─── Pricing ───
 from remora_fin.schemas.pricing import AWSPrice, PricingDetail, ProductAttributes
+from remora_fin.schemas.recommendation import (
+    Recommendation,
+    RecommendationCategory,
+    RecommendationConfidence,
+    RecommendationSeverity,
+    RecommendationSummary,
+)
 
 # ─── Report ───
 from remora_fin.schemas.report import (
@@ -101,6 +108,11 @@ __all__ = [
     "Percent",
     "PricingDetail",
     "ProductAttributes",
+    "Recommendation",
+    "RecommendationCategory",
+    "RecommendationConfidence",
+    "RecommendationSeverity",
+    "RecommendationSummary",
     "ReportConfig",
     "ReportFilters",
     "ReportFormat",
