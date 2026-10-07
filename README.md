@@ -15,6 +15,7 @@ It is designed for engineers and FinOps practitioners who want cost visibility w
 - Request AWS-native Cost Explorer forecasts, with local fallback and scenario comparisons.
 - Launch an interactive Textual dashboard for cost summaries, trends, anomalies, infrastructure counts, and tag compliance.
 - Evaluate tag compliance for required tags such as `Environment`, `Project`, and `Owner`.
+- Prioritize read-only recommendations for EC2/RDS rightsizing, inactive Lambda functions, S3 lifecycle hygiene, and missing ownership tags.
 - Inventory selected AWS resource types and correlate EC2, RDS, Lambda, and S3 data with CloudWatch metrics and AWS Pricing data for efficiency analysis.
 - Cache AWS responses locally as Parquet and JSON files to speed up repeated queries and reduce API calls.
 
@@ -43,16 +44,17 @@ pip install remora-fin
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `remora-fin dashboard` | Open the interactive terminal dashboard. |
-| `remora-fin report` | Generate a cost or full FinOps report. |
-| `remora-fin anomalies` | View AWS Cost Explorer anomaly findings. |
-| `remora-fin forecast` | Forecast AWS spend and optionally compare scenarios. |
-| `remora-fin utilization` | Analyze resource utilization and unit-pricing signals. |
-| `remora-fin profile` | Display the selected profile and AWS identity. |
-| `remora-fin login` | Configure and validate a profile and region. |
-| `remora-fin cache info\|clear` | Inspect or clear the local cache. |
+| Command                         | Purpose                                                       |
+| ------------------------------- | ------------------------------------------------------------- |
+| `remora-fin dashboard`        | Open the interactive terminal dashboard.                      |
+| `remora-fin report`           | Generate a cost or full FinOps report.                        |
+| `remora-fin anomalies`        | View AWS Cost Explorer anomaly findings.                      |
+| `remora-fin forecast`         | Forecast AWS spend and optionally compare scenarios.          |
+| `remora-fin utilization`      | Analyze resource utilization and unit-pricing signals.        |
+| `remora-fin recommendations`  | Rank evidence-based savings, governance, and hygiene actions. |
+| `remora-fin profile`          | Display the selected profile and AWS identity.                |
+| `remora-fin login`            | Configure and validate a profile and region.                  |
+| `remora-fin cache info\|clear` | Inspect or clear the local cache.                             |
 
 ### Common examples
 
@@ -71,7 +73,19 @@ remora-fin forecast --days 90 --granularity MONTHLY --scenarios
 
 # Check EC2, RDS, Lambda, and S3 efficiency signals over 14 days
 remora-fin utilization --days 14
+
+# Review prioritized actions and export a Markdown backlog
+remora-fin recommendations --days 14
+remora-fin recommendations --format markdown --output recommendations.md
 ```
+
+## Recommendation action center
+
+`remora-fin recommendations` combines inventory, CloudWatch, Pricing, S3 lifecycle, and tag-compliance signals. Each finding includes its supporting evidence, confidence, severity, and a suggested next step. Estimated monthly savings are shown only when Remora-Fin has both usable metrics and pricing data; governance and hygiene findings deliberately show no speculative dollar value.
+
+The recommendation engine is read-only. It never stops, resizes, tags, or deletes AWS resources. Validate workload seasonality, availability requirements, commitments, and business ownership before applying any suggested action.
+
+The displayed savings are estimates, not AWS charges: EC2/RDS findings use a conservative on-demand-price heuristic. The scan itself makes read-only AWS API calls; keep caching enabled and remember that Cost Explorer API requests are billable under AWS pricing.
 
 Run `remora-fin <command> --help` for all options.
 
@@ -91,13 +105,13 @@ Supported export formats are PDF, Excel (`.xlsx`), CSV, Markdown, and JSON. An o
 
 The inventory registry currently supports the following resource types:
 
-| Category | Resource types |
-| --- | --- |
-| Compute and containers | EC2, Lambda, ECS, EKS |
-| Storage and networking | S3, VPC |
-| Databases and analytics | RDS, DynamoDB, ElastiCache, EMR, Redshift |
-| ML and security | SageMaker notebook instances, KMS keys, Secrets Manager secrets |
-| Messaging and edge | SNS topics, SQS queues, CloudFront distributions |
+| Category                | Resource types                                                  |
+| ----------------------- | --------------------------------------------------------------- |
+| Compute and containers  | EC2, Lambda, ECS, EKS                                           |
+| Storage and networking  | S3, VPC                                                         |
+| Databases and analytics | RDS, DynamoDB, ElastiCache, EMR, Redshift                       |
+| ML and security         | SageMaker notebook instances, KMS keys, Secrets Manager secrets |
+| Messaging and edge      | SNS topics, SQS queues, CloudFront distributions                |
 
 Coverage is intentionally stated at the resource-inventory level. Pricing, metrics, and efficiency recommendations vary by resource type and AWS API availability.
 
@@ -105,13 +119,14 @@ Coverage is intentionally stated at the resource-inventory level. Pricing, metri
 
 Use a dedicated, least-privilege IAM role or profile. At minimum, enable the capabilities you intend to use:
 
-| Capability | AWS actions |
-| --- | --- |
-| Cost reporting | `ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetAnomalies` |
-| Identity | `sts:GetCallerIdentity` |
-| Governance | `tag:GetResources`, optionally `organizations:ListAccounts` |
-| Metrics and pricing | `cloudwatch:GetMetricStatistics`, `pricing:GetProducts` |
-| Inventory | The relevant read/list/describe actions for the resource types above |
+| Capability             | AWS actions                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| Cost reporting         | `ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetAnomalies`               |
+| Identity               | `sts:GetCallerIdentity`                                                         |
+| Governance             | `tag:GetResources`, optionally `organizations:ListAccounts`                   |
+| Metrics and pricing    | `cloudwatch:GetMetricStatistics`, `pricing:GetProducts`                       |
+| Recommendation hygiene | `s3:GetLifecycleConfiguration` plus the inventory and tagging permissions above |
+| Inventory              | The relevant read/list/describe actions for the resource types above              |
 
 `ReadOnlyAccess` can be convenient for a development account, but a tailored policy is the safer production choice. Cost Explorer must also be enabled for the AWS account.
 
@@ -127,6 +142,8 @@ remora-fin cache clear
 Do not commit generated reports containing account IDs, resource ARNs, cost data, or other customer information. Keep public demo screenshots and examples anonymized.
 
 ## Architecture
+
+For a file-by-file description of every Python module, API parameter, schema, service, UI component, and test, see the [Technical Reference](docs/TECHNICAL_REFERENCE.md).
 
 ```mermaid
 flowchart LR
