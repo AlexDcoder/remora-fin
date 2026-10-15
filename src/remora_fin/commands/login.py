@@ -6,9 +6,13 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
+from collections.abc import Iterator
 
+import boto3
 import rich_argparse
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.prompt import IntPrompt
 from rich.table import Table
@@ -17,21 +21,6 @@ from remora_fin.services import AWSSession, ConfigBuilder, ConfigService
 
 logger = logging.getLogger(__name__)
 console = Console()
-
-COMMON_REGIONS = [
-    "us-east-1",
-    "us-east-2",
-    "us-west-1",
-    "us-west-2",
-    "sa-east-1",
-    "eu-central-1",
-    "eu-west-1",
-    "eu-west-2",
-    "ap-southeast-1",
-    "ap-southeast-2",
-    "ap-northeast-1",
-    "ca-central-1",
-]
 
 
 def get_available_profiles() -> list[str]:
@@ -48,28 +37,93 @@ def get_available_profiles() -> list[str]:
         return ["default"]
 
 
+def get_available_regions() -> list[str]:
+    """Return all EC2 regions known by the installed boto3 version."""
+    session = boto3.session.Session()
+    regions: set[str] = set()
+    for partition in session.get_available_partitions():
+        regions.update(session.get_available_regions("ec2", partition_name=partition))
+    return sorted(regions)
+
+
+def _keys() -> Iterator[str]:
+    """Read terminal keys one at a time on Windows and POSIX terminals."""
+    if os.name == "nt":
+        import msvcrt
+
+        while True:
+            key = msvcrt.getwch()
+            if key in ("\x00", "\xe0"):
+                key = msvcrt.getwch()
+                yield {"H": "up", "P": "down", "K": "left", "M": "right"}.get(key, "")
+            else:
+                yield {"\r": "enter", "\x08": "backspace", "\x1b": "escape"}.get(key, key)
+    else:
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        previous = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            while True:
+                key = sys.stdin.read(1)
+                if key == "\x1b":
+                    sequence = sys.stdin.read(2)
+                    yield {"[A": "up", "[B": "down", "[D": "left", "[C": "right"}.get(sequence, "escape")
+                else:
+                    yield {"\r": "enter", "\n": "enter", "\x7f": "backspace"}.get(key, key)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, previous)
+
+
 def interactive_select(label: str, choices: list[str], default: str | None = None) -> str:
-    """A visual select list using rich."""
-    console.print(f"\n [bold #4b86b4]»[/] [#e6f4f8]{label}[/]")
+    """Select an option with arrows, Enter, and optional text filtering."""
+    if not choices:
+        raise ValueError("choices must not be empty")
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        default_index = choices.index(default) + 1 if default in choices else 1
+        selected = IntPrompt.ask(label, choices=[str(i) for i in range(1, len(choices) + 1)], default=default_index)
+        return choices[selected - 1]
 
-    for i, choice in enumerate(choices, 1):
-        style = "bold #00f3ff" if choice == default else "#e6f4f8"
-        console.print(f"   [#00f3ff]{i}.[/] [{style}]{choice}[/]")
+    filtered = choices.copy()
+    selected = filtered.index(default) if default in filtered else 0
+    query = ""
 
-    choice_map = {str(i): c for i, c in enumerate(choices, 1)}
+    def render() -> Table:
+        table = Table(box=None, show_header=False, padding=(0, 1))
+        table.add_column(width=2)
+        table.add_column("Region")
+        table.add_column("Hint", style="dim #4b86b4")
+        if not filtered:
+            table.add_row("", "No matching regions", "clear the filter")
+            return table
+        start = max(0, min(selected - 4, len(filtered) - 9))
+        for index, region in enumerate(filtered[start : start + 9], start):
+            active = index == selected
+            table.add_row(">" if active else " ", f"[bold #00f3ff]{region}[/]" if active else region, "Enter to select" if active else "")
+        return table
 
-    default_idx = "1"
-    if default and default in choices:
-        default_idx = str(choices.index(default) + 1)
+    console.print(f"\n [bold #4b86b4]»[/] [#e6f4f8]{label}[/]  [dim](↑/↓ navigate · type to filter · Enter select)[/]")
+    with Live(render(), console=console, refresh_per_second=20, transient=True) as live:
+        for key in _keys():
+            if key == "enter" and filtered:
+                return filtered[selected]
+            if key == "escape":
+                query = ""
+            elif key == "backspace":
+                query = query[:-1]
+            elif key == "up" and filtered:
+                selected = max(0, selected - 1)
+            elif key == "down" and filtered:
+                selected = min(len(filtered) - 1, selected + 1)
+            elif len(key) == 1 and key.isprintable():
+                query += key
+            filtered = [choice for choice in choices if query.lower() in choice.lower()]
+            selected = min(selected, len(filtered) - 1) if filtered else 0
+            live.update(render())
 
-    selected_idx = IntPrompt.ask(
-        "\n [dim #4b86b4]Enter selection number[/]",
-        choices=list(choice_map.keys()),
-        default=int(default_idx),
-        show_choices=False,
-    )
-
-    return choice_map[str(selected_idx)]
+    raise KeyboardInterrupt
 
 
 def login(args: argparse.Namespace) -> None:
@@ -102,7 +156,7 @@ def login(args: argparse.Namespace) -> None:
     else:
         current_region = config_service.get_default_region()
         region = interactive_select(
-            "Choose Target AWS Region", COMMON_REGIONS, current_region or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+            "Choose Target AWS Region", get_available_regions(), current_region or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
         )
 
     console.print("\n [bold #4b86b4]»[/] [#e6f4f8]Step 3: Validating Access...[/]")
