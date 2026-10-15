@@ -18,6 +18,7 @@ from remora_fin.services import (
     AWSSession,
     CostService,
     DashboardService,
+    FinOpsLocalStore,
     ForecastService,
     InventoryService,
     RecommendationService,
@@ -146,7 +147,9 @@ class UIFacade:
 
         total_cost_str = f"${summary.total_cost:,.2f}" if summary else "$0.00"
         daily_avg_str = f"${summary.daily_average:,.2f}" if summary else "$0.00"
-        anomaly_count = anomalies.total_anomalies if anomalies else 0
+        anomaly_count = (anomalies.total_anomalies if anomalies else 0) + len(
+            FinOpsLocalStore().list_alerts(active_only=True)
+        )
         total_resources = sum(infra_counts.values()) if infra_counts else 0
 
         chart_data = [(str(p.date), float(p.cost)) for p in trend.points] if trend else []

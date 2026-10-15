@@ -12,8 +12,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from remora_fin.commands.utils import aws_command, get_common_parser
-from remora_fin.schemas import RecommendationSummary
-from remora_fin.services import AWSSession, RecommendationService
+from remora_fin.schemas import RecommendationState, RecommendationSummary
+from remora_fin.services import AWSSession, FinOpsLocalStore, RecommendationService
 
 console = Console()
 
@@ -45,8 +45,20 @@ def _to_markdown(summary: RecommendationSummary) -> str:
 @aws_command
 async def recommendations(args: argparse.Namespace, session: AWSSession) -> None:
     """Analyze AWS signals and display safe, prioritized actions."""
+    store = FinOpsLocalStore()
+    if args.update_id:
+        try:
+            state = RecommendationState(args.state)
+        except ValueError as exc:
+            raise ValueError(f"Invalid recommendation state: {args.state}") from exc
+        record = store.update_recommendation(args.update_id, state, args.owner, args.note)
+        console.print(f"[green]Recommendation {record.recommendation_id} updated to {record.state.value}[/]")
+        return
+
     service = RecommendationService(session)
     summary = await service.get_recommendations(days=args.days, services=args.service)
+    for item in summary.recommendations:
+        store.update_recommendation(item.id, RecommendationState.NEW)
     if args.severity:
         filtered = [item for item in summary.recommendations if item.severity.value == args.severity]
         summary = summary.model_copy(
@@ -123,4 +135,13 @@ def add_recommendations_parser(subparsers: argparse._SubParsersAction[argparse.A
     parser.add_argument("--severity", choices=["low", "medium", "high"], default=None)
     parser.add_argument("--format", "-f", choices=["table", "json", "markdown"], default="table")
     parser.add_argument("--output", "-o", default=None, help="Output path for JSON or Markdown")
+    parser.add_argument("--update-id", default=None, help="Update the local lifecycle state of a recommendation")
+    parser.add_argument(
+        "--state",
+        choices=[item.value for item in RecommendationState],
+        default="reviewing",
+        help="Lifecycle state used with --update-id",
+    )
+    parser.add_argument("--owner", default=None)
+    parser.add_argument("--note", default=None)
     parser.set_defaults(func=recommendations)
