@@ -1,160 +1,326 @@
-# 🦈 Remora-Fin: AWS FinOps CLI and Terminal Dashboard
+# Remora-Fin — documentação completa
 
-[![CI Status](https://github.com/AlexDcoder/remora-fin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AlexDcoder/remora-fin/actions/workflows/ci.yml)
-[![PyPI Version](https://img.shields.io/pypi/v/remora-fin)](https://pypi.org/project/remora-fin/)
+O [`README.md`](../README.md) é o guia rápido. Este arquivo documenta a arquitetura, os comandos, os modelos de dados, os serviços, o dashboard, a persistência local, as permissões AWS e o desenvolvimento do Remora-Fin.
 
-Remora-Fin is a local-first Python toolkit for exploring AWS costs and resource efficiency from the terminal. It combines AWS Cost Explorer, CloudWatch, Pricing, Resource Groups Tagging API, and inventory APIs into a CLI and interactive Textual dashboard.
+## 1. O que é o Remora-Fin
 
-It is designed for engineers and FinOps practitioners who want cost visibility without exporting billing data to a third-party service. AWS data is queried directly from the configured profile; local configuration and cached query results are stored under `~/.remora/`.
+Remora-Fin é uma CLI e dashboard local-first para FinOps na AWS. A ferramenta consulta diretamente APIs AWS, transforma os resultados em modelos tipados e apresenta análises de custo, forecast, anomalias, utilização, governança e recomendações.
 
-## What it does
+O sistema é somente leitura no fluxo padrão. Ele não redimensiona, exclui, etiqueta, interrompe ou altera recursos AWS.
 
-- Generate cost reports in PDF, Excel, CSV, Markdown, and JSON.
-- Break down spend by service or linked account, or view daily trends.
-- Retrieve AWS Cost Explorer anomaly findings and their root-cause details.
-- Request AWS-native Cost Explorer forecasts, with local fallback and scenario comparisons.
-- Launch an interactive Textual dashboard for cost summaries, trends, anomalies, infrastructure counts, and tag compliance.
-- Evaluate tag compliance for required tags such as `Environment`, `Project`, and `Owner`.
-- Prioritize read-only recommendations for EC2/RDS rightsizing, inactive Lambda functions, S3 lifecycle hygiene, and missing ownership tags.
-- Inventory selected AWS resource types and correlate EC2, RDS, Lambda, and S3 data with CloudWatch metrics and AWS Pricing data for efficiency analysis.
-- Cache AWS responses locally as Parquet and JSON files to speed up repeated queries and reduce API calls.
+```mermaid
+flowchart LR
+    User[Usuário] --> CLI[CLI argparse + Rich]
+    User --> TUI[Dashboard Textual]
+    CLI --> Services[Serviços de domínio]
+    TUI --> Facade[UIFacade]
+    Facade --> Services
+    Services --> AWS[AWS APIs]
+    Services --> Cache[(Cache técnico)]
+    Services --> Data[(Dados FinOps locais)]
+    Services --> Reports[PDF / Excel / CSV / Markdown / JSON]
+```
 
-> Forecasts and anomaly findings come from AWS Cost Explorer. Remora-Fin presents and enriches that data; it does not train or host a separate machine-learning model.
-
-## Quick start
-
-Requirements: Python 3.12 or 3.13, an AWS CLI profile or other boto3-supported credentials, and read access to the AWS APIs used below.
+## 2. Instalação e primeiro acesso
 
 ```bash
-# Install from PyPI
 uv tool install remora-fin
-
-# Select and validate an AWS profile and region
 remora-fin login
-
-# Open the terminal dashboard
+remora-fin profile
 remora-fin dashboard
 ```
 
-With `pip`:
+Com pip:
 
 ```bash
 pip install remora-fin
 ```
 
-## Commands
+O comando `login` seleciona um perfil boto3, uma região e opcionalmente uma role. A configuração é gravada em `~/.remora/config.json`. Todo comando, exceto `login`, exige que essa configuração exista.
 
-| Command                         | Purpose                                                       |
-| ------------------------------- | ------------------------------------------------------------- |
-| `remora-fin dashboard`        | Open the interactive terminal dashboard.                      |
-| `remora-fin report`           | Generate a cost or full FinOps report.                        |
-| `remora-fin anomalies`        | View AWS Cost Explorer anomaly findings.                      |
-| `remora-fin forecast`         | Forecast AWS spend and optionally compare scenarios.          |
-| `remora-fin utilization`      | Analyze resource utilization and unit-pricing signals.        |
-| `remora-fin recommendations`  | Rank evidence-based savings, governance, and hygiene actions. |
-| `remora-fin profile`          | Display the selected profile and AWS identity.                |
-| `remora-fin login`            | Configure and validate a profile and region.                  |
-| `remora-fin cache info\|clear` | Inspect or clear the local cache.                             |
+### Variáveis de ambiente
 
-### Common examples
+| Variável | Uso | Padrão |
+|---|---|---|
+| `AWS_PROFILE` | Perfil AWS | `default` |
+| `AWS_DEFAULT_REGION` | Região padrão | `us-east-1` |
+| `AWS_ROLE_ARN` | Role opcional | vazio |
+| `REMORA_CACHE_ENABLED` | Ativa/desativa cache | `true` |
+| `REMORA_CACHE_TTL` | TTL em segundos | `3600` |
+| `REMORA_UI_THEME` | Tema `dark` ou `light` | `dark` |
+| `REMORA_DEFAULT_DAYS` | Período padrão da UI | `30` |
+| `REMORA_DATA_DIR` | Diretório de dados FinOps | `~/.remora/data` |
 
-```bash
-# Full 30-day report with costs, anomalies, forecast, infrastructure, and governance
-remora-fin report --type full --format pdf --output remora-fin-report.pdf
+## 3. Fluxo de execução
 
-# Cost trend grouped by AWS service
-remora-fin report --type trend --days 60 --group-by SERVICE --format excel
-
-# Inspect recent AWS Cost Explorer anomaly findings
-remora-fin anomalies --days 30 --severity high
-
-# Forecast the next 90 days and compare scenarios
-remora-fin forecast --days 90 --granularity MONTHLY --scenarios
-
-# Check EC2, RDS, Lambda, and S3 efficiency signals over 14 days
-remora-fin utilization --days 14
-
-# Review prioritized actions and export a Markdown backlog
-remora-fin recommendations --days 14
-remora-fin recommendations --format markdown --output recommendations.md
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant C as CLI
+    participant S as ConfigService
+    participant A as AWSSession
+    participant D as Serviço de domínio
+    participant K as Cache/Data local
+    participant AWS as AWS API
+    U->>C: remora-fin comando
+    C->>S: carrega config.json
+    C->>A: cria sessão profile/region
+    A->>AWS: valida STS
+    C->>D: executa comando
+    D->>K: tenta cache
+    alt cache ausente ou expirado
+        D->>AWS: consulta API
+        AWS-->>D: resposta
+        D->>K: persiste resultado
+    end
+    D-->>C: schema tipado
+    C-->>U: tabela, painel ou arquivo
 ```
 
-## Recommendation action center
+## 4. Referência completa dos comandos
 
-`remora-fin recommendations` combines inventory, CloudWatch, Pricing, S3 lifecycle, and tag-compliance signals. Each finding includes its supporting evidence, confidence, severity, and a suggested next step. Estimated monthly savings are shown only when Remora-Fin has both usable metrics and pricing data; governance and hygiene findings deliberately show no speculative dollar value.
+Todos os comandos aceitam `--help`. Comandos AWS aceitam `--profile/-p` e `--region/-r` quando indicados.
 
-The recommendation engine is read-only. It never stops, resizes, tags, or deletes AWS resources. Validate workload seasonality, availability requirements, commitments, and business ownership before applying any suggested action.
+### `login`
 
-The displayed savings are estimates, not AWS charges: EC2/RDS findings use a conservative on-demand-price heuristic. The scan itself makes read-only AWS API calls; keep caching enabled and remember that Cost Explorer API requests are billable under AWS pricing.
+Configura e valida a sessão AWS.
 
-Run `remora-fin <command> --help` for all options.
+```bash
+remora-fin login
+remora-fin login --profile production --region us-east-1
+remora-fin login --profile production --region us-east-1 --role-arn arn:aws:iam::123456789012:role/FinOpsReadOnly
+```
 
-## Report formats and contents
+Funções: `get_available_profiles()` lista perfis boto3; `interactive_select(...)` executa a seleção numerada; `login(args)` valida STS/Cost Explorer e grava `AppSettings`; `add_login_parser(...)` registra o parser.
 
-`report` supports `breakdown`, `trend`, `account`, and `full` report types. A full report can combine:
+### `profile`
 
-- service-level cost breakdown and daily trend;
-- AWS Cost Explorer anomaly findings and forecasts;
-- selected infrastructure inventory counts;
-- tag-compliance results;
-- EC2 and S3 unit-economics information when AWS metrics and pricing data are available.
+```bash
+remora-fin profile
+remora-fin profile --profile production --region sa-east-1
+```
 
-Supported export formats are PDF, Excel (`.xlsx`), CSV, Markdown, and JSON. An optional S3 exporter is available in the report service for workflows that need to upload a generated report.
+Mostra perfil, região, cache/UI, account ID, ARN e user ID obtidos pelo STS.
 
-## AWS inventory coverage
+### `dashboard`
 
-The inventory registry currently supports the following resource types:
+```bash
+remora-fin dashboard
+remora-fin dashboard --days 60 --theme light
+```
 
-| Category                | Resource types                                                  |
-| ----------------------- | --------------------------------------------------------------- |
-| Compute and containers  | EC2, Lambda, ECS, EKS                                           |
-| Storage and networking  | S3, VPC                                                         |
-| Databases and analytics | RDS, DynamoDB, ElastiCache, EMR, Redshift                       |
-| ML and security         | SageMaker notebook instances, KMS keys, Secrets Manager secrets |
-| Messaging and edge      | SNS topics, SQS queues, CloudFront distributions                |
+Controles: `q`/`Ctrl+C` sai; `r` atualiza; o seletor troca serviço; os botões alternam relatório e action center. O indicador de alertas combina anomalias AWS e alertas FinOps locais ativos.
 
-Coverage is intentionally stated at the resource-inventory level. Pricing, metrics, and efficiency recommendations vary by resource type and AWS API availability.
+### `report`
 
-## AWS permissions
+```bash
+remora-fin report --type breakdown --days 30 --format markdown --output costs.md
+remora-fin report --type trend --days 60 --group-by SERVICE --format excel --output trend.xlsx
+remora-fin report --type account --days 30 --format csv --output accounts.csv
+remora-fin report --type full --days 30 --format pdf --output remora-report.pdf
+```
 
-Use a dedicated, least-privilege IAM role or profile. At minimum, enable the capabilities you intend to use:
+`--type` aceita `breakdown`, `trend`, `account` e `full`; `--format` aceita `pdf`, `excel`, `csv`, `markdown` e `json`; `--days`, `--start`, `--end`, `--metric`, `--group-by`, `--service`, `--output`, `--include-charts` e `--chart-labels` controlam período, agrupamento, filtragem e composição.
 
-| Capability             | AWS actions                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| Cost reporting         | `ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetAnomalies`               |
-| Identity               | `sts:GetCallerIdentity`                                                         |
-| Governance             | `tag:GetResources`, optionally `organizations:ListAccounts`                   |
-| Metrics and pricing    | `cloudwatch:GetMetricStatistics`, `pricing:GetProducts`                       |
-| Recommendation hygiene | `s3:GetLifecycleConfiguration` plus the inventory and tagging permissions above |
-| Inventory              | The relevant read/list/describe actions for the resource types above              |
+### `anomalies`
 
-`ReadOnlyAccess` can be convenient for a development account, but a tailored policy is the safer production choice. Cost Explorer must also be enabled for the AWS account.
+```bash
+remora-fin anomalies --days 30
+remora-fin anomalies --days 90 --severity high
+remora-fin anomalies --monitor-arn arn:aws:ce::123456789012:anomalymonitor/...
+remora-fin anomalies --detail
+```
 
-## Local data and cache
+Consulta anomalias do Cost Explorer, preservando score, impacto, causa-raiz, feedback e recorrência. Severidades: `low`, `medium`, `high`, `critical`.
 
-Remora-Fin stores its configuration in `~/.remora/config.json` and cached query results in `~/.remora/cache/`. Cached responses expire after **one hour** by default; set `REMORA_CACHE_TTL` (seconds) or `REMORA_CACHE_ENABLED=false` to change this behavior.
+### `forecast`
+
+```bash
+remora-fin forecast --days 90 --granularity MONTHLY
+remora-fin forecast --start 2026-11-01 --end 2027-01-31 --scenarios
+remora-fin forecast --group-by-type DIMENSION --group-by-key SERVICE
+```
+
+Usa forecast nativo do Cost Explorer e estratégias locais de fallback. `--scenarios` mostra cenários otimista, base e pessimista.
+
+### `utilization`
+
+```bash
+remora-fin utilization --days 14
+```
+
+Correlaciona inventário, CloudWatch e Pricing para sinais de eficiência EC2. Os valores são heurísticos e não executam rightsizing.
+
+### `recommendations`
+
+```bash
+remora-fin recommendations --days 14
+remora-fin recommendations --service ec2 rds --severity high
+remora-fin recommendations --format markdown --output backlog.md
+remora-fin recommendations --format json --output recommendations.json
+remora-fin recommendations --update-id <id> --state accepted --owner platform
+remora-fin recommendations --update-id <id> --state rejected --note "Carga sazonal"
+```
+
+Analisa custo, governança e higiene. Estados locais: `new`, `reviewing`, `accepted`, `rejected`, `implemented`, `ignored`. O arquivo de estado é `~/.remora/data/recommendations.json`.
+
+### `budget`
+
+```bash
+remora-fin budget set --scope total --monthly 1000
+remora-fin budget set --scope service --target AmazonEC2 --monthly 400
+remora-fin budget set --scope account --target 123456789012 --monthly 2000
+remora-fin budget list
+remora-fin budget check
+```
+
+Escopos: `total`, `service`, `account`, `region`, `tag`. Estados: `healthy`, `warning` (padrão a partir de 80%) e `exceeded`.
+
+### `history`
+
+```bash
+remora-fin history capture --days 30
+remora-fin history show --limit 12
+remora-fin history export --format csv --output history.csv
+remora-fin history export --format json --output history.json
+```
+
+Snapshots contêm período, perfil, conta, região, total e distribuição por serviço. São independentes do cache técnico e os últimos 365 são mantidos.
+
+### `alerts`
+
+```bash
+remora-fin alerts check
+remora-fin alerts list
+remora-fin alerts list --active
+remora-fin alerts acknowledge <id>
+```
+
+`alerts check` reavalia budgets e cria alertas deduplicados por fingerprint. `acknowledge` altera somente o estado local para `acknowledged`.
+
+### `allocation`
+
+```bash
+remora-fin allocation --days 30
+```
+
+Gera showback por serviço usando grupos `SERVICE` do Cost Explorer. Exibe chave, fonte, custo, percentual e atribuição. Alocação por tags depende das dimensões de custo configuradas na AWS.
+
+### `cache`
 
 ```bash
 remora-fin cache info
 remora-fin cache clear
 ```
 
-Do not commit generated reports containing account IDs, resource ARNs, cost data, or other customer information. Keep public demo screenshots and examples anonymized.
+`cache info` é somente leitura. `cache clear` remove `.parquet` e `.json` do diretório configurado.
 
-## Architecture
-
-For a file-by-file description of every Python module, API parameter, schema, service, UI component, and test, see the [Technical Reference](docs/TECHNICAL_REFERENCE.md).
+## 5. Arquitetura de dados
 
 ```mermaid
-flowchart LR
-    CLI[CLI commands] --> Services[FinOps services]
-    TUI[Textual dashboard] --> Services
-    Services --> AWS[AWS APIs]
-    Services --> Cache[Local Parquet/JSON cache]
-    Services --> Reports[PDF / Excel / CSV / Markdown / JSON]
+flowchart TD
+    Config[~/.remora/config.json] --> Session[AWSSession]
+    Session --> Cost[CostService]
+    Session --> Forecast[ForecastService]
+    Session --> Inventory[InventoryService]
+    Session --> Metrics[MetricsService]
+    Session --> Pricing[PricingService]
+    Session --> Governance[GovernanceService]
+    Cost --> TechnicalCache[(~/.remora/cache)]
+    Forecast --> TechnicalCache
+    Inventory --> TechnicalCache
+    Metrics --> TechnicalCache
+    Pricing --> TechnicalCache
+    FinOps[FinOpsLocalStore] --> Data[(~/.remora/data)]
+    Data --> Budgets[budgets.json]
+    Data --> History[history.json]
+    Data --> Alerts[alerts.json]
+    Data --> Recommendations[recommendations.json]
 ```
 
-## Development
+| Caminho | Conteúdo |
+|---|---|
+| `~/.remora/config.json` | AWS, cache e UI. |
+| `~/.remora/cache/` | Respostas temporárias AWS. |
+| `~/.remora/data/budgets.json` | Metas locais. |
+| `~/.remora/data/history.json` | Snapshots de custo. |
+| `~/.remora/data/alerts.json` | Alertas e reconhecimentos. |
+| `~/.remora/data/recommendations.json` | Estados de recomendações. |
+
+## 6. Classes e APIs FinOps
+
+Todos os modelos abaixo são Pydantic congelados.
+
+### `BudgetScope`, `BudgetStatus`, `AlertStatus`, `RecommendationState`
+
+Enums para dimensões, saúde de budgets, estado de alertas e ciclo de recomendações. Valores: `total/service/account/region/tag`; `healthy/warning/exceeded`; `active/acknowledged`; `new/reviewing/accepted/rejected/implemented/ignored`.
+
+### `Budget`
+
+Atributos: `id: str`, `scope: BudgetScope`, `target: str = "*"`, `monthly_limit: Decimal`, `warning_percent: Decimal = 80`, `currency: str = "USD"`, `enabled: bool = True`.
+
+### `BudgetCheck`
+
+Atributos: `budget`, `period`, `actual`, `forecast`, `status`. A propriedade `consumed_percent` calcula `actual / monthly_limit * 100`.
+
+### `HistorySnapshot`
+
+Atributos: `captured_at`, `period_start`, `period_end`, `profile`, `account_id`, `region`, `total_cost`, `by_service`, `forecast`, `anomaly_count`.
+
+### `Alert`, `AllocationEntry`, `RecommendationRecord`
+
+`Alert` contém `id`, `kind`, `severity`, `title`, `detail`, `created_at`, `status` e `fingerprint`. `AllocationEntry` contém `key`, `cost`, `percentage`, `assigned` e `source`. `RecommendationRecord` contém `recommendation_id`, `state`, `owner`, `note`, `first_seen` e `last_seen`.
+
+### `FinOpsLocalStore`
+
+Classe em `services/finops_service.py`. `__init__(directory=None)` usa o diretório explícito, `REMORA_DATA_DIR` ou `~/.remora/data`.
+
+| Função | Retorno/comportamento |
+|---|---|
+| `list_budgets()` / `save_budget(budget)` | Lê ou grava budgets. |
+| `list_history()` / `save_snapshot(snapshot)` | Lê ou grava snapshots; limita a 365. |
+| `list_alerts(active_only=False)` / `save_alert(alert)` | Lista ou grava alertas. |
+| `acknowledge_alert(alert_id)` | Altera status ou retorna `None`. |
+| `list_recommendation_records()` | Retorna estados persistidos. |
+| `save_recommendation_record(record)` | Substitui o mesmo ID. |
+| `update_recommendation(...)` | Cria ou atualiza estado, owner e nota. |
+| `check_budgets(actual_by_scope, period)` | Classifica budgets. |
+| `alert_id(kind, title)` | Gera fingerprint SHA-256 de 16 caracteres. |
+| `create_alert(...)` | Cria alerta se não houver ativo equivalente. |
+| `allocate_by_service(groups, total)` | Calcula percentuais de showback. |
+
+## 7. Serviços principais
+
+| Serviço | Funções |
+|---|---|
+| `AWSSession` | Sessão boto3, clientes, identidade e paginação. |
+| `CostService` | Totais, breakdowns, tendências e contas. |
+| `ForecastService` | Forecast AWS e fallbacks locais. |
+| `AnomalyService` | Anomalias e causas-raiz. |
+| `InventoryService` | Inventário normalizado. |
+| `MetricsService` | Estatísticas CloudWatch. |
+| `PricingService` | Consultas AWS Pricing. |
+| `GovernanceService` | Compliance de tags. |
+| `UnitEconomicsService` | Eficiência por recurso. |
+| `RecommendationService` | Recomendações read-only. |
+| `DashboardService` | Agregação paralela da UI. |
+| `ReportService` | Formatadores de saída. |
+| `CacheService` | Cache Parquet/JSON e expiração. |
+
+## 8. Permissões AWS
+
+| Capacidade | Ações principais |
+|---|---|
+| Identidade | `sts:GetCallerIdentity` |
+| Custos | `ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetAnomalies` |
+| Governança | `tag:GetResources`, opcional `organizations:ListAccounts` |
+| Métricas/preços | `cloudwatch:GetMetricStatistics`, `pricing:GetProducts` |
+| Inventário | `Describe/List/Get` dos serviços analisados |
+| Higiene S3 | `s3:GetLifecycleConfiguration` |
+
+Prefira uma policy dedicada de menor privilégio em produção.
+
+## 9. Desenvolvimento, testes e privacidade
 
 ```bash
 uv sync --all-groups
@@ -165,12 +331,10 @@ uv run pytest tests -v
 uv build
 ```
 
-The GitHub Actions workflow runs linting, formatting, type checks, tests, and package builds for pull requests and pushes to `main` or `master`.
+Os testes devem mockar AWS, injetar sessões/serviços e usar diretórios temporários. Não publique relatórios com account IDs, ARNs, nomes ou custos reais. O projeto não envia os dados locais para terceiros e não executa ações mutáveis no fluxo padrão.
 
-## Contributing
+## 10. Documentação complementar
 
-Issues and pull requests are welcome. Please run the development checks before opening a pull request and avoid including real AWS account data in fixtures, reports, screenshots, or issue descriptions.
-
-## License
-
-Distributed under the [MIT License](LICENSE).
+- [`README.md`](../README.md): instalação e visão rápida.
+- [`TECHNICAL_REFERENCE.md`](TECHNICAL_REFERENCE.md): referência módulo a módulo.
+- `remora-fin <comando> --help`: opções efetivas da versão instalada.
