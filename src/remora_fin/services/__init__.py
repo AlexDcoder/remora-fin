@@ -12,6 +12,7 @@ from remora_fin.services.cache_service import CacheService
 from remora_fin.services.config_service import ConfigBuilder, ConfigService
 from remora_fin.services.cost_service import CostQueryBuilder, CostService
 from remora_fin.services.dashboard_service import DashboardService
+from remora_fin.services.finops_service import FinOpsLocalStore
 from remora_fin.services.forecast_service import ForecastService
 from remora_fin.services.governance_service import GovernanceService
 from remora_fin.services.inventory_service import InventoryService
@@ -22,9 +23,7 @@ from remora_fin.services.report_service import ReportService
 from remora_fin.services.unit_economics_service import UnitEconomicsService
 
 __all__ = [
-    # Infrastructure
     "AWSSession",
-    # Domain Services
     "AnomalyService",
     "BaseService",
     "CacheService",
@@ -33,6 +32,7 @@ __all__ = [
     "CostQueryBuilder",
     "CostService",
     "DashboardService",
+    "FinOpsLocalStore",
     "ForecastService",
     "GovernanceService",
     "InventoryService",

@@ -33,6 +33,18 @@ from remora_fin.schemas.cost import (
     CostTrend,
     CostTrendPoint,
 )
+from remora_fin.schemas.finops import (
+    Alert,
+    AlertStatus,
+    AllocationEntry,
+    Budget,
+    BudgetCheck,
+    BudgetScope,
+    BudgetStatus,
+    HistorySnapshot,
+    RecommendationRecord,
+    RecommendationState,
+)
 
 # ─── Forecast ───
 from remora_fin.schemas.forecast import (
@@ -72,6 +84,9 @@ __all__ = [
     "AWSConfig",
     # Pricing
     "AWSPrice",
+    "Alert",
+    "AlertStatus",
+    "AllocationEntry",
     # Anomaly
     "Anomaly",
     "AnomalyFeedback",
@@ -83,6 +98,10 @@ __all__ = [
     "AnomalyType",
     # Config
     "AppSettings",
+    "Budget",
+    "BudgetCheck",
+    "BudgetScope",
+    "BudgetStatus",
     "CacheConfig",
     # Cost
     "CostBreakdown",
@@ -102,6 +121,7 @@ __all__ = [
     "ForecastResult",
     # Report
     "FullReport",
+    "HistorySnapshot",
     # Metrics
     "MetricSummary",
     "Money",
@@ -111,7 +131,9 @@ __all__ = [
     "Recommendation",
     "RecommendationCategory",
     "RecommendationConfidence",
+    "RecommendationRecord",
     "RecommendationSeverity",
+    "RecommendationState",
     "RecommendationSummary",
     "ReportConfig",
     "ReportFilters",

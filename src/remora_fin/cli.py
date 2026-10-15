@@ -22,9 +22,13 @@ import rich_argparse
 
 from remora_fin.commands import (
     add_anomalies_parser,
+    add_alerts_parser,
+    add_allocation_parser,
+    add_budget_parser,
     add_cache_parser,
     add_dashboard_parser,
     add_forecast_parser,
+    add_history_parser,
     add_login_parser,
     add_profile_parser,
     add_recommendations_parser,
@@ -101,6 +105,10 @@ def execute_cli() -> None:
 
     # Register all command parsers
     add_report_parser(subparsers)
+    add_budget_parser(subparsers)
+    add_history_parser(subparsers)
+    add_alerts_parser(subparsers)
+    add_allocation_parser(subparsers)
     add_cache_parser(subparsers)
     add_anomalies_parser(subparsers)
     add_forecast_parser(subparsers)
