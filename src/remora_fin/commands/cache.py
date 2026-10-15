@@ -18,8 +18,10 @@ console = Console()
 
 def cache_cmd(args: argparse.Namespace) -> None:
     """Manage local application cache."""
-    cache = CacheService()
     action = args.cache_action or "info"
+    # `info` must be read-only: constructing the service normally performs
+    # automatic cleanup, which would change the state being inspected.
+    cache = CacheService(auto_cleanup=action != "info")
 
     if action == "clear":
         with console.status("[bold #ff4500]Clearing local cache..."):

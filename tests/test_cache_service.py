@@ -93,6 +93,21 @@ def test_disabled_cache_does_not_write_files(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
+def test_cache_info_mode_does_not_clean_expired_files(tmp_path: Path) -> None:
+    cache_file = tmp_path / "expired.json"
+    cache_file.write_text("{}", encoding="utf-8")
+
+    import os
+    import time
+
+    old_time = time.time() - (8 * 24 * 3600)
+    os.utime(cache_file, (old_time, old_time))
+
+    CacheService(cache_dir=tmp_path, auto_cleanup=False)
+
+    assert cache_file.exists()
+
+
 class _SessionStub:
     profile = "finance"
     region = "sa-east-1"

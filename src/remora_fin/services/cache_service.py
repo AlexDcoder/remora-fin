@@ -31,12 +31,14 @@ class CacheService:
         *,
         enabled: bool = True,
         ttl_seconds: int = 3600,
+        auto_cleanup: bool = True,
     ) -> None:
         self.cache_dir = cache_dir
         self.enabled = enabled
         self.ttl_seconds = ttl_seconds
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.cleanup()
+        if auto_cleanup:
+            self.cleanup()
 
     def _generate_key(self, query: dict[str, Any]) -> str:
         query_str = json.dumps(query, sort_keys=True, default=str)
